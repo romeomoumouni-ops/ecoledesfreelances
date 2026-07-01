@@ -2,7 +2,6 @@ export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { lessonCurriculum } from '@/lib/data';
 import { getCourseById } from '@/lib/db';
 import { Badge, ProgressBar } from '@/components/UI';
 import Avatar from '@/components/Avatar';
@@ -12,7 +11,6 @@ import {
   IconBook,
   IconUsers,
   IconCheck,
-  IconLock,
   IconPlayFill,
   IconChevronRight,
   IconTarget,
@@ -93,40 +91,12 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
 
           {/* Programme */}
           <div className="card p-6">
-            <h2 className="mb-4 text-lg font-bold text-ink">Programme de la formation</h2>
-            <div className="space-y-5">
-              {lessonCurriculum.map((mod) => (
-                <div key={mod.section}>
-                  <p className="mb-2 text-sm font-bold text-ink">{mod.section}</p>
-                  <div className="overflow-hidden rounded-xl border border-line">
-                    {mod.lessons.map((l, i) => (
-                      <div
-                        key={l.title}
-                        className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? 'border-t border-line' : ''}`}
-                      >
-                        <span
-                          className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${
-                            l.done ? 'bg-black/[0.06] text-ink' : l.locked ? 'bg-surface text-muted' : 'bg-black/[0.04] text-muted'
-                          }`}
-                        >
-                          {l.done ? (
-                            <IconCheck width={14} height={14} />
-                          ) : l.locked ? (
-                            <IconLock width={13} height={13} />
-                          ) : (
-                            <IconPlayFill width={12} height={12} />
-                          )}
-                        </span>
-                        <span className={`flex-1 text-sm ${l.locked ? 'text-muted' : 'text-ink'}`}>
-                          {l.title}
-                        </span>
-                        <span className="text-xs text-muted">{l.duration}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <h2 className="mb-2 text-lg font-bold text-ink">Programme de la formation</h2>
+            <p className="text-sm text-muted">
+              Ce cours comporte <b className="text-ink">{course.lessons} leçons</b> pour{' '}
+              <b className="text-ink">{course.hours} h</b> de contenu. Le détail des leçons
+              sera disponible ici prochainement.
+            </p>
           </div>
         </div>
 

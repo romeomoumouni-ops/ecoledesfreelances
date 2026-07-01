@@ -13,6 +13,7 @@ import {
   IconUsers,
   IconSettings,
   IconHelp,
+  IconShield,
   IconX,
   IconLogout,
 } from './Icons';
@@ -35,9 +36,11 @@ const settingMenu = [
 export default function Sidebar({
   open = false,
   onClose,
+  isAdmin = false,
 }: {
   open?: boolean;
   onClose?: () => void;
+  isAdmin?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -118,6 +121,17 @@ export default function Sidebar({
               <Item key={m.href} {...m} />
             ))}
           </div>
+
+          {isAdmin && (
+            <>
+              <p className="px-3 pb-2 pt-6 text-[11px] font-bold uppercase tracking-wider text-muted/70">
+                Administration
+              </p>
+              <div className="flex flex-col gap-1">
+                <Item href="/admin" label="Espace admin" Icon={IconShield} />
+              </div>
+            </>
+          )}
         </nav>
 
         {/* Carte coach / aide */}

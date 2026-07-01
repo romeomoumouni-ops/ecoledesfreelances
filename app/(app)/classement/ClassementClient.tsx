@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Badge } from '@/components/UI';
+import { Badge, EmptyState } from '@/components/UI';
 import Avatar from '@/components/Avatar';
 import type { LeaderRow } from '@/lib/data';
-import { IconFlame } from '@/components/Icons';
+import { IconFlame, IconTrophy } from '@/components/Icons';
 
 const periods = ['Cette semaine', 'Ce mois', 'Tout le temps'] as const;
 
@@ -42,20 +42,14 @@ export default function ClassementClient({ rows }: { rows: LeaderRow[] }) {
         </div>
       </div>
 
-      {/* Bannière motivation */}
-      <div className="card mb-6 p-6 sm:p-8">
-        <div className="max-w-xl">
-          <h2 className="text-xl font-semibold tracking-tight text-ink">
-            Vous êtes plus proche que vous ne le pensez
-          </h2>
-          <p className="mt-2 text-sm leading-relaxed text-muted">
-            Plus que <b className="font-semibold text-ink">10 points</b> pour entrer
-            dans le Top 5. Terminez une leçon ou maintenez votre série pour gagner des places.
-          </p>
-          <button className="btn-primary mt-4">Continuer à apprendre</button>
-        </div>
-      </div>
-
+      {rows.length === 0 ? (
+        <EmptyState
+          Icon={IconTrophy}
+          title="Le classement est vide"
+          text="Il se remplira automatiquement au fur et à mesure que les élèves gagneront des points."
+        />
+      ) : (
+        <>
       {/* Podium Top 3 */}
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         {top3.map((row) => (
@@ -133,6 +127,8 @@ export default function ClassementClient({ rows }: { rows: LeaderRow[] }) {
           </div>
         ))}
       </div>
+        </>
+      )}
     </>
   );
 }

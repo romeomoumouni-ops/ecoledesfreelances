@@ -46,6 +46,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Espace admin réservé aux administrateurs
+  if (user && path.startsWith('/admin')) {
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (!prof?.is_admin) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/tableau-de-bord';
+      return NextResponse.redirect(url);
+    }
+  }
+
   return response;
 }
 
