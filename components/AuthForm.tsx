@@ -7,7 +7,6 @@ import { IconArrowRight } from '@/components/Icons';
 
 export default function AuthForm() {
   const router = useRouter();
-  const supabase = createClient();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,6 +29,7 @@ export default function AuthForm() {
     if (!validate()) return;
     setLoading('login');
     try {
+      const supabase = createClient();
       const { error: signErr } = await supabase.auth.signInWithPassword({ email, password });
       if (signErr) throw signErr;
       router.replace('/tableau-de-bord');
@@ -51,6 +51,7 @@ export default function AuthForm() {
     }
     setLoading('signup');
     try {
+      const supabase = createClient();
       // Garde-fou : e-mail autorisé ? (permissif pour l'instant, cf. is_email_allowed)
       const { data: allowed, error: rpcError } = await supabase.rpc('is_email_allowed', {
         p_email: email,
