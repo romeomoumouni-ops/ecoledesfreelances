@@ -46,7 +46,9 @@ export default async function AdminCoursPage() {
           </div>
         ) : (
           <div className="card p-8 text-center text-sm text-muted">
-            Aucun cours pour l&apos;instant. Ajoutez-en un avec le formulaire.
+            Aucun cours pour l&apos;instant. Créez-en un avec le formulaire → vous serez
+            ensuite amené sur sa page pour ajouter les <b className="text-ink">curriculums</b>,
+            <b className="text-ink"> les vidéos</b> et les <b className="text-ink">quiz</b>.
           </div>
         )}
       </div>
@@ -54,7 +56,10 @@ export default async function AdminCoursPage() {
       {/* Formulaire d'ajout */}
       <div>
         <div className="card sticky top-[150px] p-5">
-          <h2 className="mb-4 font-bold text-ink">Ajouter un cours</h2>
+          <h2 className="font-bold text-ink">Ajouter un cours</h2>
+          <p className="mb-4 mt-1 text-xs text-muted">
+            Après publication, vous ajouterez les curriculums, vidéos et quiz sur la page du cours.
+          </p>
           <form action={createCourse} className="space-y-3">
             <div>
               <label className="label">Titre *</label>

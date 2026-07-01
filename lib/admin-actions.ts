@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
 async function requireAdmin() {
@@ -54,6 +55,9 @@ export async function createCourse(formData: FormData) {
   });
   if (error) throw new Error(error.message);
   revalidatePath('/admin/cours');
+  // On amène directement l'admin sur la page de construction du cours
+  // (curriculums, upload vidéos, quiz).
+  redirect(`/admin/cours/${id}`);
 }
 
 export async function deleteCourse(id: string) {
