@@ -9,7 +9,7 @@ import {
   IconBook,
   IconLive,
   IconClipboard,
-  IconTrophy,
+  IconTarget,
   IconUsers,
   IconSettings,
   IconHelp,
@@ -22,9 +22,9 @@ const mainMenu = [
   { href: '/tableau-de-bord', label: 'Tableau de bord', Icon: IconDashboard },
   { href: '/mes-formations', label: 'Mes cours à suivre', Icon: IconBook },
   { href: '/live', label: 'Live', Icon: IconLive },
+  { href: '/objectif', label: 'Objectif', Icon: IconTarget },
   // { href: '/catalogue', label: 'Catalogue', Icon: IconCompass }, // masqué temporairement — à réactiver plus tard
   { href: '/devoirs', label: 'Devoirs', Icon: IconClipboard },
-  { href: '/classement', label: 'Classement', Icon: IconTrophy },
   { href: '/communaute', label: 'Communauté', Icon: IconUsers },
 ];
 

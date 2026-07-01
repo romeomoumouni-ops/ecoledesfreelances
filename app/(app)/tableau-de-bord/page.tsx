@@ -2,30 +2,32 @@ export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
 import { PageHeader, StatCard, CourseCard, EmptyState } from '@/components/UI';
-import Avatar from '@/components/Avatar';
-import { getCourses, getLeaderboard, getAssignments, getLiveSessions } from '@/lib/db';
-import { getCurrentProfile } from '@/lib/user';
+import { getCourses, getAssignments, getLiveSessions } from '@/lib/db';
+import { getCurrentProfile, getMyTaskKeys } from '@/lib/user';
+import { scoreFromKeys, OBJECTIVE_TARGET } from '@/lib/tasks';
 import {
   IconBook,
   IconLive,
   IconClipboard,
   IconFlame,
   IconClock,
-  IconTrophy,
+  IconArrowRight,
 } from '@/components/Icons';
 
 export default async function DashboardPage() {
-  const [profile, courses, leaderboard, assignments, lives] = await Promise.all([
+  const [profile, courses, assignments, lives, taskKeys] = await Promise.all([
     getCurrentProfile(),
     getCourses(),
-    getLeaderboard(),
     getAssignments(),
     getLiveSessions(),
+    getMyTaskKeys(),
   ]);
 
   const firstName = (profile?.full_name || 'Membre').split(' ')[0];
   const toDo = assignments.filter((a) => a.status === 'À rendre');
-  const top3 = leaderboard.slice(0, 3);
+  const score = scoreFromKeys(taskKeys);
+  const percent = Math.min(100, Math.round((score / OBJECTIVE_TARGET) * 100));
+  const scoreLabel = score % 1 === 0 ? String(score) : score.toFixed(1);
 
   return (
     <>
@@ -72,36 +74,34 @@ export default async function DashboardPage() {
 
         {/* Colonne latérale */}
         <div className="space-y-6">
-          {/* Classement */}
+          {/* La route vers votre objectif */}
           <div className="card p-5">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="font-bold text-ink">Top du classement</h3>
-              {top3.length > 0 && (
-                <Link href="/classement" className="text-sm font-semibold text-ink hover:underline">
-                  Voir tout
-                </Link>
-              )}
+              <h3 className="font-bold text-ink">La route vers votre objectif</h3>
+              <Link href="/objectif" className="text-sm font-semibold text-ink hover:underline">
+                Ouvrir
+              </Link>
             </div>
-            {top3.length ? (
-              <div className="space-y-3">
-                {top3.map((row) => (
-                  <div key={row.rank} className="flex items-center gap-3">
-                    <span className="w-5 text-center text-sm font-bold text-muted">{row.rank}</span>
-                    <Avatar initials={row.name.slice(0, 2).toUpperCase()} size={36} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-ink">{row.name}</p>
-                      <p className="text-xs text-muted">{row.courses} cours</p>
-                    </div>
-                    <span className="text-sm font-bold text-ink">{row.points}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center py-6 text-center">
-                <IconTrophy width={26} height={26} className="text-muted" />
-                <p className="mt-2 text-sm text-muted">Le classement démarrera avec l'activité des élèves.</p>
-              </div>
-            )}
+
+            <div className="flex items-end justify-between">
+              <p className="text-3xl font-bold tracking-tight text-ink">
+                {scoreLabel}
+                <span className="text-base font-semibold text-muted"> / {OBJECTIVE_TARGET}</span>
+              </p>
+              <span className="text-xl font-bold text-ink">{percent}%</span>
+            </div>
+            <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-black/[0.07]">
+              <div className="h-full rounded-full bg-ink transition-all duration-300" style={{ width: `${percent}%` }} />
+            </div>
+
+            <Link href="/objectif" className="btn-primary mt-4 w-full">
+              Accomplir mes tâches
+              <IconArrowRight width={18} height={18} />
+            </Link>
+
+            <p className="mt-3 text-center text-xs leading-relaxed text-muted">
+              Accomplis tes tâches pour augmenter tes points. Sois honnête.
+            </p>
           </div>
 
           {/* Devoirs à rendre */}

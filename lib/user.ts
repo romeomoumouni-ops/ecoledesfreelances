@@ -40,6 +40,17 @@ export async function getCurrentProfile(): Promise<Profile | null> {
   };
 }
 
+/** Clés des tâches d'objectif complétées par l'utilisateur connecté. */
+export async function getMyTaskKeys(): Promise<string[]> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return [];
+  const { data } = await supabase.from('task_completions').select('task_key').eq('user_id', user.id);
+  return (data ?? []).map((r) => r.task_key as string);
+}
+
 function initialsOf(name: string) {
   return name
     .split(/\s+/)
