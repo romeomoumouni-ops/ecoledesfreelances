@@ -1,11 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import * as tus from 'tus-js-client';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  verticalListSortingStrategy,
+  useSortable,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { createClient } from '@/lib/supabase/client';
 import type { Chapter } from '@/lib/content';
-import { IconPlus, IconX, IconPlayFill, IconPen } from '@/components/Icons';
+import { IconPlus, IconX, IconPlayFill, IconPen, IconGrip } from '@/components/Icons';
 
 const supabase = createClient();
 const BUCKET = 'course-media';
@@ -65,6 +83,12 @@ export default function CourseBuilder({
 }) {
   const router = useRouter();
   const [err, setErr] = useState<string | null>(null);
+  const [items, setItems] = useState<Chapter[]>(chapters);
+
+  // Resynchronise quand les données serveur changent (ajout/suppression/édition)
+  useEffect(() => {
+    setItems(chapters);
+  }, [chapters]);
 
   function fail(e: unknown) {
     setErr(e instanceof Error ? e.message : 'Une erreur est survenue.');
@@ -72,27 +96,103 @@ export default function CourseBuilder({
   }
   const refresh = () => router.refresh();
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  async function onDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = items.findIndex((c) => c.id === active.id);
+    const newIndex = items.findIndex((c) => c.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+
+    const reordered = arrayMove(items, oldIndex, newIndex);
+    setItems(reordered); // mise à jour optimiste immédiate
+
+    try {
+      // Persiste le nouvel ordre (position = index)
+      await Promise.all(
+        reordered.map((c, i) =>
+          supabase.from('chapters').update({ position: i }).eq('id', c.id)
+        )
+      );
+    } catch (e) {
+      fail(e);
+      setItems(chapters); // rollback
+    }
+  }
+
   return (
     <div>
       <h2 className="text-lg font-bold text-ink">Chapitres</h2>
       <p className="mt-1 text-sm text-muted">
-        Chaque chapitre a une vidéo et, si vous voulez, un quiz.
+        Glissez un chapitre par la poignée pour le réordonner. Chaque chapitre a une vidéo et, si vous voulez, un quiz.
       </p>
 
       {err && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
 
-      <div className="mt-4 space-y-2">
-        {chapters.map((ch, i) => (
-          <ChapterBlock key={ch.id} index={i} courseId={course.id} chapter={ch} onChange={refresh} onError={fail} />
-        ))}
-        {chapters.length === 0 && (
-          <div className="card p-6 text-center text-sm text-muted">
-            Aucun chapitre pour l&apos;instant. Ajoutez le premier ci-dessous.
-          </div>
-        )}
-      </div>
+      {items.length ? (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <SortableContext items={items.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+            <div className="mt-4 space-y-2">
+              {items.map((ch, i) => (
+                <SortableChapter
+                  key={ch.id}
+                  index={i}
+                  courseId={course.id}
+                  chapter={ch}
+                  onChange={refresh}
+                  onError={fail}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      ) : (
+        <div className="mt-4 card p-6 text-center text-sm text-muted">
+          Aucun chapitre pour l&apos;instant. Ajoutez le premier ci-dessous.
+        </div>
+      )}
 
       <AddChapter courseId={course.id} onChange={refresh} onError={fail} />
+    </div>
+  );
+}
+
+/* ---------- Wrapper triable ---------- */
+function SortableChapter(props: {
+  index: number;
+  courseId: string;
+  chapter: Chapter;
+  onChange: () => void;
+  onError: (e: unknown) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: props.chapter.id,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+  const handle = (
+    <button
+      {...attributes}
+      {...listeners}
+      className="grid h-8 w-7 shrink-0 cursor-grab touch-none place-items-center rounded-md text-muted hover:bg-black/[0.04] hover:text-ink active:cursor-grabbing"
+      aria-label="Déplacer"
+      title="Glisser pour réordonner"
+    >
+      <IconGrip width={16} height={16} />
+    </button>
+  );
+  return (
+    <div ref={setNodeRef} style={style}>
+      <ChapterBlock {...props} handle={handle} />
     </div>
   );
 }
@@ -104,12 +204,14 @@ function ChapterBlock({
   chapter,
   onChange,
   onError,
+  handle,
 }: {
   index: number;
   courseId: string;
   chapter: Chapter;
   onChange: () => void;
   onError: (e: unknown) => void;
+  handle?: React.ReactNode;
 }) {
   const [openQuiz, setOpenQuiz] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -158,7 +260,8 @@ function ChapterBlock({
 
   return (
     <div className="card overflow-hidden">
-      <div className="flex items-center gap-3 p-4">
+      <div className="flex items-center gap-2 p-4 sm:gap-3">
+        {handle}
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-black/[0.06] text-xs font-bold text-ink">
           {index + 1}
         </span>
