@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import * as tus from 'tus-js-client';
 import { createClient } from '@/lib/supabase/client';
 import type { Chapter } from '@/lib/content';
-import { IconPlus, IconX, IconPlayFill } from '@/components/Icons';
+import { IconPlus, IconX, IconPlayFill, IconPen } from '@/components/Icons';
 
 const supabase = createClient();
 const BUCKET = 'course-media';
@@ -83,7 +83,7 @@ export default function CourseBuilder({
 
       <div className="mt-4 space-y-2">
         {chapters.map((ch, i) => (
-          <ChapterBlock key={ch.id} index={i} chapter={ch} onChange={refresh} onError={fail} />
+          <ChapterBlock key={ch.id} index={i} courseId={course.id} chapter={ch} onChange={refresh} onError={fail} />
         ))}
         {chapters.length === 0 && (
           <div className="card p-6 text-center text-sm text-muted">
@@ -100,16 +100,26 @@ export default function CourseBuilder({
 /* ---------- Chapitre ---------- */
 function ChapterBlock({
   index,
+  courseId,
   chapter,
   onChange,
   onError,
 }: {
   index: number;
+  courseId: string;
   chapter: Chapter;
   onChange: () => void;
   onError: (e: unknown) => void;
 }) {
   const [openQuiz, setOpenQuiz] = useState(false);
+  const [editing, setEditing] = useState(false);
+
+  const [title, setTitle] = useState(chapter.title);
+  const [desc, setDesc] = useState(chapter.description || '');
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
+
   async function remove() {
     if (!confirm('Supprimer ce chapitre ?')) return;
     try {
@@ -118,6 +128,31 @@ function ChapterBlock({
       onChange();
     } catch (e) {
       onError(e);
+    }
+  }
+
+  async function save() {
+    if (!title.trim()) return;
+    setBusy(true);
+    try {
+      const patch: Record<string, unknown> = {
+        title: title.trim(),
+        description: desc.trim() || null,
+      };
+      if (file) {
+        setProgress(0);
+        patch.video_url = await uploadVideoResumable(courseId, file, setProgress);
+      }
+      const { error } = await supabase.from('chapters').update(patch).eq('id', chapter.id);
+      if (error) throw error;
+      setFile(null);
+      setEditing(false);
+      onChange();
+    } catch (e) {
+      onError(e);
+    } finally {
+      setBusy(false);
+      setProgress(null);
     }
   }
 
@@ -136,6 +171,9 @@ function ChapterBlock({
             {chapter.video_url ? 'Vidéo ajoutée' : 'Pas de vidéo'} · {chapter.quiz.length} question(s)
           </p>
         </div>
+        <button onClick={() => setEditing((v) => !v)} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-black/[0.04] hover:text-ink" aria-label="Modifier" title="Modifier">
+          <IconPen width={15} height={15} />
+        </button>
         <button onClick={() => setOpenQuiz((v) => !v)} className="rounded-lg px-2.5 py-1 text-xs font-semibold text-muted hover:bg-black/[0.04] hover:text-ink">
           Quiz
         </button>
@@ -143,6 +181,39 @@ function ChapterBlock({
           <IconX width={16} height={16} />
         </button>
       </div>
+
+      {editing && (
+        <div className="space-y-3 border-t border-line p-4">
+          <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Titre du chapitre" />
+          <textarea className="input min-h-[70px] resize-none" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Description (optionnel)" />
+          <div>
+            <label className="label">
+              {chapter.video_url ? 'Remplacer la vidéo (optionnel)' : 'Ajouter une vidéo'}
+            </label>
+            <input type="file" accept="video/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm" disabled={busy} />
+            {progress !== null && (
+              <div className="mt-2">
+                <div className="mb-1 flex justify-between text-xs font-medium text-muted">
+                  <span>Envoi de la vidéo…</span>
+                  <span className="text-ink">{progress}%</span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/[0.07]">
+                  <div className="h-full rounded-full bg-ink transition-all" style={{ width: `${progress}%` }} />
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={save} disabled={busy} className="btn-primary disabled:opacity-60">
+              {busy ? 'Enregistrement…' : 'Enregistrer'}
+            </button>
+            <button onClick={() => { setEditing(false); setTitle(chapter.title); setDesc(chapter.description || ''); setFile(null); }} className="btn-outline" disabled={busy}>
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+
       {openQuiz && (
         <div className="border-t border-line bg-surface/60 p-3">
           <QuizManager chapter={chapter} onChange={onChange} onError={onError} />
