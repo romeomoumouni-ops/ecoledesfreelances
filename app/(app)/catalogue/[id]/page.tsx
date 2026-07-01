@@ -49,7 +49,6 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
             </div>
             <div className="p-6">
               <div className="mb-3 flex flex-wrap gap-2">
-                <Badge color={course.color}>{course.category}</Badge>
                 <Badge variant="outline">{course.level}</Badge>
                 {course.tag && <Badge variant="solid" color="#171522">{course.tag}</Badge>}
               </div>
@@ -149,7 +148,7 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
               <Avatar initials={course.instructor.split(' ').map((n) => n[0]).join('')} color={course.color} size={48} />
               <div>
                 <p className="font-bold text-ink">{course.instructor}</p>
-                <p className="text-xs text-muted">Expert·e {course.category} · Freelance</p>
+                <p className="text-xs text-muted">Formateur · Freelance</p>
               </div>
             </div>
           </div>

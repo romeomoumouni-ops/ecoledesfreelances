@@ -1,12 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import * as tus from 'tus-js-client';
 import { createClient } from '@/lib/supabase/client';
 import type { Chapter } from '@/lib/content';
-import { IconPlus, IconX, IconChevronRight, IconPlayFill } from '@/components/Icons';
+import { IconPlus, IconX, IconPlayFill } from '@/components/Icons';
 
 const supabase = createClient();
 const BUCKET = 'course-media';
@@ -74,18 +73,15 @@ export default function CourseBuilder({
   const refresh = () => router.refresh();
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <Link href="/admin/cours" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-ink">
-        <IconChevronRight width={16} height={16} className="rotate-180" /> Tous les cours
-      </Link>
-      <h1 className="text-xl font-bold text-ink">{course.title}</h1>
+    <div>
+      <h2 className="text-lg font-bold text-ink">Chapitres</h2>
       <p className="mt-1 text-sm text-muted">
-        Ajoutez les chapitres du cours : chaque chapitre a une vidéo et, si vous voulez, un quiz.
+        Chaque chapitre a une vidéo et, si vous voulez, un quiz.
       </p>
 
       {err && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
 
-      <div className="mt-6 space-y-2">
+      <div className="mt-4 space-y-2">
         {chapters.map((ch, i) => (
           <ChapterBlock key={ch.id} index={i} chapter={ch} onChange={refresh} onError={fail} />
         ))}

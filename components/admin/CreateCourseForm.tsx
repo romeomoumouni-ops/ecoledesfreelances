@@ -22,7 +22,6 @@ export default function CreateCourseForm() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('Design');
   const [level, setLevel] = useState('Débutant');
   const [instructor, setInstructor] = useState('');
   const [lessons, setLessons] = useState('');
@@ -62,7 +61,6 @@ export default function CreateCourseForm() {
       const { error } = await supabase.from('courses').insert({
         id,
         title: title.trim(),
-        category,
         level,
         instructor: instructor.trim(),
         description: description.trim(),
@@ -114,26 +112,13 @@ export default function CreateCourseForm() {
         <label className="label">Titre *</label>
         <input className="input" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex. Devenir Designer UI/UX" />
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="label">Catégorie</label>
-          <select className="input" value={category} onChange={(e) => setCategory(e.target.value)}>
-            <option>Design</option>
-            <option>Développement</option>
-            <option>Marketing</option>
-            <option>Rédaction</option>
-            <option>Vidéo</option>
-            <option>Business</option>
-          </select>
-        </div>
-        <div>
-          <label className="label">Niveau</label>
-          <select className="input" value={level} onChange={(e) => setLevel(e.target.value)}>
-            <option>Débutant</option>
-            <option>Intermédiaire</option>
-            <option>Avancé</option>
-          </select>
-        </div>
+      <div>
+        <label className="label">Niveau</label>
+        <select className="input" value={level} onChange={(e) => setLevel(e.target.value)}>
+          <option>Débutant</option>
+          <option>Intermédiaire</option>
+          <option>Avancé</option>
+        </select>
       </div>
       <div>
         <label className="label">Formateur</label>

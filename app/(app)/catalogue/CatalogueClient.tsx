@@ -2,49 +2,23 @@
 
 import { useState } from 'react';
 import { PageHeader, CourseCard, EmptyState } from '@/components/UI';
-import { categories } from '@/lib/data';
 import type { Course } from '@/lib/data';
-import {
-  IconSearch,
-  IconCompass,
-  IconSparkle,
-  IconPen,
-  IconCode,
-  IconMegaphone,
-  IconCamera,
-  IconBriefcase,
-} from '@/components/Icons';
-
-const iconMap: Record<string, (p: { width?: number; height?: number }) => JSX.Element> = {
-  sparkle: IconSparkle,
-  pen: IconPen,
-  code: IconCode,
-  megaphone: IconMegaphone,
-  camera: IconCamera,
-  briefcase: IconBriefcase,
-};
+import { IconSearch, IconCompass } from '@/components/Icons';
 
 export default function CatalogueClient({ courses }: { courses: Course[] }) {
-  const [cat, setCat] = useState('Tous');
   const [query, setQuery] = useState('');
 
   const filtered = courses.filter((c) => {
-    const okCat = cat === 'Tous' || c.category === cat;
-    const okQuery =
-      !query ||
-      c.title.toLowerCase().includes(query.toLowerCase()) ||
-      (c.instructor ?? '').toLowerCase().includes(query.toLowerCase());
-    return okCat && okQuery;
+    if (!query) return true;
+    const q = query.toLowerCase();
+    return c.title.toLowerCase().includes(q) || (c.instructor ?? '').toLowerCase().includes(q);
   });
 
   return (
     <>
-      <PageHeader
-        title="Catalogue"
-        subtitle="Tous les cours de votre programme."
-      />
+      <PageHeader title="Catalogue" subtitle="Tous les cours de votre programme." />
 
-      <div className="relative mb-5 max-w-xl">
+      <div className="relative mb-6 max-w-xl">
         <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted">
           <IconSearch />
         </span>
@@ -54,27 +28,6 @@ export default function CatalogueClient({ courses }: { courses: Course[] }) {
           className="input py-3 pl-12"
           placeholder="Rechercher un cours, un formateur…"
         />
-      </div>
-
-      <div className="scrollbar-hide mb-6 flex gap-2 overflow-x-auto pb-1">
-        {categories.map((c) => {
-          const Icon = iconMap[c.icon] || IconSparkle;
-          const active = cat === c.name;
-          return (
-            <button
-              key={c.name}
-              onClick={() => setCat(c.name)}
-              className={`chip shrink-0 gap-2 px-4 py-2.5 text-sm transition ${
-                active
-                  ? 'bg-ink text-white'
-                  : 'border border-line bg-white text-muted hover:bg-black/[0.03] hover:text-ink'
-              }`}
-            >
-              <Icon width={16} height={16} />
-              {c.name}
-            </button>
-          );
-        })}
       </div>
 
       {filtered.length ? (
@@ -89,7 +42,7 @@ export default function CatalogueClient({ courses }: { courses: Course[] }) {
           title={courses.length ? 'Aucun résultat' : 'Aucun cours pour le moment'}
           text={
             courses.length
-              ? 'Essayez un autre mot-clé ou changez de catégorie.'
+              ? 'Essayez un autre mot-clé.'
               : 'Les cours publiés par vos formateurs apparaîtront ici.'
           }
         />

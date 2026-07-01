@@ -30,7 +30,7 @@ export default async function AdminCoursPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold text-ink">{c.title}</p>
                     <p className="truncate text-xs text-muted">
-                      {c.category} · {c.level}
+                      {c.level}
                       {c.instructor ? ` · ${c.instructor}` : ''}
                     </p>
                   </div>

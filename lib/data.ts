@@ -38,13 +38,3 @@ export type LeaderRow = {
   isYou?: boolean;
 };
 
-// Catégories de filtrage du catalogue (config d'affichage, pas des données).
-export const categories = [
-  { name: 'Tous', icon: 'sparkle' },
-  { name: 'Design', icon: 'pen' },
-  { name: 'Développement', icon: 'code' },
-  { name: 'Marketing', icon: 'megaphone' },
-  { name: 'Rédaction', icon: 'pen' },
-  { name: 'Vidéo', icon: 'camera' },
-  { name: 'Business', icon: 'briefcase' },
-];

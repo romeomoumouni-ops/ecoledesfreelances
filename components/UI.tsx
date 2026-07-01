@@ -96,7 +96,7 @@ export function StatCard({
 export function CourseCard({ course }: { course: Course }) {
   return (
     <Link
-      href={`/catalogue/${course.id}`}
+      href={`/cours/${course.id}`}
       className="card group flex flex-col overflow-hidden transition-all duration-200 hover:border-[#e0e0de] hover:shadow-soft"
     >
       {/* Couverture : miniature si présente, sinon aplat neutre */}
@@ -118,10 +118,9 @@ export function CourseCard({ course }: { course: Course }) {
         <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug text-ink">
           {course.title}
         </h3>
-        <p className="mt-1 text-xs text-muted">
-          {course.category}
-          {course.instructor ? ` · Par ${course.instructor}` : ''}
-        </p>
+        {course.instructor && (
+          <p className="mt-1 text-xs text-muted">Par {course.instructor}</p>
+        )}
 
         <div className="mt-3 flex items-center gap-4 text-xs text-muted">
           <span className="flex items-center gap-1.5">
