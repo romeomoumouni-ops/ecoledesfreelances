@@ -115,13 +115,13 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
                   </div>
                   <ProgressBar value={course.progress} color={course.color} />
                 </div>
-                <Link href="/lecon" className="btn-primary mt-5 w-full">
+                <Link href={`/cours/${course.id}`} className="btn-primary mt-5 w-full">
                   Continuer la formation
                   <IconArrowRight width={18} height={18} />
                 </Link>
               </>
             ) : (
-              <Link href="/lecon" className="btn-primary mt-5 w-full">
+              <Link href={`/cours/${course.id}`} className="btn-primary mt-5 w-full">
                 Commencer la formation
                 <IconArrowRight width={18} height={18} />
               </Link>

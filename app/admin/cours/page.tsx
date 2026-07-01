@@ -1,6 +1,7 @@
+import Link from 'next/link';
 import { getCourses } from '@/lib/db';
 import { createCourse, deleteCourse } from '@/lib/admin-actions';
-import { IconBook, IconX } from '@/components/Icons';
+import { IconBook, IconX, IconChevronRight } from '@/components/Icons';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,16 +17,21 @@ export default async function AdminCoursPage() {
           <div className="space-y-3">
             {courses.map((c) => (
               <div key={c.id} className="card flex items-center gap-4 p-4">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-black/[0.04] text-ink">
-                  <IconBook width={19} height={19} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-ink">{c.title}</p>
-                  <p className="truncate text-xs text-muted">
-                    {c.category} · {c.level} · {c.lessons} leçons · {c.hours} h
-                    {c.instructor ? ` · ${c.instructor}` : ''}
-                  </p>
-                </div>
+                <Link href={`/admin/cours/${c.id}`} className="flex min-w-0 flex-1 items-center gap-4">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-black/[0.04] text-ink">
+                    <IconBook width={19} height={19} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-ink">{c.title}</p>
+                    <p className="truncate text-xs text-muted">
+                      {c.category} · {c.level}
+                      {c.instructor ? ` · ${c.instructor}` : ''}
+                    </p>
+                  </div>
+                  <span className="hidden items-center gap-1 text-xs font-semibold text-muted sm:flex">
+                    Contenu <IconChevronRight width={14} height={14} />
+                  </span>
+                </Link>
                 <form action={deleteCourse.bind(null, c.id)}>
                   <button
                     className="grid h-9 w-9 place-items-center rounded-lg text-muted transition hover:bg-red-50 hover:text-red-600"
