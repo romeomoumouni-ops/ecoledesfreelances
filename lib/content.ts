@@ -5,7 +5,11 @@ function sb(): SupabaseClient {
   if (!_c) {
     _c = createSupabaseClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: { persistSession: false },
+        global: { fetch: (url, opts) => fetch(url, { ...opts, cache: 'no-store' }) },
+      }
     );
   }
   return _c;

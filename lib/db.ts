@@ -8,7 +8,12 @@ function db(): SupabaseClient {
   if (!_client) {
     _client = createSupabaseClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: { persistSession: false },
+        // Jamais de cache : les données doivent toujours être fraîches.
+        global: { fetch: (url, opts) => fetch(url, { ...opts, cache: 'no-store' }) },
+      }
     );
   }
   return _client;
@@ -52,6 +57,7 @@ export async function getCourses(): Promise<Course[]> {
     progress: c.progress === null ? undefined : Number(c.progress),
     tag: c.tag ?? undefined,
     description: c.description,
+    thumbnail_url: c.thumbnail_url ?? null,
   }));
 }
 

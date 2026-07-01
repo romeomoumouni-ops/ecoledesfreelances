@@ -15,6 +15,7 @@ export type Course = {
   progress?: number;
   tag?: string;
   description: string;
+  thumbnail_url?: string | null;
 };
 
 export type LiveSession = {

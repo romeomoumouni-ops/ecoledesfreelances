@@ -97,49 +97,48 @@ export function CourseCard({ course }: { course: Course }) {
   return (
     <Link
       href={`/catalogue/${course.id}`}
-      className="card group flex flex-col p-5 transition-all duration-200 hover:border-[#e0e0de] hover:shadow-soft"
+      className="card group flex flex-col overflow-hidden transition-all duration-200 hover:border-[#e0e0de] hover:shadow-soft"
     >
-      <div className="flex items-start justify-between">
-        <span className="grid h-10 w-10 place-items-center rounded-lg bg-black/[0.04] text-ink transition group-hover:bg-black/[0.06]">
-          <IconBook width={20} height={20} />
-        </span>
+      {/* Couverture : miniature si présente, sinon aplat neutre */}
+      <div className="relative aspect-[16/9] w-full border-b border-line bg-black/[0.03]">
+        {course.thumbnail_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={course.thumbnail_url} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <span className="absolute inset-0 grid place-items-center text-muted">
+            <IconBook width={30} height={30} />
+          </span>
+        )}
         {course.tag && (
-          <span className="chip bg-black/[0.05] text-[11px] text-muted">{course.tag}</span>
+          <span className="chip absolute left-3 top-3 bg-ink text-[11px] text-white">{course.tag}</span>
         )}
       </div>
 
-      <h3 className="mt-4 line-clamp-2 text-[15px] font-semibold leading-snug text-ink">
-        {course.title}
-      </h3>
-      <p className="mt-1 text-xs text-muted">
-        {course.category} · Par {course.instructor}
-      </p>
+      <div className="flex flex-1 flex-col p-5">
+        <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug text-ink">
+          {course.title}
+        </h3>
+        <p className="mt-1 text-xs text-muted">
+          {course.category}
+          {course.instructor ? ` · Par ${course.instructor}` : ''}
+        </p>
 
-      <div className="mt-3 flex items-center gap-4 text-xs text-muted">
-        <span className="flex items-center gap-1.5">
-          <IconBook width={14} height={14} /> {course.lessons} leçons
-        </span>
-        <span className="flex items-center gap-1.5">
-          <IconClock width={14} height={14} /> {course.hours} h
-        </span>
-      </div>
-
-      {course.progress !== undefined ? (
-        <div className="mt-5">
-          <div className="mb-1.5 flex justify-between text-xs font-medium">
-            <span className="text-muted">Progression</span>
-            <span className="text-ink">{course.progress}%</span>
-          </div>
-          <ProgressBar value={course.progress} />
-        </div>
-      ) : (
-        <div className="mt-5 flex items-center justify-between border-t border-line pt-3.5">
-          <span className="text-sm text-muted">Pas encore commencée</span>
-          <span className="flex items-center gap-1 text-sm font-semibold text-ink transition group-hover:gap-1.5">
-            Commencer <IconArrowRight width={15} height={15} />
+        <div className="mt-3 flex items-center gap-4 text-xs text-muted">
+          <span className="flex items-center gap-1.5">
+            <IconBook width={14} height={14} /> {course.lessons} leçons
+          </span>
+          <span className="flex items-center gap-1.5">
+            <IconClock width={14} height={14} /> {course.hours} h
           </span>
         </div>
-      )}
+
+        <div className="mt-auto flex items-center justify-between border-t border-line pt-3.5">
+          <span className="text-sm text-muted">{course.level}</span>
+          <span className="flex items-center gap-1 text-sm font-semibold text-ink transition group-hover:gap-1.5">
+            Ouvrir <IconArrowRight width={15} height={15} />
+          </span>
+        </div>
+      </div>
     </Link>
   );
 }
