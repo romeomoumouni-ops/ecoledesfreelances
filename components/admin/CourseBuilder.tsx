@@ -3,20 +3,58 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import * as tus from 'tus-js-client';
 import { createClient } from '@/lib/supabase/client';
 import type { Chapter } from '@/lib/content';
 import { IconPlus, IconX, IconChevronRight, IconPlayFill } from '@/components/Icons';
 
 const supabase = createClient();
+const BUCKET = 'course-media';
 
-async function uploadVideo(courseId: string, file: File): Promise<string> {
+/**
+ * Upload résumable (TUS) : découpe le fichier en morceaux de 6 Mo, reprend en
+ * cas de coupure, et remonte la progression. Adapté aux grosses vidéos.
+ */
+async function uploadVideoResumable(
+  courseId: string,
+  file: File,
+  onProgress: (percent: number) => void
+): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) throw new Error('Session expirée, reconnectez-vous.');
+
   const ext = file.name.split('.').pop() || 'mp4';
-  const path = `videos/${courseId}/${crypto.randomUUID()}.${ext}`;
-  const { error } = await supabase.storage
-    .from('course-media')
-    .upload(path, file, { upsert: false, cacheControl: '3600' });
-  if (error) throw error;
-  return supabase.storage.from('course-media').getPublicUrl(path).data.publicUrl;
+  const objectName = `videos/${courseId}/${crypto.randomUUID()}.${ext}`;
+
+  await new Promise<void>((resolve, reject) => {
+    const upload = new tus.Upload(file, {
+      endpoint: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/upload/resumable`,
+      retryDelays: [0, 3000, 5000, 10000, 20000],
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-upsert': 'true',
+      },
+      uploadDataDuringCreation: true,
+      removeFingerprintOnSuccess: true,
+      chunkSize: 6 * 1024 * 1024, // Supabase impose des morceaux de 6 Mo
+      metadata: {
+        bucketName: BUCKET,
+        objectName,
+        contentType: file.type || 'video/mp4',
+        cacheControl: '3600',
+      },
+      onError: (e) => reject(e),
+      onProgress: (sent, total) => onProgress(Math.round((sent / total) * 100)),
+      onSuccess: () => resolve(),
+    });
+    upload.findPreviousUploads().then((prev) => {
+      if (prev.length) upload.resumeFromPreviousUpload(prev[0]);
+      upload.start();
+    });
+  });
+
+  return supabase.storage.from(BUCKET).getPublicUrl(objectName).data.publicUrl;
 }
 
 export default function CourseBuilder({
@@ -132,13 +170,17 @@ function AddChapter({
   const [desc, setDesc] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
 
   async function submit() {
     if (!title.trim()) return;
     setBusy(true);
     try {
       let video: string | null = null;
-      if (file) video = await uploadVideo(courseId, file);
+      if (file) {
+        setProgress(0);
+        video = await uploadVideoResumable(courseId, file, setProgress);
+      }
       const { error } = await supabase.from('chapters').insert({
         course_id: courseId,
         title: title.trim(),
@@ -156,6 +198,7 @@ function AddChapter({
       onError(e);
     } finally {
       setBusy(false);
+      setProgress(null);
     }
   }
 
@@ -173,8 +216,18 @@ function AddChapter({
       <textarea className="input min-h-[70px] resize-none" placeholder="Description (optionnel)" value={desc} onChange={(e) => setDesc(e.target.value)} />
       <div>
         <label className="label">Vidéo</label>
-        <input type="file" accept="video/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm" />
-        {busy && <p className="mt-1 text-xs text-muted">Envoi de la vidéo… (peut prendre un moment)</p>}
+        <input type="file" accept="video/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm" disabled={busy} />
+        {progress !== null && (
+          <div className="mt-2">
+            <div className="mb-1 flex justify-between text-xs font-medium text-muted">
+              <span>Envoi de la vidéo…</span>
+              <span className="text-ink">{progress}%</span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/[0.07]">
+              <div className="h-full rounded-full bg-ink transition-all" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        )}
       </div>
       <div className="flex gap-2">
         <button onClick={submit} disabled={busy} className="btn-primary disabled:opacity-60">
