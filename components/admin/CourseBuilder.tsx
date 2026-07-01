@@ -4,14 +4,14 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import type { Curriculum } from '@/lib/content';
+import type { Chapter } from '@/lib/content';
 import { IconPlus, IconX, IconChevronRight, IconPlayFill } from '@/components/Icons';
 
 const supabase = createClient();
 
-async function uploadToMedia(courseId: string, folder: string, file: File): Promise<string> {
-  const ext = file.name.split('.').pop() || 'bin';
-  const path = `${folder}/${courseId}/${crypto.randomUUID()}.${ext}`;
+async function uploadVideo(courseId: string, file: File): Promise<string> {
+  const ext = file.name.split('.').pop() || 'mp4';
+  const path = `videos/${courseId}/${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage
     .from('course-media')
     .upload(path, file, { upsert: false, cacheControl: '3600' });
@@ -21,10 +21,10 @@ async function uploadToMedia(courseId: string, folder: string, file: File): Prom
 
 export default function CourseBuilder({
   course,
-  tree,
+  chapters,
 }: {
   course: { id: string; title: string };
-  tree: Curriculum[];
+  chapters: Chapter[];
 }) {
   const router = useRouter();
   const [err, setErr] = useState<string | null>(null);
@@ -36,147 +36,42 @@ export default function CourseBuilder({
   const refresh = () => router.refresh();
 
   return (
-    <div>
+    <div className="mx-auto max-w-3xl">
       <Link href="/admin/cours" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-ink">
         <IconChevronRight width={16} height={16} className="rotate-180" /> Tous les cours
       </Link>
       <h1 className="text-xl font-bold text-ink">{course.title}</h1>
-      <p className="mt-1 text-sm text-muted">Construisez le contenu : curriculums → chapitres (vidéos) → quiz.</p>
+      <p className="mt-1 text-sm text-muted">
+        Ajoutez les chapitres du cours : chaque chapitre a une vidéo et, si vous voulez, un quiz.
+      </p>
 
       {err && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
 
-      <div className="mt-6 space-y-5">
-        {tree.map((cur) => (
-          <CurriculumBlock key={cur.id} courseId={course.id} cur={cur} onChange={refresh} onError={fail} />
+      <div className="mt-6 space-y-2">
+        {chapters.map((ch, i) => (
+          <ChapterBlock key={ch.id} index={i} chapter={ch} onChange={refresh} onError={fail} />
         ))}
-      </div>
-
-      <AddCurriculum courseId={course.id} onChange={refresh} onError={fail} />
-    </div>
-  );
-}
-
-/* ---------- Curriculum ---------- */
-function CurriculumBlock({
-  courseId,
-  cur,
-  onChange,
-  onError,
-}: {
-  courseId: string;
-  cur: Curriculum;
-  onChange: () => void;
-  onError: (e: unknown) => void;
-}) {
-  const [busy, setBusy] = useState(false);
-  async function remove() {
-    if (!confirm('Supprimer ce curriculum et tous ses chapitres ?')) return;
-    setBusy(true);
-    try {
-      const { error } = await supabase.from('curriculums').delete().eq('id', cur.id);
-      if (error) throw error;
-      onChange();
-    } catch (e) {
-      onError(e);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="card overflow-hidden">
-      <div className="flex items-center gap-3 border-b border-line p-4">
-        {cur.thumbnail_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={cur.thumbnail_url} alt="" className="h-12 w-16 shrink-0 rounded-md object-cover" />
-        ) : (
-          <div className="grid h-12 w-16 shrink-0 place-items-center rounded-md bg-black/[0.04] text-xs text-muted">
-            miniature
+        {chapters.length === 0 && (
+          <div className="card p-6 text-center text-sm text-muted">
+            Aucun chapitre pour l&apos;instant. Ajoutez le premier ci-dessous.
           </div>
         )}
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-ink">{cur.title}</p>
-          <p className="text-xs text-muted">{cur.chapters.length} chapitre(s)</p>
-        </div>
-        <button
-          onClick={remove}
-          disabled={busy}
-          className="grid h-9 w-9 place-items-center rounded-lg text-muted hover:bg-red-50 hover:text-red-600"
-          aria-label="Supprimer"
-        >
-          <IconX width={18} height={18} />
-        </button>
       </div>
 
-      <div className="space-y-2 p-4">
-        {cur.chapters.map((ch) => (
-          <ChapterBlock key={ch.id} chapter={ch} onChange={onChange} onError={onError} />
-        ))}
-        <AddChapter courseId={courseId} curriculumId={cur.id} onChange={onChange} onError={onError} />
-      </div>
-    </div>
-  );
-}
-
-function AddCurriculum({ courseId, onChange, onError }: { courseId: string; onChange: () => void; onError: (e: unknown) => void }) {
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState('');
-  const [file, setFile] = useState<File | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  async function submit() {
-    if (!title.trim()) return;
-    setBusy(true);
-    try {
-      let thumb: string | null = null;
-      if (file) thumb = await uploadToMedia(courseId, 'thumbnails', file);
-      const { error } = await supabase
-        .from('curriculums')
-        .insert({ course_id: courseId, title: title.trim(), thumbnail_url: thumb, position: Date.now() % 100000 });
-      if (error) throw error;
-      setTitle('');
-      setFile(null);
-      setOpen(false);
-      onChange();
-    } catch (e) {
-      onError(e);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (!open)
-    return (
-      <button onClick={() => setOpen(true)} className="btn-outline mt-5 w-full">
-        <IconPlus width={18} height={18} /> Ajouter un curriculum
-      </button>
-    );
-
-  return (
-    <div className="card mt-5 space-y-3 p-4">
-      <p className="font-semibold text-ink">Nouveau curriculum</p>
-      <input className="input" placeholder="Titre du curriculum" value={title} onChange={(e) => setTitle(e.target.value)} />
-      <div>
-        <label className="label">Miniature (image)</label>
-        <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm" />
-      </div>
-      <div className="flex gap-2">
-        <button onClick={submit} disabled={busy} className="btn-primary disabled:opacity-60">
-          {busy ? 'Ajout…' : 'Créer'}
-        </button>
-        <button onClick={() => setOpen(false)} className="btn-outline">Annuler</button>
-      </div>
+      <AddChapter courseId={course.id} onChange={refresh} onError={fail} />
     </div>
   );
 }
 
 /* ---------- Chapitre ---------- */
 function ChapterBlock({
+  index,
   chapter,
   onChange,
   onError,
 }: {
-  chapter: Curriculum['chapters'][number];
+  index: number;
+  chapter: Chapter;
   onChange: () => void;
   onError: (e: unknown) => void;
 }) {
@@ -193,15 +88,18 @@ function ChapterBlock({
   }
 
   return (
-    <div className="rounded-lg border border-line">
-      <div className="flex items-center gap-3 p-3">
+    <div className="card overflow-hidden">
+      <div className="flex items-center gap-3 p-4">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-black/[0.06] text-xs font-bold text-ink">
+          {index + 1}
+        </span>
         <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-md ${chapter.video_url ? 'bg-black/[0.06] text-ink' : 'bg-black/[0.03] text-muted'}`}>
           <IconPlayFill width={13} height={13} />
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-ink">{chapter.title}</p>
           <p className="text-xs text-muted">
-            {chapter.video_url ? 'Vidéo ajoutée' : 'Pas de vidéo'} · {chapter.quiz.length} question(s) de quiz
+            {chapter.video_url ? 'Vidéo ajoutée' : 'Pas de vidéo'} · {chapter.quiz.length} question(s)
           </p>
         </div>
         <button onClick={() => setOpenQuiz((v) => !v)} className="rounded-lg px-2.5 py-1 text-xs font-semibold text-muted hover:bg-black/[0.04] hover:text-ink">
@@ -222,12 +120,10 @@ function ChapterBlock({
 
 function AddChapter({
   courseId,
-  curriculumId,
   onChange,
   onError,
 }: {
   courseId: string;
-  curriculumId: string;
   onChange: () => void;
   onError: (e: unknown) => void;
 }) {
@@ -242,10 +138,9 @@ function AddChapter({
     setBusy(true);
     try {
       let video: string | null = null;
-      if (file) video = await uploadToMedia(courseId, 'videos', file);
+      if (file) video = await uploadVideo(courseId, file);
       const { error } = await supabase.from('chapters').insert({
         course_id: courseId,
-        curriculum_id: curriculumId,
         title: title.trim(),
         description: desc.trim() || null,
         video_url: video,
@@ -266,16 +161,16 @@ function AddChapter({
 
   if (!open)
     return (
-      <button onClick={() => setOpen(true)} className="mt-1 flex w-full items-center gap-2 rounded-lg border border-dashed border-line px-3 py-2 text-sm font-semibold text-muted hover:border-[#dcdcda] hover:text-ink">
-        <IconPlus width={16} height={16} /> Ajouter un chapitre
+      <button onClick={() => setOpen(true)} className="btn-primary mt-4 w-full">
+        <IconPlus width={18} height={18} /> Ajouter un chapitre
       </button>
     );
 
   return (
-    <div className="rounded-lg border border-line p-3 space-y-2.5">
-      <p className="text-sm font-semibold text-ink">Nouveau chapitre</p>
+    <div className="card mt-4 space-y-3 p-4">
+      <p className="font-semibold text-ink">Nouveau chapitre</p>
       <input className="input" placeholder="Titre du chapitre" value={title} onChange={(e) => setTitle(e.target.value)} />
-      <textarea className="input min-h-[60px] resize-none" placeholder="Description (optionnel)" value={desc} onChange={(e) => setDesc(e.target.value)} />
+      <textarea className="input min-h-[70px] resize-none" placeholder="Description (optionnel)" value={desc} onChange={(e) => setDesc(e.target.value)} />
       <div>
         <label className="label">Vidéo</label>
         <input type="file" accept="video/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm" />
@@ -283,7 +178,7 @@ function AddChapter({
       </div>
       <div className="flex gap-2">
         <button onClick={submit} disabled={busy} className="btn-primary disabled:opacity-60">
-          {busy ? 'Ajout…' : 'Ajouter'}
+          {busy ? 'Ajout…' : 'Ajouter le chapitre'}
         </button>
         <button onClick={() => setOpen(false)} className="btn-outline">Annuler</button>
       </div>
@@ -297,7 +192,7 @@ function QuizManager({
   onChange,
   onError,
 }: {
-  chapter: Curriculum['chapters'][number];
+  chapter: Chapter;
   onChange: () => void;
   onError: (e: unknown) => void;
 }) {

@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import type { Curriculum, Chapter } from '@/lib/content';
+import type { Chapter } from '@/lib/content';
 import Avatar from '@/components/Avatar';
 import { EmptyState } from '@/components/UI';
 import {
@@ -20,14 +20,14 @@ type Me = { id: string; name: string };
 
 export default function CoursePlayer({
   course,
-  tree,
+  chapters,
   me,
 }: {
   course: { id: string; title: string };
-  tree: Curriculum[];
+  chapters: Chapter[];
   me: Me;
 }) {
-  const allChapters = useMemo(() => tree.flatMap((c) => c.chapters), [tree]);
+  const allChapters = chapters;
   const [currentId, setCurrentId] = useState<string | null>(allChapters[0]?.id ?? null);
   const current = allChapters.find((c) => c.id === currentId) ?? null;
 
@@ -92,32 +92,22 @@ export default function CoursePlayer({
               <p className="text-xs text-muted">{allChapters.length} chapitre(s)</p>
             </div>
             <div className="max-h-[70vh] overflow-y-auto">
-              {tree.map((cur) => (
-                <div key={cur.id}>
-                  <div className="flex items-center gap-2 bg-surface px-4 py-2.5">
-                    {cur.thumbnail_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={cur.thumbnail_url} alt="" className="h-6 w-9 rounded object-cover" />
-                    ) : null}
-                    <p className="text-xs font-bold uppercase tracking-wide text-muted">{cur.title}</p>
-                  </div>
-                  {cur.chapters.map((ch) => {
-                    const on = ch.id === currentId;
-                    return (
-                      <button
-                        key={ch.id}
-                        onClick={() => setCurrentId(ch.id)}
-                        className={`flex w-full items-center gap-3 px-4 py-3 text-left transition ${on ? 'bg-black/[0.04]' : 'hover:bg-black/[0.02]'}`}
-                      >
-                        <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${on ? 'bg-ink text-white' : 'bg-black/[0.05] text-muted'}`}>
-                          <IconPlayFill width={11} height={11} />
-                        </span>
-                        <span className={`flex-1 text-sm ${on ? 'font-semibold text-ink' : 'text-ink'}`}>{ch.title}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
+              {allChapters.map((ch, i) => {
+                const on = ch.id === currentId;
+                return (
+                  <button
+                    key={ch.id}
+                    onClick={() => setCurrentId(ch.id)}
+                    className={`flex w-full items-center gap-3 border-t border-line px-4 py-3 text-left transition first:border-t-0 ${on ? 'bg-black/[0.04]' : 'hover:bg-black/[0.02]'}`}
+                  >
+                    <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold ${on ? 'bg-ink text-white' : 'bg-black/[0.05] text-muted'}`}>
+                      {i + 1}
+                    </span>
+                    <span className={`flex-1 text-sm ${on ? 'font-semibold text-ink' : 'text-ink'}`}>{ch.title}</span>
+                    {ch.video_url && <IconPlayFill width={12} height={12} className="text-muted" />}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </aside>
