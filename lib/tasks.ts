@@ -13,8 +13,8 @@ export const OBJECTIVE_TASKS: ObjectiveTask[] = [
   { key: 'cours1', label: 'Finir de suivre le Cours 1', points: 2.5 },
   {
     key: 'choix',
-    label: 'Suivre au moins un de ces cours en entier',
-    points: 2.5,
+    label: 'Suivre en entier au moins un cours sur un métier de l’IA',
+    points: 15,
     note: 'Au choix : Montage vidéo · Copywriting IA · Conception d’affiches & vidéos avec l’IA · Création de sites web avec l’IA. En cocher au moins un (les autres sont facultatifs).',
   },
   { key: 'cours2', label: 'Finir de suivre le Cours 2', points: 2.5 },
