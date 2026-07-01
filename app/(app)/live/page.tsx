@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { PageHeader, EmptyState } from '@/components/UI';
 import { getLiveSessions } from '@/lib/db';
 import { IconLive, IconCalendar, IconClock, IconUsers } from '@/components/Icons';

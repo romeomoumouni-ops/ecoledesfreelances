@@ -1,12 +1,18 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Course, LiveSession, LeaderRow } from '@/lib/data';
 
-// Client simple (lecture de contenu public via RLS). L'auth utilisera les
-// helpers SSR (lib/supabase/*) plus tard.
-const supabase = createSupabaseClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// Client simple (lecture de contenu public via RLS), créé à la demande pour ne
+// jamais échouer à l'import (ex. build sans variables d'env).
+let _client: SupabaseClient | null = null;
+function db(): SupabaseClient {
+  if (!_client) {
+    _client = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+  }
+  return _client;
+}
 
 export type Assignment = {
   id: string;
@@ -30,7 +36,7 @@ export type CommunityPost = {
 };
 
 export async function getCourses(): Promise<Course[]> {
-  const { data } = await supabase.from('courses').select('*').order('sort');
+  const { data } = await db().from('courses').select('*').order('sort');
   return (data ?? []).map((c) => ({
     id: c.id,
     title: c.title,
@@ -55,7 +61,7 @@ export async function getCourseById(id: string): Promise<Course | null> {
 }
 
 export async function getLiveSessions(): Promise<LiveSession[]> {
-  const { data } = await supabase.from('live_sessions').select('*').order('sort');
+  const { data } = await db().from('live_sessions').select('*').order('sort');
   return (data ?? []).map((s) => ({
     id: s.id,
     date: s.date_label,
@@ -67,7 +73,7 @@ export async function getLiveSessions(): Promise<LiveSession[]> {
 }
 
 export async function getAssignments(): Promise<Assignment[]> {
-  const { data } = await supabase.from('assignments').select('*').order('sort');
+  const { data } = await db().from('assignments').select('*').order('sort');
   return (data ?? []).map((a) => ({
     id: a.id,
     title: a.title,
@@ -80,7 +86,7 @@ export async function getAssignments(): Promise<Assignment[]> {
 }
 
 export async function getLeaderboard(): Promise<LeaderRow[]> {
-  const { data } = await supabase.from('leaderboard').select('*').order('rank');
+  const { data } = await db().from('leaderboard').select('*').order('rank');
   return (data ?? []).map((r) => ({
     rank: Number(r.rank),
     name: r.name,
@@ -94,7 +100,7 @@ export async function getLeaderboard(): Promise<LeaderRow[]> {
 }
 
 export async function getCommunityPosts(): Promise<CommunityPost[]> {
-  const { data } = await supabase.from('community_posts').select('*').order('sort');
+  const { data } = await db().from('community_posts').select('*').order('sort');
   return (data ?? []).map((p) => ({
     id: p.id,
     author: p.author,

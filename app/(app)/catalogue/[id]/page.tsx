@@ -1,6 +1,8 @@
+export const dynamic = 'force-dynamic';
+
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { lessonCurriculum, courses as staticCourses } from '@/lib/data';
+import { lessonCurriculum } from '@/lib/data';
 import { getCourseById } from '@/lib/db';
 import { Badge, ProgressBar } from '@/components/UI';
 import Avatar from '@/components/Avatar';
@@ -16,10 +18,6 @@ import {
   IconTarget,
   IconArrowRight,
 } from '@/components/Icons';
-
-export function generateStaticParams() {
-  return staticCourses.map((c) => ({ id: c.id }));
-}
 
 export default async function CourseDetailPage({ params }: { params: { id: string } }) {
   const course = await getCourseById(params.id);

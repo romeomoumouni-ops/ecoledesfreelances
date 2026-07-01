@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { PageHeader, Badge, EmptyState } from '@/components/UI';
 import { getAssignments } from '@/lib/db';
 import { IconClipboard, IconClock, IconArrowRight } from '@/components/Icons';

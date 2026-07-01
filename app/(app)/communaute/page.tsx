@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { PageHeader, Badge } from '@/components/UI';
 import Avatar from '@/components/Avatar';
 import { currentUser } from '@/lib/data';

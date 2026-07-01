@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import Link from 'next/link';
 import { PageHeader, StatCard, CourseCard, ProgressBar, Badge } from '@/components/UI';
 import Avatar from '@/components/Avatar';
