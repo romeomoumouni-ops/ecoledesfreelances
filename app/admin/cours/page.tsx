@@ -30,8 +30,7 @@ export default async function AdminCoursPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold text-ink">{c.title}</p>
                     <p className="truncate text-xs text-muted">
-                      {c.level}
-                      {c.instructor ? ` · ${c.instructor}` : ''}
+                      {c.instructor ? c.instructor : `${c.lessons} leçon(s)`}
                     </p>
                   </div>
                   <span className="hidden items-center gap-1 text-xs font-semibold text-muted sm:flex">

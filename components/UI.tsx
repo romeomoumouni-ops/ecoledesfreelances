@@ -131,8 +131,7 @@ export function CourseCard({ course }: { course: Course }) {
           </span>
         </div>
 
-        <div className="mt-auto flex items-center justify-between border-t border-line pt-3.5">
-          <span className="text-sm text-muted">{course.level}</span>
+        <div className="mt-auto flex items-center justify-end border-t border-line pt-3.5">
           <span className="flex items-center gap-1 text-sm font-semibold text-ink transition group-hover:gap-1.5">
             Ouvrir <IconArrowRight width={15} height={15} />
           </span>

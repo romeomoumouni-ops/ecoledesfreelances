@@ -22,7 +22,6 @@ export default function CreateCourseForm() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState('');
-  const [level, setLevel] = useState('Débutant');
   const [instructor, setInstructor] = useState('');
   const [lessons, setLessons] = useState('');
   const [hours, setHours] = useState('');
@@ -61,7 +60,6 @@ export default function CreateCourseForm() {
       const { error } = await supabase.from('courses').insert({
         id,
         title: title.trim(),
-        level,
         instructor: instructor.trim(),
         description: description.trim(),
         lessons: Number(lessons) || 0,
@@ -111,14 +109,6 @@ export default function CreateCourseForm() {
       <div>
         <label className="label">Titre *</label>
         <input className="input" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex. Devenir Designer UI/UX" />
-      </div>
-      <div>
-        <label className="label">Niveau</label>
-        <select className="input" value={level} onChange={(e) => setLevel(e.target.value)}>
-          <option>Débutant</option>
-          <option>Intermédiaire</option>
-          <option>Avancé</option>
-        </select>
       </div>
       <div>
         <label className="label">Formateur</label>

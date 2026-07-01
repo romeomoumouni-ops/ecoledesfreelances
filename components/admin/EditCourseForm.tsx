@@ -13,7 +13,6 @@ export default function EditCourseForm({ course }: { course: Course }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState(course.title);
-  const [level, setLevel] = useState(course.level || 'Débutant');
   const [instructor, setInstructor] = useState(course.instructor || '');
   const [tag, setTag] = useState(course.tag || '');
   const [lessons, setLessons] = useState(String(course.lessons || 0));
@@ -60,7 +59,6 @@ export default function EditCourseForm({ course }: { course: Course }) {
         .from('courses')
         .update({
           title: title.trim(),
-          level,
           instructor: instructor.trim(),
           tag: tag.trim() || null,
           lessons: Number(lessons) || 0,
@@ -118,19 +116,9 @@ export default function EditCourseForm({ course }: { course: Course }) {
             <label className="label">Titre</label>
             <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Niveau</label>
-              <select className="input" value={level} onChange={(e) => setLevel(e.target.value)}>
-                <option>Débutant</option>
-                <option>Intermédiaire</option>
-                <option>Avancé</option>
-              </select>
-            </div>
-            <div>
-              <label className="label">Formateur</label>
-              <input className="input" value={instructor} onChange={(e) => setInstructor(e.target.value)} />
-            </div>
+          <div>
+            <label className="label">Formateur</label>
+            <input className="input" value={instructor} onChange={(e) => setInstructor(e.target.value)} />
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>

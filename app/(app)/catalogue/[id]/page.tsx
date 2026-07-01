@@ -48,10 +48,11 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
               </span>
             </div>
             <div className="p-6">
-              <div className="mb-3 flex flex-wrap gap-2">
-                <Badge variant="outline">{course.level}</Badge>
-                {course.tag && <Badge variant="solid" color="#171522">{course.tag}</Badge>}
-              </div>
+              {course.tag && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  <Badge variant="solid" color="#171522">{course.tag}</Badge>
+                </div>
+              )}
               <h1 className="text-2xl font-bold tracking-tight text-ink">{course.title}</h1>
               <p className="mt-2 text-sm text-muted">{course.description}</p>
 
