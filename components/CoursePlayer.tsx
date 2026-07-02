@@ -351,7 +351,7 @@ function Comments({ chapterId, me }: { chapterId: string; me: Me }) {
             value={body}
             onChange={(e) => setBody(e.target.value)}
             className="input min-h-[64px] resize-none"
-            placeholder="Posez une question ou partagez un retour…"
+            placeholder="Dis nous ce que tu as retenu de ce chapitre"
           />
           <div className="mt-2 flex justify-end">
             <button onClick={post} disabled={busy || !body.trim()} className="btn-primary disabled:opacity-60">
