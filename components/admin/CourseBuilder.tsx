@@ -23,6 +23,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { createClient } from '@/lib/supabase/client';
 import type { Chapter } from '@/lib/content';
+import RichTextArea from '@/components/RichTextArea';
 import { IconPlus, IconX, IconPlayFill, IconPen, IconGrip } from '@/components/Icons';
 
 const supabase = createClient();
@@ -289,7 +290,7 @@ function ChapterBlock({
       {editing && (
         <div className="space-y-3 border-t border-line p-4">
           <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Titre du chapitre" />
-          <textarea className="input min-h-[70px] resize-none" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Description (optionnel)" />
+          <RichTextArea value={desc} onChange={setDesc} placeholder="Description (optionnel) — liens, gras, italique" minHeightClass="min-h-[70px]" />
           <div>
             <label className="label">
               {chapter.video_url ? 'Remplacer la vidéo (optionnel)' : 'Ajouter une vidéo'}
@@ -384,7 +385,7 @@ function AddChapter({
     <div className="card mt-4 space-y-3 p-4">
       <p className="font-semibold text-ink">Nouveau chapitre</p>
       <input className="input" placeholder="Titre du chapitre" value={title} onChange={(e) => setTitle(e.target.value)} />
-      <textarea className="input min-h-[70px] resize-none" placeholder="Description (optionnel)" value={desc} onChange={(e) => setDesc(e.target.value)} />
+      <RichTextArea value={desc} onChange={setDesc} placeholder="Description (optionnel) — liens, gras, italique" minHeightClass="min-h-[70px]" />
       <div>
         <label className="label">Vidéo</label>
         <input type="file" accept="video/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm" disabled={busy} />

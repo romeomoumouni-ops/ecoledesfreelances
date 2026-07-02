@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { ensureRealtimeAuth } from '@/lib/realtime';
 import Avatar from '@/components/Avatar';
+import RichText from '@/components/RichText';
 import { IconChat, IconChevronRight } from '@/components/Icons';
 
 const supabase = createClient();
@@ -238,7 +239,9 @@ function AdminSuiviThread({
                 {m.from_admin && m.sender_name && (
                   <p className="mb-0.5 text-xs font-semibold text-white/70">{m.sender_name}</p>
                 )}
-                <p className="whitespace-pre-line">{m.body}</p>
+                <p className="whitespace-pre-line">
+                  <RichText text={m.body} onDark={m.from_admin} />
+                </p>
               </div>
             </div>
           ))

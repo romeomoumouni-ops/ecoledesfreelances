@@ -13,6 +13,7 @@ import {
   IconChevronRight,
   IconArrowRight,
 } from '@/components/Icons';
+import RichText from '@/components/RichText';
 
 export default async function CourseDetailPage({ params }: { params: { id: string } }) {
   const [course, chapters] = await Promise.all([
@@ -50,7 +51,9 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
               )}
               <h1 className="text-2xl font-bold tracking-tight text-ink">{course.title}</h1>
               {course.description && (
-                <p className="mt-2 text-sm leading-relaxed text-muted">{course.description}</p>
+                <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-muted">
+                  <RichText text={course.description} />
+                </p>
               )}
 
               <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted">

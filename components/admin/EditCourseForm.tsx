@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Course } from '@/lib/data';
+import RichTextArea from '@/components/RichTextArea';
 import { IconCamera } from '@/components/Icons';
 
 const supabase = createClient();
@@ -137,7 +138,7 @@ export default function EditCourseForm({ course }: { course: Course }) {
           </div>
           <div>
             <label className="label">Description</label>
-            <textarea className="input min-h-[70px] resize-none" value={description} onChange={(e) => setDescription(e.target.value)} />
+            <RichTextArea value={description} onChange={setDescription} minHeightClass="min-h-[70px]" />
           </div>
           <div className="flex justify-end">
             <button onClick={save} disabled={busy} className="btn-primary disabled:opacity-60">

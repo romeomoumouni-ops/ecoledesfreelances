@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import RichTextArea from '@/components/RichTextArea';
 import { IconCamera } from '@/components/Icons';
 
 const supabase = createClient();
@@ -130,7 +131,7 @@ export default function CreateCourseForm() {
       </div>
       <div>
         <label className="label">Description</label>
-        <textarea className="input min-h-[80px] resize-none" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ce que le cours apporte…" />
+        <RichTextArea value={description} onChange={setDescription} placeholder="Ce que le cours apporte…" minHeightClass="min-h-[80px]" />
       </div>
       <button className="btn-primary w-full disabled:opacity-60" disabled={busy}>
         {busy ? 'Création…' : 'Publier le cours'}

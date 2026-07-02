@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import type { QuizQuestion } from '@/lib/content';
 import Avatar from '@/components/Avatar';
+import RichText from '@/components/RichText';
 import { EmptyState } from '@/components/UI';
 import { IconPlayFill, IconCheck, IconChevronRight, IconBook, IconCheckCircle, IconX } from '@/components/Icons';
 
@@ -78,7 +79,9 @@ export default function CoursePlayer({
                 <div className="p-5">
                   <h2 className="text-lg font-bold text-ink">{current.title}</h2>
                   {current.description && (
-                    <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-muted">{current.description}</p>
+                    <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-muted">
+                      <RichText text={current.description} />
+                    </p>
                   )}
                 </div>
               </div>
@@ -370,7 +373,9 @@ function Comments({ chapterId, me }: { chapterId: string; me: Me }) {
               <Avatar initials={initials(c.author_name)} size={36} />
               <div className="flex-1">
                 <p className="text-sm font-semibold text-ink">{c.author_name || 'Membre'}</p>
-                <p className="text-sm leading-relaxed text-ink">{c.body}</p>
+                <p className="whitespace-pre-line text-sm leading-relaxed text-ink">
+                  <RichText text={c.body} />
+                </p>
               </div>
               {(c.user_id === me.id || me.isAdmin) && (
                 <button

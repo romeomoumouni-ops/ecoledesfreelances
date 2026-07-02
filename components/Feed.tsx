@@ -9,6 +9,8 @@ import { createClient } from '@/lib/supabase/client';
 import { ensureRealtimeAuth } from '@/lib/realtime';
 import { uploadResumable } from '@/lib/uploadResumable';
 import Avatar from '@/components/Avatar';
+import RichText from '@/components/RichText';
+import RichTextArea from '@/components/RichTextArea';
 import { IconHeart, IconChat, IconX, IconCamera } from '@/components/Icons';
 
 const supabase = createClient();
@@ -283,11 +285,11 @@ function Composer({
       <div className="flex items-start gap-3">
         <Avatar initials={initialsOf(me.name)} src={me.avatarUrl} size={40} />
         <div className="flex-1">
-          <textarea
+          <RichTextArea
             value={body}
-            onChange={(e) => setBody(e.target.value)}
-            className="input min-h-[70px] resize-none"
+            onChange={setBody}
             placeholder={placeholder}
+            minHeightClass="min-h-[70px]"
           />
           {preview && (
             <div className="relative mt-3 overflow-hidden rounded-lg border border-line">
@@ -369,7 +371,11 @@ function PostCard({
         )}
       </div>
 
-      {post.body && <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-ink">{post.body}</p>}
+      {post.body && (
+        <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-ink">
+          <RichText text={post.body} />
+        </p>
+      )}
 
       {post.media_url && (
         <div className="mt-3 overflow-hidden rounded-lg border border-line">
@@ -498,7 +504,9 @@ function PostComments({ postId, me }: { postId: string; me: FeedUser }) {
               <Avatar initials={initialsOf(c.author_name)} size={30} />
               <div className="flex-1 rounded-lg bg-black/[0.03] px-3 py-2">
                 <p className="text-xs font-semibold text-ink">{c.author_name || 'Membre'}</p>
-                <p className="text-sm text-ink">{c.body}</p>
+                <p className="whitespace-pre-line text-sm text-ink">
+                  <RichText text={c.body} />
+                </p>
               </div>
               {(c.user_id === me.id || me.isAdmin) && (
                 <button onClick={() => del(c.id)} className="mt-1 text-muted hover:text-red-600" aria-label="Supprimer">

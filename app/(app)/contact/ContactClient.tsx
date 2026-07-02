@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { ensureRealtimeAuth } from '@/lib/realtime';
 import { PageHeader } from '@/components/UI';
 import Avatar from '@/components/Avatar';
+import RichText from '@/components/RichText';
 import { CONTACTS, contactByKey } from '@/lib/coaches';
 import { IconChat, IconChevronRight } from '@/components/Icons';
 
@@ -217,7 +218,9 @@ function Thread({ me, contactKey, onBack }: { me: Me; contactKey: string; onBack
                 {m.from_admin && (
                   <p className="mb-0.5 text-xs font-semibold text-muted">{m.sender_name || contact.name}</p>
                 )}
-                <p className="whitespace-pre-line">{m.body}</p>
+                <p className="whitespace-pre-line">
+                  <RichText text={m.body} onDark={!m.from_admin} />
+                </p>
               </div>
             </div>
           ))

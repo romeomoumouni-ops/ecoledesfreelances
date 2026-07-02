@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { deletePost } from '@/lib/admin-actions';
 import Avatar from '@/components/Avatar';
+import RichText from '@/components/RichText';
 import { Badge } from '@/components/UI';
 import { IconX, IconChat } from '@/components/Icons';
 
@@ -45,7 +46,11 @@ export default async function AdminCommunautePage() {
                     <p className="font-semibold text-ink">{p.author_name || 'Membre'}</p>
                     <Badge>{CHANNEL_LABEL[p.channel] ?? p.channel}</Badge>
                   </div>
-                  {p.body && <p className="mt-1 whitespace-pre-line text-sm text-ink">{p.body}</p>}
+                  {p.body && (
+                    <p className="mt-1 whitespace-pre-line text-sm text-ink">
+                      <RichText text={p.body} />
+                    </p>
+                  )}
                   {p.media_url && (
                     <p className="mt-1 text-xs text-muted">
                       {p.media_type === 'video' ? '🎬 Vidéo jointe' : '🖼️ Image jointe'}
