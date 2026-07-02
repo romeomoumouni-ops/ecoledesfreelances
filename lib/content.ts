@@ -15,11 +15,12 @@ function sb(): SupabaseClient {
   return _c;
 }
 
+// La bonne réponse (correct_index) n'est JAMAIS envoyée au client :
+// la colonne est masquée en base et la correction passe par la RPC check_quiz.
 export type QuizQuestion = {
   id: string;
   question: string;
   options: string[];
-  correct_index: number;
 };
 
 export type Chapter = {
@@ -30,11 +31,11 @@ export type Chapter = {
   quiz: QuizQuestion[];
 };
 
-/** Chapitres d'un cours (ordonnés), chacun avec son quiz. */
+/** Chapitres d'un cours (ordonnés), chacun avec son quiz (sans les réponses). */
 export async function getCourseChapters(courseId: string): Promise<Chapter[]> {
   const [{ data: chapters }, { data: quiz }] = await Promise.all([
     sb().from('chapters').select('*').eq('course_id', courseId).order('position'),
-    sb().from('quiz_questions').select('*').order('position'),
+    sb().from('quiz_questions').select('id, chapter_id, question, options, position').order('position'),
   ]);
 
   const quizByChapter = new Map<string, QuizQuestion[]>();
@@ -44,7 +45,6 @@ export async function getCourseChapters(courseId: string): Promise<Chapter[]> {
       id: q.id,
       question: q.question,
       options: Array.isArray(q.options) ? q.options : [],
-      correct_index: q.correct_index ?? 0,
     });
     quizByChapter.set(q.chapter_id, arr);
   }

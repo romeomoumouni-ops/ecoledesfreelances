@@ -79,6 +79,7 @@ export async function createLive(formData: FormData) {
     coach: String(formData.get('coach') || ''),
     theme,
     is_live: formData.get('is_live') === 'on',
+    meeting_url: String(formData.get('meeting_url') || '').trim() || null,
     sort: Date.now() % 100000,
   });
   if (error) throw new Error(error.message);
@@ -90,6 +91,30 @@ export async function deleteLive(id: string) {
   const { error } = await supabase.from('live_sessions').delete().eq('id', id);
   if (error) throw new Error(error.message);
   revalidatePath('/admin/live');
+}
+
+/* ---------------- DEVOIRS ---------------- */
+export async function createAssignment(formData: FormData) {
+  const supabase = await requireAdmin();
+  const title = String(formData.get('title') || '').trim();
+  if (!title) throw new Error('Titre requis');
+  const { error } = await supabase.from('assignments').insert({
+    title,
+    course: String(formData.get('course') || '').trim() || null,
+    due: String(formData.get('due') || '').trim() || null,
+    points: Number(formData.get('points') || 0),
+    status: 'À rendre',
+    sort: Date.now() % 100000,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath('/admin/devoirs');
+}
+
+export async function deleteAssignment(id: string) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase.from('assignments').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+  revalidatePath('/admin/devoirs');
 }
 
 /* ---------------- MODÉRATION COMMUNAUTÉ ---------------- */

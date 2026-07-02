@@ -188,11 +188,27 @@ function VideoPlayer({
   );
 }
 
-/* ---------- Quiz interactif ---------- */
+/* ---------- Quiz interactif (correction côté serveur) ---------- */
+type QuizResult = { id: string; correct: boolean; correct_index: number };
+
 function Quiz({ chapter }: { chapter: PlayerChapter }) {
   const [answers, setAnswers] = useState<Record<string, number>>({});
-  const [checked, setChecked] = useState(false);
-  const score = chapter.quiz.filter((q) => answers[q.id] === q.correct_index).length;
+  const [results, setResults] = useState<Map<string, QuizResult> | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const allAnswered = chapter.quiz.every((q) => answers[q.id] !== undefined);
+  const score = results ? [...results.values()].filter((r) => r.correct).length : 0;
+
+  async function check() {
+    setBusy(true);
+    const { data, error } = await supabase.rpc('check_quiz', {
+      p_chapter_id: chapter.id,
+      p_answers: answers,
+    });
+    setBusy(false);
+    if (error || !Array.isArray(data)) return;
+    setResults(new Map((data as QuizResult[]).map((r) => [r.id, r])));
+  }
 
   return (
     <div className="card p-5">
@@ -200,50 +216,53 @@ function Quiz({ chapter }: { chapter: PlayerChapter }) {
         <IconCheckCircle width={18} height={18} /> Quiz
       </h3>
       <div className="space-y-5">
-        {chapter.quiz.map((q, qi) => (
-          <div key={q.id}>
-            <p className="text-sm font-semibold text-ink">
-              {qi + 1}. {q.question}
-            </p>
-            <div className="mt-2 space-y-1.5">
-              {q.options.map((opt, oi) => {
-                const selected = answers[q.id] === oi;
-                const isCorrect = oi === q.correct_index;
-                const show = checked && (selected || isCorrect);
-                return (
-                  <label
-                    key={oi}
-                    className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition ${
-                      show && isCorrect
-                        ? 'border-green-500 bg-green-50 text-green-700'
-                        : show && selected && !isCorrect
-                        ? 'border-red-400 bg-red-50 text-red-600'
-                        : selected
-                        ? 'border-ink bg-black/[0.03] text-ink'
-                        : 'border-line text-ink hover:bg-black/[0.02]'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name={`q-${q.id}`}
-                      checked={selected}
-                      onChange={() => setAnswers((a) => ({ ...a, [q.id]: oi }))}
-                      className="h-4 w-4 accent-ink"
-                      disabled={checked}
-                    />
-                    <span className="flex-1">{opt}</span>
-                    {show && isCorrect && <IconCheck width={15} height={15} />}
-                  </label>
-                );
-              })}
+        {chapter.quiz.map((q, qi) => {
+          const res = results?.get(q.id);
+          return (
+            <div key={q.id}>
+              <p className="text-sm font-semibold text-ink">
+                {qi + 1}. {q.question}
+              </p>
+              <div className="mt-2 space-y-1.5">
+                {q.options.map((opt, oi) => {
+                  const selected = answers[q.id] === oi;
+                  const isCorrect = res ? oi === res.correct_index : false;
+                  const show = !!res && (selected || isCorrect);
+                  return (
+                    <label
+                      key={oi}
+                      className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition ${
+                        show && isCorrect
+                          ? 'border-green-500 bg-green-50 text-green-700'
+                          : show && selected && !isCorrect
+                          ? 'border-red-400 bg-red-50 text-red-600'
+                          : selected
+                          ? 'border-ink bg-black/[0.03] text-ink'
+                          : 'border-line text-ink hover:bg-black/[0.02]'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name={`q-${q.id}`}
+                        checked={selected}
+                        onChange={() => setAnswers((a) => ({ ...a, [q.id]: oi }))}
+                        className="h-4 w-4 accent-ink"
+                        disabled={!!results}
+                      />
+                      <span className="flex-1">{opt}</span>
+                      {show && isCorrect && <IconCheck width={15} height={15} />}
+                    </label>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <div className="mt-4 flex items-center gap-3">
-        {!checked ? (
-          <button onClick={() => setChecked(true)} className="btn-primary">
-            Valider mes réponses
+        {!results ? (
+          <button onClick={check} disabled={busy || !allAnswered} className="btn-primary disabled:opacity-60">
+            {busy ? 'Correction…' : 'Valider mes réponses'}
           </button>
         ) : (
           <>
@@ -252,7 +271,7 @@ function Quiz({ chapter }: { chapter: PlayerChapter }) {
             </span>
             <button
               onClick={() => {
-                setChecked(false);
+                setResults(null);
                 setAnswers({});
               }}
               className="btn-outline"
@@ -260,6 +279,9 @@ function Quiz({ chapter }: { chapter: PlayerChapter }) {
               Recommencer
             </button>
           </>
+        )}
+        {!results && !allAnswered && (
+          <span className="text-xs text-muted">Réponds à toutes les questions pour valider.</span>
         )}
       </div>
     </div>

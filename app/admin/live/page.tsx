@@ -67,6 +67,10 @@ export default async function AdminLivePage() {
                 <input name="time_label" className="input" placeholder="Ex. 19h00" />
               </div>
             </div>
+            <div>
+              <label className="label">Lien de la session (Zoom, Meet, YouTube…)</label>
+              <input name="meeting_url" type="url" className="input" placeholder="https://…" />
+            </div>
             <label className="flex items-center gap-2.5 text-sm text-ink">
               <input name="is_live" type="checkbox" className="h-4 w-4 accent-ink" />
               En direct maintenant

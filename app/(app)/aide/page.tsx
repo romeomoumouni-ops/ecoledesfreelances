@@ -1,43 +1,33 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  IconSearch,
-  IconChevronDown,
-  IconBook,
-  IconTrend,
-  IconUsers,
-  IconChat,
-  IconMail,
-} from '@/components/Icons';
-
-const topics = [
-  { Icon: IconBook, title: 'Démarrer', text: 'Premiers pas sur la plateforme' },
-  { Icon: IconTrend, title: 'Ma progression', text: 'Suivre votre avancée dans le programme' },
-  { Icon: IconUsers, title: 'Communauté', text: 'Règles et bonnes pratiques' },
-  { Icon: IconChat, title: 'Mon accès', text: 'Programme et abonnement' },
-];
+import Link from 'next/link';
+import { IconChevronDown, IconChat } from '@/components/Icons';
 
 const faqs = [
   {
-    q: 'Comment accéder à mes formations ?',
-    a: 'Rendez-vous dans « Mes formations » depuis le menu de gauche. Vous y retrouverez toutes vos formations en cours et terminées, avec votre progression.',
+    q: 'Comment accéder à mes cours ?',
+    a: 'Rendez-vous dans « Mes cours à suivre » depuis le menu. Cliquez sur un cours pour ouvrir ses chapitres : la vidéo reprend automatiquement là où vous vous étiez arrêté.',
+  },
+  {
+    q: "Comment fonctionne l'Objectif (score sur 100) ?",
+    a: "L'onglet « Objectif » liste les tâches de votre parcours. Cochez honnêtement chaque tâche accomplie : vos points s'ajoutent et votre progression apparaît sur le tableau de bord.",
   },
   {
     q: 'Le programme est-il complet dès le départ ?',
-    a: 'Votre accès couvre l\'intégralité du programme de l\'École des Freelances. De nouvelles leçons s\'ajoutent en continu : vous progressez à votre rythme, sans rien racheter.',
+    a: "Votre accès couvre l'intégralité du programme. De nouvelles leçons s'ajoutent en continu : vous progressez à votre rythme, sans rien racheter.",
   },
   {
-    q: 'Comment fonctionne le classement ?',
-    a: 'Vous gagnez des points en terminant des leçons, en rendant vos devoirs et en maintenant votre série quotidienne. Le classement est mis à jour chaque semaine.',
+    q: 'Comment rendre un devoir ?',
+    a: "Dans l'onglet « Devoirs », réalisez l'exercice demandé puis cliquez sur « Marquer comme rendu ». Vous pouvez annuler un rendu en cas d'erreur.",
   },
   {
-    q: 'Puis-je apprendre à mon rythme ?',
-    a: 'Oui, toutes les formations sont disponibles à la demande. Vous avancez quand vous voulez et reprenez là où vous vous êtes arrêté.',
+    q: 'Comment participer aux sessions live ?',
+    a: "L'onglet « Live » affiche les coachings de groupe programmés. Le bouton « Rejoindre le live » apparaît quand le lien de la session est disponible.",
   },
   {
-    q: 'Comment contacter un formateur ?',
-    a: 'Chaque leçon dispose d\'un onglet « Questions ». Vous pouvez aussi échanger avec les formateurs et les autres élèves dans la Communauté.',
+    q: 'Comment contacter un coach ?',
+    a: 'Utilisez le bouton « Contacter les coachs » ci-dessous : choisissez Coach Christian, Coach Tobi, Coach Mohamed ou Marianne, et envoyez votre message. La réponse arrive au même endroit.',
   },
 ];
 
@@ -45,34 +35,12 @@ export default function AidePage() {
   const [open, setOpen] = useState<number | null>(0);
 
   return (
-    <div className="mx-auto max-w-3xl">
-      {/* Hero */}
-      <div className="mb-8 pt-6 text-center">
+    <div className="mx-auto max-w-2xl">
+      <div className="mb-8 pt-4 text-center">
         <h1 className="text-3xl font-bold tracking-tight text-ink">Comment pouvons-nous vous aider ?</h1>
-        <p className="mt-2 text-muted">Trouvez rapidement une réponse à vos questions.</p>
-        <div className="relative mx-auto mt-6 max-w-md">
-          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted">
-            <IconSearch />
-          </span>
-          <input className="input py-3 pl-12 text-ink" placeholder="Rechercher dans l'aide…" />
-        </div>
+        <p className="mt-2 text-muted">Les réponses aux questions les plus fréquentes.</p>
       </div>
 
-      {/* Thèmes */}
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {topics.map((t) => (
-          <button key={t.title} className="card p-5 text-left transition hover:-translate-y-1 hover:shadow-soft">
-            <span className="grid h-11 w-11 place-items-center rounded-xl bg-black/[0.04] text-ink">
-              <t.Icon width={22} height={22} />
-            </span>
-            <p className="mt-3 font-bold text-ink">{t.title}</p>
-            <p className="text-sm text-muted">{t.text}</p>
-          </button>
-        ))}
-      </div>
-
-      {/* FAQ */}
-      <h2 className="mb-4 text-lg font-bold text-ink">Questions fréquentes</h2>
       <div className="card divide-y divide-line overflow-hidden">
         {faqs.map((f, i) => (
           <div key={f.q}>
@@ -85,23 +53,22 @@ export default function AidePage() {
                 <IconChevronDown />
               </span>
             </button>
-            {open === i && (
-              <div className="px-5 pb-4 text-sm leading-relaxed text-muted">{f.a}</div>
-            )}
+            {open === i && <div className="px-5 pb-4 text-sm leading-relaxed text-muted">{f.a}</div>}
           </div>
         ))}
       </div>
 
-      {/* Contact */}
-      <div className="card mt-8 flex flex-col items-center gap-4 p-8 text-center sm:flex-row sm:text-left">
-        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-black/[0.04] text-ink">
-          <IconMail width={26} height={26} />
+      <div className="card mt-6 flex flex-col items-center gap-4 p-6 text-center sm:flex-row sm:text-left">
+        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-black/[0.04] text-ink">
+          <IconChat width={22} height={22} />
         </span>
         <div className="flex-1">
           <p className="font-bold text-ink">Vous ne trouvez pas votre réponse ?</p>
-          <p className="text-sm text-muted">Notre équipe vous répond en moins de 24 h.</p>
+          <p className="text-sm text-muted">Écrivez directement à un coach, il vous répondra.</p>
         </div>
-        <button className="btn-primary">Contacter le support</button>
+        <Link href="/contact" className="btn-primary">
+          Contacter les coachs
+        </Link>
       </div>
     </div>
   );

@@ -138,13 +138,14 @@ export default function Sidebar({
         <div className="mx-3 mb-2 rounded-xl border border-line bg-white p-3.5">
           <p className="text-sm font-semibold text-ink">Besoin d&apos;aide ?</p>
           <p className="mt-1 text-xs leading-relaxed text-muted">
-            Votre coach et la communauté répondent à vos questions.
+            Écrivez directement à vos coachs, ils vous répondent.
           </p>
           <Link
-            href="/aide"
+            href="/contact"
+            onClick={onClose}
             className="mt-3 block w-full rounded-lg bg-ink py-2 text-center text-xs font-semibold text-white transition hover:bg-black"
           >
-            Contacter
+            Contacter les coachs
           </Link>
         </div>
 

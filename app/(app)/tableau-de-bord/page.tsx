@@ -4,12 +4,13 @@ import Link from 'next/link';
 import { PageHeader, StatCard, CourseCard, EmptyState } from '@/components/UI';
 import { getCourses, getAssignments, getLiveSessions } from '@/lib/db';
 import { getCurrentProfile, getMyTaskKeys } from '@/lib/user';
+import { createClient } from '@/lib/supabase/server';
 import { scoreFromKeys, OBJECTIVE_TARGET } from '@/lib/tasks';
 import {
   IconBook,
   IconLive,
   IconClipboard,
-  IconFlame,
+  IconTarget,
   IconClock,
   IconArrowRight,
 } from '@/components/Icons';
@@ -23,8 +24,15 @@ export default async function DashboardPage() {
     getMyTaskKeys(),
   ]);
 
+  // Devoirs non rendus PAR CET ÉLÈVE
+  const supabase = createClient();
+  const { data: subs } = profile
+    ? await supabase.from('assignment_submissions').select('assignment_id').eq('user_id', profile.id)
+    : { data: [] };
+  const submitted = new Set((subs ?? []).map((s) => s.assignment_id as string));
+
   const firstName = (profile?.full_name || 'Membre').split(' ')[0];
-  const toDo = assignments.filter((a) => a.status === 'À rendre');
+  const toDo = assignments.filter((a) => !submitted.has(a.id));
   const score = scoreFromKeys(taskKeys);
   const percent = Math.min(100, Math.round((score / OBJECTIVE_TARGET) * 100));
   const scoreLabel = score % 1 === 0 ? String(score) : score.toFixed(1);
@@ -39,9 +47,9 @@ export default async function DashboardPage() {
       {/* Statistiques réelles */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard label="Cours du programme" value={String(courses.length)} Icon={IconBook} note="Cours disponibles dans votre programme." />
-        <StatCard label="Sessions live à venir" value={String(lives.length)} Icon={IconLive} note="Coachings de groupe programmés." />
+        <StatCard label="Sessions live" value={String(lives.length)} Icon={IconLive} note="Coachings de groupe programmés." />
         <StatCard label="Devoirs à rendre" value={String(toDo.length)} Icon={IconClipboard} note="Exercices en attente de votre rendu." />
-        <StatCard label="Jours d'affilée" value={`${profile?.streak ?? 0}`} Icon={IconFlame} note="Jours consécutifs d'activité." />
+        <StatCard label="Objectif" value={`${percent}%`} Icon={IconTarget} note="Votre progression vers l'objectif (score sur 100)." />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">

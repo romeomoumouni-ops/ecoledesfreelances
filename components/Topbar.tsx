@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Avatar from './Avatar';
 import type { ShellProfile } from './AppShell';
-import { IconSearch, IconBell, IconMail, IconMenu, IconChevronDown } from './Icons';
+import { IconMenu, IconChevronDown } from './Icons';
 
 function initials(name: string, email: string) {
   const base = name || email || 'M';
@@ -32,27 +32,7 @@ export default function Topbar({
         <IconMenu />
       </button>
 
-      {/* Recherche (masquée sur très petit écran) */}
-      <div className="relative hidden max-w-sm flex-1 sm:block">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted">
-          <IconSearch width={18} height={18} />
-        </span>
-        <input
-          className="w-full rounded-lg border border-transparent bg-black/[0.04] py-2 pl-10 pr-3 text-sm outline-none transition-all placeholder:text-muted/70 focus:border-violet-400 focus:bg-white focus:ring-4 focus:ring-violet-100"
-          placeholder="Rechercher…"
-        />
-      </div>
-
       <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
-        <button
-          className="grid h-9 w-9 place-items-center rounded-lg text-muted transition hover:bg-black/[0.05] hover:text-ink"
-          aria-label="Notifications"
-        >
-          <IconBell width={19} height={19} />
-        </button>
-
-        <div className="mx-1 hidden h-6 w-px bg-line sm:block" />
-
         <Link
           href="/parametres"
           className="flex items-center gap-2.5 rounded-lg py-1 pl-1 pr-1.5 transition hover:bg-black/[0.04]"

@@ -61,10 +61,21 @@ export default async function LivePage() {
                 </div>
               </div>
 
-              {/* Action */}
-              <button className={`${s.live ? 'btn-primary' : 'btn-outline'} shrink-0`}>
-                {s.live ? 'Rejoindre le live' : 'Ajouter au calendrier'}
-              </button>
+              {/* Action : lien réel de la session (défini par les coachs) */}
+              {s.meetingUrl ? (
+                <a
+                  href={s.meetingUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`${s.live ? 'btn-primary' : 'btn-outline'} shrink-0`}
+                >
+                  {s.live ? 'Rejoindre le live' : 'Lien de la session'}
+                </a>
+              ) : (
+                <span className="shrink-0 text-xs text-muted">
+                  Le lien sera partagé avant la session.
+                </span>
+              )}
             </div>
           ))}
         </div>

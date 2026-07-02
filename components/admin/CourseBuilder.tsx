@@ -424,6 +424,14 @@ function QuizManager({
   const [options, setOptions] = useState(['', '']);
   const [correct, setCorrect] = useState(0);
   const [busy, setBusy] = useState(false);
+  // Bonnes réponses (visibles admin uniquement, via RPC — masquées en lecture directe)
+  const [answers, setAnswers] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    supabase
+      .rpc('admin_quiz_answers', { p_chapter_id: chapter.id })
+      .then(({ data }) => setAnswers((data as Record<string, number>) ?? {}));
+  }, [chapter.id, chapter.quiz.length]);
 
   async function add() {
     const opts = options.map((o) => o.trim()).filter(Boolean);
@@ -465,7 +473,8 @@ function QuizManager({
           <div className="flex-1">
             <p className="font-medium text-ink">{qq.question}</p>
             <p className="text-xs text-muted">
-              {qq.options.length} réponses · bonne : « {qq.options[qq.correct_index]} »
+              {qq.options.length} réponses
+              {answers[qq.id] !== undefined && ` · bonne : « ${qq.options[answers[qq.id]]} »`}
             </p>
           </div>
           <button onClick={() => del(qq.id)} className="text-muted hover:text-red-600" aria-label="Supprimer">

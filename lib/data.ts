@@ -25,6 +25,7 @@ export type LiveSession = {
   coach: string;
   theme: string;
   live?: boolean;
+  meetingUrl?: string | null;
 };
 
 export type LeaderRow = {

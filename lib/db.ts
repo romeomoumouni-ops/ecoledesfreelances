@@ -67,6 +67,7 @@ export async function getLiveSessions(): Promise<LiveSession[]> {
     coach: s.coach,
     theme: s.theme,
     live: s.is_live ?? false,
+    meetingUrl: s.meeting_url ?? null,
   }));
 }
 
