@@ -216,7 +216,7 @@ function Composer({
         })
         .select('*')
         .single();
-      if (error) throw error;
+      if (error) throw new Error(error.message);
       onPosted({ ...(data as Post), likeCount: 0, commentCount: 0, likedByMe: false });
       setBody('');
       setFile(null);
