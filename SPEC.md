@@ -207,3 +207,26 @@ classement global ?
   projet voisin correctement (mauvaise config Tailwind). → **Vérifier via Bash**
   (`npm run dev` depuis ce dossier) + `curl`, pas via le Preview MCP.
 - `node`/`npm` hors PATH : préfixer avec le chemin custom (voir §3).
+
+---
+
+## 10. Messagerie coachs & corrections QA (2 juillet 2026)
+
+**Contact / messagerie** : l'élève va sur `/contact` (bouton « Contacter les
+coachs » dans l'Aide et la sidebar), choisit **Coach Christian, Coach Tobi,
+Coach Mohamed ou Marianne** (`lib/coaches.ts`), et échange par messages.
+Côté admin : **Admin → Messages** = un onglet par coach, conversations par
+élève, n'importe quel admin peut lire et répondre (réponse signée
+« Coach X (Nom de l'admin) »). Table `support_messages` avec RLS.
+
+**Corrigé suite QA** :
+- Devoirs réels : création dans **Admin → Devoirs**, l'élève marque « rendu »
+  (`assignment_submissions`) ; le tableau de bord compte ses non-rendus.
+- Live : champ **lien de session** (Zoom/Meet/YouTube) + bouton « Rejoindre le
+  live » fonctionnel.
+- **Quiz anti-triche** : la bonne réponse n'est plus envoyée au navigateur
+  (grants par colonne) ; correction via RPC `check_quiz`, réponses admin via
+  RPC `admin_quiz_answers`.
+- Aide refondue (FAQ à jour), topbar sans recherche/cloche décoratives, fiche
+  cours avec programme réel, stat « Objectif % » au tableau de bord,
+  placeholder `/lecon` supprimé.
