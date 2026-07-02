@@ -2,13 +2,23 @@ import React from 'react';
 
 // Rendu de texte sûr : liens cliquables + gras / italique / code (sous-ensemble
 // markdown). Aucune injection HTML (pas de dangerouslySetInnerHTML) → pas de XSS.
-// S'utilise à la place d'un simple {texte} ; garder `whitespace-pre-line` sur le
+// Détecte : liens markdown [txt](url), URLs https://…, www.…, domaines nus
+// (comeup.com/x), et adresses e-mail. Garder `whitespace-pre-line` sur le
 // conteneur pour conserver les retours à la ligne.
 
 const TRAILING = /[.,;:!?)\]}'"»]+$/;
 
+// TLD courants (génériques + francophones / Afrique de l'Ouest) : on ne
+// transforme un domaine nu en lien que si son extension est reconnue.
+const TLDS = new Set([
+  'com', 'org', 'net', 'io', 'co', 'me', 'app', 'dev', 'ai', 'xyz', 'info', 'biz',
+  'tv', 'gg', 'shop', 'store', 'online', 'site', 'tech', 'link', 'page', 'blog',
+  'fr', 'be', 'ca', 'ch', 'eu', 'uk', 'de', 'es', 'it', 'pt', 'nl',
+  'africa', 'ci', 'sn', 'bj', 'tg', 'cm', 'ma', 'ng', 'gh', 'bf', 'ml',
+]);
+
 function normalizeUrl(u: string) {
-  return u.startsWith('www.') ? `https://${u}` : u;
+  return /^https?:\/\//i.test(u) ? u : `https://${u}`;
 }
 
 function Anchor({
@@ -35,17 +45,26 @@ function Anchor({
   );
 }
 
-// Ordre important : lien explicite, gras (**), italique (*), code (`), URL nue.
+// Ordre : lien markdown, gras, italique, code, e-mail, URL (scheme/www), domaine nu.
 const TOKEN = new RegExp(
   [
-    '\\[([^\\]\\n]+)\\]\\((https?:\\/\\/[^\\s)]+|www\\.[^\\s)]+)\\)', // 1=label 2=url
+    '\\[([^\\]\\n]+)\\]\\(([^\\s)]+)\\)', // 1=label 2=url
     '\\*\\*([^*]+?)\\*\\*', // 3=gras
     '\\*([^*\\s][^*]*?)\\*', // 4=italique
     '`([^`]+?)`', // 5=code
-    '((?:https?:\\/\\/|www\\.)[^\\s]+)', // 6=url nue
+    '([A-Za-z0-9._%+-]+@[A-Za-z0-9-]+\\.[A-Za-z]{2,})', // 6=email
+    '((?:https?:\\/\\/|www\\.)[^\\s]+)', // 7=url avec schéma ou www
+    '((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z]{2,}(?:\\/[^\\s]*)?)', // 8=domaine nu
   ].join('|'),
-  'g'
+  'gi'
 );
+
+function isLinkableDomain(match: string): boolean {
+  const slash = match.indexOf('/');
+  const host = slash >= 0 ? match.slice(0, slash) : match;
+  const tld = host.split('.').pop()?.toLowerCase() ?? '';
+  return TLDS.has(tld);
+}
 
 function parseInline(text: string, onDark: boolean): React.ReactNode[] {
   const out: React.ReactNode[] = [];
@@ -77,19 +96,31 @@ function parseInline(text: string, onDark: boolean): React.ReactNode[] {
         </code>
       );
     } else if (m[6] !== undefined) {
-      let url = m[6];
-      let trail = '';
-      const t = TRAILING.exec(url);
-      if (t) {
-        trail = t[0];
-        url = url.slice(0, -trail.length);
-      }
       out.push(
-        <Anchor key={key} href={normalizeUrl(url)} onDark={onDark}>
-          {url}
+        <Anchor key={key} href={`mailto:${m[6]}`} onDark={onDark}>
+          {m[6]}
         </Anchor>
       );
-      if (trail) out.push(trail);
+    } else if (m[7] !== undefined || m[8] !== undefined) {
+      const raw = (m[7] ?? m[8]) as string;
+      // Domaine nu : uniquement si l'extension est reconnue, sinon texte brut.
+      if (m[8] !== undefined && !isLinkableDomain(raw)) {
+        out.push(raw);
+      } else {
+        let url = raw;
+        let trail = '';
+        const t = TRAILING.exec(url);
+        if (t) {
+          trail = t[0];
+          url = url.slice(0, -trail.length);
+        }
+        out.push(
+          <Anchor key={key} href={normalizeUrl(url)} onDark={onDark}>
+            {url}
+          </Anchor>
+        );
+        if (trail) out.push(trail);
+      }
     }
     last = m.index + m[0].length;
   }
