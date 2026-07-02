@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { IconShield, IconBook, IconLive, IconUsers, IconArrowRight } from './Icons';
+import { IconShield, IconBook, IconLive, IconUsers, IconChat, IconArrowRight } from './Icons';
 
 const items = [
   { href: '/admin', label: "Vue d'ensemble", Icon: IconShield, exact: true },
   { href: '/admin/cours', label: 'Cours', Icon: IconBook },
   { href: '/admin/live', label: 'Live', Icon: IconLive },
+  { href: '/admin/communaute', label: 'Communauté', Icon: IconChat },
   { href: '/admin/utilisateurs', label: 'Utilisateurs', Icon: IconUsers },
 ];
 

@@ -92,6 +92,21 @@ export async function deleteLive(id: string) {
   revalidatePath('/admin/live');
 }
 
+/* ---------------- MODÉRATION COMMUNAUTÉ ---------------- */
+export async function deletePost(id: string) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase.from('community_posts').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+  revalidatePath('/admin/communaute');
+}
+
+export async function deletePostComment(id: string) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase.from('community_comments').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+  revalidatePath('/admin/communaute');
+}
+
 /* ---------------- UTILISATEURS ---------------- */
 export async function setUserAdmin(userId: string, makeAdmin: boolean) {
   const supabase = await requireAdmin();

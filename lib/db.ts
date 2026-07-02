@@ -30,17 +30,6 @@ export type Assignment = {
   grade?: string | null;
 };
 
-export type CommunityPost = {
-  id: string;
-  author: string;
-  role: string;
-  time: string;
-  text: string;
-  likes: number;
-  comments: number;
-  pinned?: boolean;
-};
-
 export async function getCourses(): Promise<Course[]> {
   const { data } = await db().from('courses').select('*').order('sort');
   return Promise.all(
@@ -108,16 +97,3 @@ export async function getLeaderboard(): Promise<LeaderRow[]> {
   }));
 }
 
-export async function getCommunityPosts(): Promise<CommunityPost[]> {
-  const { data } = await db().from('community_posts').select('*').order('sort');
-  return (data ?? []).map((p) => ({
-    id: p.id,
-    author: p.author,
-    role: p.role,
-    time: p.time_label,
-    text: p.body,
-    likes: Number(p.likes),
-    comments: Number(p.comments),
-    pinned: p.pinned ?? false,
-  }));
-}
