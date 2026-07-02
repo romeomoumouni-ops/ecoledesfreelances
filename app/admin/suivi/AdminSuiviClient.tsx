@@ -10,7 +10,7 @@ import { IconChat, IconChevronRight } from '@/components/Icons';
 const supabase = createClient();
 
 type Me = { id: string; name: string };
-type Student = { id: string; name: string; email: string; avatar: string | null };
+type Student = { id: string; name: string; email: string; avatar: string | null; isAdmin?: boolean };
 type Msg = {
   id: string;
   student_id: string;
@@ -102,9 +102,10 @@ export default function AdminSuiviClient({ me, students }: { me: Me; students: S
     if (isUnread(m)) unreadByStudent[m.student_id] = (unreadByStudent[m.student_id] ?? 0) + 1;
   }
 
-  // Liste : élèves ayant écrit d'abord (triés par récence + non-lus), puis les autres
+  // Liste : tout compte ayant une conversation (même admin) d'abord, puis les
+  // élèves (non-admins) sans message encore, pour pouvoir démarrer un suivi.
   const withMsg = students.filter((s) => lastByStudent.has(s.id));
-  const withoutMsg = students.filter((s) => !lastByStudent.has(s.id));
+  const withoutMsg = students.filter((s) => !lastByStudent.has(s.id) && !s.isAdmin);
   withMsg.sort((a, b) => {
     const ua = unreadByStudent[a.id] ?? 0, ub = unreadByStudent[b.id] ?? 0;
     if (ua !== ub) return ub - ua;
