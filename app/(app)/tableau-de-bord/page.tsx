@@ -2,37 +2,20 @@ export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
 import { PageHeader, StatCard, CourseCard, EmptyState } from '@/components/UI';
-import { getCourses, getAssignments, getLiveSessions } from '@/lib/db';
+import { getCourses, getLiveSessions } from '@/lib/db';
 import { getCurrentProfile, getMyTaskKeys } from '@/lib/user';
-import { createClient } from '@/lib/supabase/server';
 import { scoreFromKeys, OBJECTIVE_TARGET } from '@/lib/tasks';
-import {
-  IconBook,
-  IconLive,
-  IconClipboard,
-  IconTarget,
-  IconClock,
-  IconArrowRight,
-} from '@/components/Icons';
+import { IconBook, IconLive, IconTarget, IconArrowRight } from '@/components/Icons';
 
 export default async function DashboardPage() {
-  const [profile, courses, assignments, lives, taskKeys] = await Promise.all([
+  const [profile, courses, lives, taskKeys] = await Promise.all([
     getCurrentProfile(),
     getCourses(),
-    getAssignments(),
     getLiveSessions(),
     getMyTaskKeys(),
   ]);
 
-  // Devoirs non rendus PAR CET ÉLÈVE
-  const supabase = createClient();
-  const { data: subs } = profile
-    ? await supabase.from('assignment_submissions').select('assignment_id').eq('user_id', profile.id)
-    : { data: [] };
-  const submitted = new Set((subs ?? []).map((s) => s.assignment_id as string));
-
   const firstName = (profile?.full_name || 'Membre').split(' ')[0];
-  const toDo = assignments.filter((a) => !submitted.has(a.id));
   const score = scoreFromKeys(taskKeys);
   const percent = Math.min(100, Math.round((score / OBJECTIVE_TARGET) * 100));
   const scoreLabel = score % 1 === 0 ? String(score) : score.toFixed(1);
@@ -45,10 +28,9 @@ export default async function DashboardPage() {
       />
 
       {/* Statistiques réelles */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
         <StatCard label="Cours du programme" value={String(courses.length)} Icon={IconBook} note="Cours disponibles dans votre programme." />
         <StatCard label="Sessions live" value={String(lives.length)} Icon={IconLive} note="Coachings de groupe programmés." />
-        <StatCard label="Devoirs à rendre" value={String(toDo.length)} Icon={IconClipboard} note="Exercices en attente de votre rendu." />
         <StatCard label="Objectif" value={`${percent}%`} Icon={IconTarget} note="Votre progression vers l'objectif (score sur 100)." />
       </div>
 
@@ -110,37 +92,6 @@ export default async function DashboardPage() {
             <p className="mt-3 text-center text-xs leading-relaxed text-muted">
               Accomplis tes tâches pour augmenter tes points. Sois honnête.
             </p>
-          </div>
-
-          {/* Devoirs à rendre */}
-          <div className="card p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="font-bold text-ink">Devoirs à rendre</h3>
-              {toDo.length > 0 && (
-                <Link href="/devoirs" className="text-sm font-semibold text-ink hover:underline">
-                  Voir tout
-                </Link>
-              )}
-            </div>
-            {toDo.length ? (
-              <div className="space-y-3">
-                {toDo.slice(0, 3).map((a) => (
-                  <div key={a.id} className="flex items-start gap-3 rounded-lg border border-line p-3">
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-black/[0.04] text-ink">
-                      <IconClipboard width={18} height={18} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-ink">{a.title}</p>
-                      <p className="flex items-center gap-1 text-xs text-muted">
-                        <IconClock width={13} height={13} /> {a.due}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="py-4 text-center text-sm text-muted">Aucun devoir à rendre pour le moment.</p>
-            )}
           </div>
         </div>
       </div>

@@ -8,7 +8,6 @@ import {
   IconLive,
   IconUsers,
   IconChat,
-  IconClipboard,
   IconMail,
   IconCalendar,
   IconArrowRight,
@@ -17,7 +16,6 @@ import {
 const items = [
   { href: '/admin', label: "Vue d'ensemble", Icon: IconShield, exact: true },
   { href: '/admin/cours', label: 'Cours', Icon: IconBook },
-  { href: '/admin/devoirs', label: 'Devoirs', Icon: IconClipboard },
   { href: '/admin/live', label: 'Live', Icon: IconLive },
   { href: '/admin/messages', label: 'Messages', Icon: IconMail },
   { href: '/admin/suivi', label: 'Suivi', Icon: IconCalendar },

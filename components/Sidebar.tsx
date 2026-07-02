@@ -8,7 +8,6 @@ import {
   IconDashboard,
   IconBook,
   IconLive,
-  IconClipboard,
   IconTarget,
   IconTrend,
   IconCalendar,
@@ -26,7 +25,6 @@ const mainMenu = [
   { href: '/live', label: 'Live', Icon: IconLive },
   { href: '/objectif', label: 'Objectif', Icon: IconTarget },
   // { href: '/catalogue', label: 'Catalogue', Icon: IconCompass }, // masqué temporairement — à réactiver plus tard
-  { href: '/devoirs', label: 'Devoirs', Icon: IconClipboard },
   { href: '/suivi', label: 'Suivi hebdomadaire', Icon: IconCalendar },
   { href: '/temoignages', label: 'Résultats et témoignages', Icon: IconTrend },
   { href: '/communaute', label: 'Communauté', Icon: IconUsers },
