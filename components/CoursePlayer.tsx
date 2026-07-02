@@ -6,11 +6,11 @@ import { createClient } from '@/lib/supabase/client';
 import type { QuizQuestion } from '@/lib/content';
 import Avatar from '@/components/Avatar';
 import { EmptyState } from '@/components/UI';
-import { IconPlayFill, IconCheck, IconChevronRight, IconBook, IconCheckCircle } from '@/components/Icons';
+import { IconPlayFill, IconCheck, IconChevronRight, IconBook, IconCheckCircle, IconX } from '@/components/Icons';
 
 const supabase = createClient();
 
-type Me = { id: string; name: string };
+type Me = { id: string; name: string; isAdmin?: boolean };
 type PlayerChapter = {
   id: string;
   title: string;
@@ -267,7 +267,7 @@ function Quiz({ chapter }: { chapter: PlayerChapter }) {
 }
 
 /* ---------- Commentaires ---------- */
-type Comment = { id: string; author_name: string | null; body: string; created_at: string };
+type Comment = { id: string; author_name: string | null; body: string; user_id: string; created_at: string };
 
 function Comments({ chapterId, me }: { chapterId: string; me: Me }) {
   const [comments, setComments] = useState<Comment[]>([]);
@@ -280,7 +280,7 @@ function Comments({ chapterId, me }: { chapterId: string; me: Me }) {
     setLoading(true);
     supabase
       .from('chapter_comments')
-      .select('id, author_name, body, created_at')
+      .select('id, author_name, body, user_id, created_at')
       .eq('chapter_id', chapterId)
       .order('created_at', { ascending: false })
       .then(({ data }) => {
@@ -301,13 +301,18 @@ function Comments({ chapterId, me }: { chapterId: string; me: Me }) {
     const { data, error } = await supabase
       .from('chapter_comments')
       .insert({ chapter_id: chapterId, user_id: me.id, author_name: me.name, body: text })
-      .select('id, author_name, body, created_at')
+      .select('id, author_name, body, user_id, created_at')
       .single();
     if (!error && data) {
       setComments((c) => [data, ...c]);
       setBody('');
     }
     setBusy(false);
+  }
+
+  async function del(id: string) {
+    setComments((c) => c.filter((x) => x.id !== id));
+    await supabase.from('chapter_comments').delete().eq('id', id);
   }
 
   function initials(name: string | null) {
@@ -345,6 +350,15 @@ function Comments({ chapterId, me }: { chapterId: string; me: Me }) {
                 <p className="text-sm font-semibold text-ink">{c.author_name || 'Membre'}</p>
                 <p className="text-sm leading-relaxed text-ink">{c.body}</p>
               </div>
+              {(c.user_id === me.id || me.isAdmin) && (
+                <button
+                  onClick={() => del(c.id)}
+                  className="mt-1 text-muted hover:text-red-600"
+                  aria-label="Supprimer"
+                >
+                  <IconX width={15} height={15} />
+                </button>
+              )}
             </div>
           ))
         ) : (

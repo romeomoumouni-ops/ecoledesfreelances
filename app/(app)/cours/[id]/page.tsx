@@ -40,7 +40,7 @@ export default async function CoursePlayerPage({ params }: { params: { id: strin
     <CoursePlayer
       course={{ id: course.id, title: course.title }}
       chapters={playerChapters}
-      me={{ id: profile.id, name: profile.full_name }}
+      me={{ id: profile.id, name: profile.full_name, isAdmin: profile.is_admin }}
     />
   );
 }

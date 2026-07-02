@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { uploadResumable } from '@/lib/uploadResumable';
 import { PageHeader } from '@/components/UI';
 import Avatar from '@/components/Avatar';
-import { IconHeart, IconChat, IconLock, IconX, IconCamera, IconPlayFill } from '@/components/Icons';
+import { IconHeart, IconChat, IconLock, IconX, IconCamera } from '@/components/Icons';
 
 const supabase = createClient();
 
@@ -180,6 +181,7 @@ function Composer({
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<{ url: string; type: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
 
   function pick(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0] ?? null;
@@ -196,10 +198,8 @@ function Composer({
       if (file) {
         const ext = file.name.split('.').pop() || 'bin';
         const path = `${me.id}/${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from('community-media')
-          .upload(path, file, { upsert: false, cacheControl: '3600' });
-        if (upErr) throw upErr;
+        setProgress(0);
+        await uploadResumable('community-media', path, file, setProgress);
         media_url = supabase.storage.from('community-media').getPublicUrl(path).data.publicUrl;
         media_type = file.type.startsWith('video') ? 'video' : 'image';
       }
@@ -225,6 +225,7 @@ function Composer({
       onError(e instanceof Error ? e.message : 'Échec de la publication.');
     } finally {
       setBusy(false);
+      setProgress(null);
     }
   }
 
@@ -257,6 +258,17 @@ function Composer({
               >
                 <IconX width={16} height={16} />
               </button>
+            </div>
+          )}
+          {progress !== null && (
+            <div className="mt-3">
+              <div className="mb-1 flex justify-between text-xs font-medium text-muted">
+                <span>Envoi du média…</span>
+                <span className="text-ink">{progress}%</span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/[0.07]">
+                <div className="h-full rounded-full bg-ink transition-all" style={{ width: `${progress}%` }} />
+              </div>
             </div>
           )}
           <div className="mt-3 flex items-center justify-between">
