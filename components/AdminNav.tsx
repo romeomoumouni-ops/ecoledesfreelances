@@ -2,7 +2,17 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { IconShield, IconBook, IconLive, IconUsers, IconChat, IconClipboard, IconMail, IconArrowRight } from './Icons';
+import {
+  IconShield,
+  IconBook,
+  IconLive,
+  IconUsers,
+  IconChat,
+  IconClipboard,
+  IconMail,
+  IconCalendar,
+  IconArrowRight,
+} from './Icons';
 
 const items = [
   { href: '/admin', label: "Vue d'ensemble", Icon: IconShield, exact: true },
@@ -10,21 +20,30 @@ const items = [
   { href: '/admin/devoirs', label: 'Devoirs', Icon: IconClipboard },
   { href: '/admin/live', label: 'Live', Icon: IconLive },
   { href: '/admin/messages', label: 'Messages', Icon: IconMail },
+  { href: '/admin/suivi', label: 'Suivi', Icon: IconCalendar },
   { href: '/admin/communaute', label: 'Communauté', Icon: IconChat },
   { href: '/admin/utilisateurs', label: 'Utilisateurs', Icon: IconUsers },
 ];
 
-export default function AdminNav({ messagesUnread = 0 }: { messagesUnread?: number }) {
+export default function AdminNav({
+  messagesUnread = 0,
+  suiviUnread = 0,
+}: {
+  messagesUnread?: number;
+  suiviUnread?: number;
+}) {
   const pathname = usePathname();
   const active = (href: string, exact?: boolean) =>
     exact ? pathname === href : pathname === href || pathname.startsWith(href + '/');
+  const badgeFor = (href: string) =>
+    href === '/admin/messages' ? messagesUnread : href === '/admin/suivi' ? suiviUnread : 0;
 
   return (
     <div className="flex items-center gap-2 overflow-x-auto">
       <nav className="scrollbar-hide flex gap-1 overflow-x-auto">
         {items.map((it) => {
           const on = active(it.href, it.exact);
-          const badge = it.href === '/admin/messages' && messagesUnread > 0;
+          const badge = badgeFor(it.href);
           return (
             <Link
               key={it.href}
@@ -35,9 +54,9 @@ export default function AdminNav({ messagesUnread = 0 }: { messagesUnread?: numb
             >
               <it.Icon width={17} height={17} />
               {it.label}
-              {badge && (
+              {badge > 0 && (
                 <span className="grid h-4 min-w-[16px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                  {messagesUnread > 9 ? '9+' : messagesUnread}
+                  {badge > 9 ? '9+' : badge}
                 </span>
               )}
             </Link>

@@ -27,11 +27,25 @@ async function getContactUnread(userId: string): Promise<number> {
   }).length;
 }
 
+/** Réponses non lues du chargé de suivi (fil suivi hebdomadaire). */
+async function getSuiviUnread(userId: string): Promise<number> {
+  const supabase = createClient();
+  const [{ data: msgs }, { data: mark }] = await Promise.all([
+    supabase.from('followup_messages').select('created_at').eq('student_id', userId).eq('from_admin', true),
+    supabase.from('read_marks').select('last_read_at').eq('user_id', userId).eq('scope', 'suivi').maybeSingle(),
+  ]);
+  const seen = mark ? new Date(mark.last_read_at).getTime() : 0;
+  return (msgs ?? []).filter((m) => new Date(m.created_at).getTime() > seen).length;
+}
+
 export default async function AppGroupLayout({ children }: { children: React.ReactNode }) {
   const profile = await getCurrentProfile();
   if (!profile) redirect('/connexion');
 
-  const contactUnread = await getContactUnread(profile.id);
+  const [contactUnread, suiviUnread] = await Promise.all([
+    getContactUnread(profile.id),
+    getSuiviUnread(profile.id),
+  ]);
 
   return (
     <AppShell
@@ -44,6 +58,7 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
         isAdmin: profile.is_admin,
       }}
       contactUnread={contactUnread}
+      suiviUnread={suiviUnread}
     >
       {children}
     </AppShell>

@@ -20,21 +20,23 @@ export default function AppShell({
   children,
   profile,
   contactUnread = 0,
+  suiviUnread = 0,
 }: {
   children: React.ReactNode;
   profile: ShellProfile;
   contactUnread?: number;
+  suiviUnread?: number;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [unread, setUnread] = useState(contactUnread);
+  const [suivi, setSuivi] = useState(suiviUnread);
   const pathname = usePathname();
 
   // Resynchronise avec le serveur à chaque navigation / refresh
-  useEffect(() => {
-    setUnread(contactUnread);
-  }, [contactUnread]);
+  useEffect(() => setUnread(contactUnread), [contactUnread]);
+  useEffect(() => setSuivi(suiviUnread), [suiviUnread]);
 
-  // Temps réel : une réponse de coach arrive → pastille immédiate
+  // Temps réel : nouvelle réponse coach ou chargé de suivi → pastille immédiate
   useEffect(() => {
     const supabase = createClient();
     void ensureRealtimeAuth();
@@ -42,15 +44,18 @@ export default function AppShell({
       .channel(`unread-${profile.id}`)
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'support_messages',
-          filter: `student_id=eq.${profile.id}`,
-        },
+        { event: 'INSERT', schema: 'public', table: 'support_messages', filter: `student_id=eq.${profile.id}` },
         (payload) => {
           const m = payload.new as { from_admin: boolean };
           if (m.from_admin && pathname !== '/contact') setUnread((u) => u + 1);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'followup_messages', filter: `student_id=eq.${profile.id}` },
+        (payload) => {
+          const m = payload.new as { from_admin: boolean };
+          if (m.from_admin && pathname !== '/suivi') setSuivi((u) => u + 1);
         }
       )
       .subscribe();
@@ -66,6 +71,7 @@ export default function AppShell({
         onClose={() => setMenuOpen(false)}
         isAdmin={profile.isAdmin}
         contactUnread={unread}
+        suiviUnread={suivi}
       />
       <div className="lg:pl-[264px]">
         <Topbar onMenu={() => setMenuOpen(true)} profile={profile} contactUnread={unread} />

@@ -11,6 +11,7 @@ import {
   IconClipboard,
   IconTarget,
   IconTrend,
+  IconCalendar,
   IconUsers,
   IconSettings,
   IconHelp,
@@ -26,6 +27,7 @@ const mainMenu = [
   { href: '/objectif', label: 'Objectif', Icon: IconTarget },
   // { href: '/catalogue', label: 'Catalogue', Icon: IconCompass }, // masqué temporairement — à réactiver plus tard
   { href: '/devoirs', label: 'Devoirs', Icon: IconClipboard },
+  { href: '/suivi', label: 'Suivi hebdomadaire', Icon: IconCalendar },
   { href: '/temoignages', label: 'Résultats et témoignages', Icon: IconTrend },
   { href: '/communaute', label: 'Communauté', Icon: IconUsers },
 ];
@@ -40,11 +42,13 @@ export default function Sidebar({
   onClose,
   isAdmin = false,
   contactUnread = 0,
+  suiviUnread = 0,
 }: {
   open?: boolean;
   onClose?: () => void;
   isAdmin?: boolean;
   contactUnread?: number;
+  suiviUnread?: number;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -61,6 +65,7 @@ export default function Sidebar({
 
   const Item = ({ href, label, Icon }: { href: string; label: string; Icon: typeof IconBook }) => {
     const active = isActive(href);
+    const badge = href === '/suivi' ? suiviUnread : 0;
     return (
       <Link
         href={href}
@@ -74,7 +79,12 @@ export default function Sidebar({
         <span className={active ? 'text-ink' : 'text-muted group-hover:text-ink'}>
           <Icon width={19} height={19} />
         </span>
-        {label}
+        <span className="flex-1">{label}</span>
+        {badge > 0 && (
+          <span className="grid h-4 min-w-[16px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+            {badge > 9 ? '9+' : badge}
+          </span>
+        )}
       </Link>
     );
   };
