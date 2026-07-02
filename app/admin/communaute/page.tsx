@@ -10,6 +10,7 @@ const CHANNEL_LABEL: Record<string, string> = {
   annonces: 'Annonces',
   membres: 'Publications des membres',
   victoires: 'Vos victoires du jour',
+  temoignages: 'Résultats et témoignages',
 };
 
 function initials(name: string | null) {

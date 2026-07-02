@@ -10,6 +10,7 @@ import {
   IconLive,
   IconClipboard,
   IconTarget,
+  IconTrend,
   IconUsers,
   IconSettings,
   IconHelp,
@@ -25,6 +26,7 @@ const mainMenu = [
   { href: '/objectif', label: 'Objectif', Icon: IconTarget },
   // { href: '/catalogue', label: 'Catalogue', Icon: IconCompass }, // masqué temporairement — à réactiver plus tard
   { href: '/devoirs', label: 'Devoirs', Icon: IconClipboard },
+  { href: '/temoignages', label: 'Résultats et témoignages', Icon: IconTrend },
   { href: '/communaute', label: 'Communauté', Icon: IconUsers },
 ];
 
