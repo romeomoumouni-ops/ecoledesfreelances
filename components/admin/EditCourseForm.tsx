@@ -39,10 +39,11 @@ export default function EditCourseForm({ course }: { course: Course }) {
         .from('course-media')
         .upload(path, file, { upsert: true, cacheControl: '3600' });
       if (upErr) throw upErr;
-      const url = supabase.storage.from('course-media').getPublicUrl(path).data.publicUrl;
-      const { error } = await supabase.from('courses').update({ thumbnail_url: url }).eq('id', course.id);
+      const { error } = await supabase.from('courses').update({ thumbnail_url: path }).eq('id', course.id);
       if (error) throw error;
-      setThumb(url);
+      // Aperçu immédiat via une URL signée
+      const { data: signed } = await supabase.storage.from('course-media').createSignedUrl(path, 60 * 60 * 4);
+      setThumb(signed?.signedUrl ?? null);
       flash(true, 'Miniature mise à jour.');
       router.refresh();
     } catch {

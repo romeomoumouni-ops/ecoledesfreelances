@@ -54,7 +54,7 @@ export default function CreateCourseForm() {
           .from('course-media')
           .upload(path, thumbFile, { upsert: true, cacheControl: '3600' });
         if (upErr) throw upErr;
-        thumbnail_url = supabase.storage.from('course-media').getPublicUrl(path).data.publicUrl;
+        thumbnail_url = path; // chemin ; signé à l'affichage
       }
 
       const { error } = await supabase.from('courses').insert({

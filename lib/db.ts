@@ -1,5 +1,6 @@
 import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Course, LiveSession, LeaderRow } from '@/lib/data';
+import { signMedia } from '@/lib/media';
 
 // Client simple (lecture de contenu public via RLS), créé à la demande pour ne
 // jamais échouer à l'import (ex. build sans variables d'env).
@@ -42,23 +43,25 @@ export type CommunityPost = {
 
 export async function getCourses(): Promise<Course[]> {
   const { data } = await db().from('courses').select('*').order('sort');
-  return (data ?? []).map((c) => ({
-    id: c.id,
-    title: c.title,
-    category: c.category,
-    level: c.level,
-    lessons: Number(c.lessons),
-    hours: Number(c.hours),
-    rating: Number(c.rating),
-    students: Number(c.students),
-    price: 0,
-    instructor: c.instructor,
-    color: c.color ?? '#1d1d1f',
-    progress: c.progress === null ? undefined : Number(c.progress),
-    tag: c.tag ?? undefined,
-    description: c.description,
-    thumbnail_url: c.thumbnail_url ?? null,
-  }));
+  return Promise.all(
+    (data ?? []).map(async (c) => ({
+      id: c.id,
+      title: c.title,
+      category: c.category,
+      level: c.level,
+      lessons: Number(c.lessons),
+      hours: Number(c.hours),
+      rating: Number(c.rating),
+      students: Number(c.students),
+      price: 0,
+      instructor: c.instructor,
+      color: c.color ?? '#1d1d1f',
+      progress: c.progress === null ? undefined : Number(c.progress),
+      tag: c.tag ?? undefined,
+      description: c.description,
+      thumbnail_url: await signMedia(c.thumbnail_url),
+    }))
+  );
 }
 
 export async function getCourseById(id: string): Promise<Course | null> {

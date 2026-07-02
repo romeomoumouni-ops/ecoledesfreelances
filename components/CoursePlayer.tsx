@@ -1,22 +1,24 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import type { Chapter } from '@/lib/content';
+import type { QuizQuestion } from '@/lib/content';
 import Avatar from '@/components/Avatar';
 import { EmptyState } from '@/components/UI';
-import {
-  IconPlayFill,
-  IconCheck,
-  IconChevronRight,
-  IconBook,
-  IconCheckCircle,
-} from '@/components/Icons';
+import { IconPlayFill, IconCheck, IconChevronRight, IconBook, IconCheckCircle } from '@/components/Icons';
 
 const supabase = createClient();
 
 type Me = { id: string; name: string };
+type PlayerChapter = {
+  id: string;
+  title: string;
+  description: string | null;
+  videoUrl: string | null;
+  startAt: number;
+  quiz: QuizQuestion[];
+};
 
 export default function CoursePlayer({
   course,
@@ -24,14 +26,13 @@ export default function CoursePlayer({
   me,
 }: {
   course: { id: string; title: string };
-  chapters: Chapter[];
+  chapters: PlayerChapter[];
   me: Me;
 }) {
-  const allChapters = chapters;
-  const [currentId, setCurrentId] = useState<string | null>(allChapters[0]?.id ?? null);
-  const current = allChapters.find((c) => c.id === currentId) ?? null;
+  const [currentId, setCurrentId] = useState<string | null>(chapters[0]?.id ?? null);
+  const current = chapters.find((c) => c.id === currentId) ?? null;
 
-  if (allChapters.length === 0) {
+  if (chapters.length === 0) {
     return (
       <div className="mx-auto max-w-2xl">
         <Link href={`/catalogue/${course.id}`} className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-ink">
@@ -56,11 +57,17 @@ export default function CoursePlayer({
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         {/* Lecteur */}
         <div className="space-y-6">
-          {current ? (
+          {current && (
             <>
               <div className="card overflow-hidden">
-                {current.video_url ? (
-                  <video key={current.id} src={current.video_url} controls className="aspect-video w-full bg-ink" />
+                {current.videoUrl ? (
+                  <VideoPlayer
+                    key={current.id}
+                    chapterId={current.id}
+                    src={current.videoUrl}
+                    startAt={current.startAt}
+                    userId={me.id}
+                  />
                 ) : (
                   <div className="grid aspect-video place-items-center bg-ink text-white/60">
                     <span className="flex items-center gap-2 text-sm">
@@ -79,20 +86,18 @@ export default function CoursePlayer({
               {current.quiz.length > 0 && <Quiz chapter={current} />}
               <Comments chapterId={current.id} me={me} />
             </>
-          ) : (
-            <p className="text-sm text-muted">Sélectionnez un chapitre.</p>
           )}
         </div>
 
-        {/* Curriculum */}
+        {/* Sommaire des chapitres */}
         <aside>
           <div className="card overflow-hidden lg:sticky lg:top-[88px]">
             <div className="border-b border-line p-4">
               <p className="font-bold text-ink">Contenu du cours</p>
-              <p className="text-xs text-muted">{allChapters.length} chapitre(s)</p>
+              <p className="text-xs text-muted">{chapters.length} chapitre(s)</p>
             </div>
             <div className="max-h-[70vh] overflow-y-auto">
-              {allChapters.map((ch, i) => {
+              {chapters.map((ch, i) => {
                 const on = ch.id === currentId;
                 return (
                   <button
@@ -104,7 +109,7 @@ export default function CoursePlayer({
                       {i + 1}
                     </span>
                     <span className={`flex-1 text-sm ${on ? 'font-semibold text-ink' : 'text-ink'}`}>{ch.title}</span>
-                    {ch.video_url && <IconPlayFill width={12} height={12} className="text-muted" />}
+                    {ch.videoUrl && <IconPlayFill width={12} height={12} className="text-muted" />}
                   </button>
                 );
               })}
@@ -116,8 +121,75 @@ export default function CoursePlayer({
   );
 }
 
+/* ---------- Lecteur vidéo (reprise + sauvegarde + anti-téléchargement) ---------- */
+function VideoPlayer({
+  chapterId,
+  src,
+  startAt,
+  userId,
+}: {
+  chapterId: string;
+  src: string;
+  startAt: number;
+  userId: string;
+}) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const lastSave = useRef(0);
+
+  async function save(seconds: number) {
+    if (!Number.isFinite(seconds) || seconds < 0) return;
+    await supabase
+      .from('video_progress')
+      .upsert(
+        { user_id: userId, chapter_id: chapterId, seconds, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id,chapter_id' }
+      );
+  }
+
+  function onLoadedMetadata() {
+    const v = ref.current;
+    if (v && startAt > 3 && startAt < (v.duration || Infinity) - 2) {
+      v.currentTime = startAt;
+    }
+  }
+
+  function onTimeUpdate() {
+    const v = ref.current;
+    if (!v) return;
+    const now = Date.now();
+    if (now - lastSave.current > 5000) {
+      lastSave.current = now;
+      void save(v.currentTime);
+    }
+  }
+
+  // Sauvegarde en quittant le chapitre / la page
+  useEffect(() => {
+    const el = ref.current;
+    return () => {
+      if (el) void save(el.currentTime);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chapterId]);
+
+  return (
+    <video
+      ref={ref}
+      src={src}
+      controls
+      controlsList="nodownload noplaybackrate noremoteplayback"
+      disablePictureInPicture
+      onContextMenu={(e) => e.preventDefault()}
+      onLoadedMetadata={onLoadedMetadata}
+      onTimeUpdate={onTimeUpdate}
+      onPause={() => ref.current && void save(ref.current.currentTime)}
+      className="aspect-video w-full bg-ink"
+    />
+  );
+}
+
 /* ---------- Quiz interactif ---------- */
-function Quiz({ chapter }: { chapter: Chapter }) {
+function Quiz({ chapter }: { chapter: PlayerChapter }) {
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [checked, setChecked] = useState(false);
   const score = chapter.quiz.filter((q) => answers[q.id] === q.correct_index).length;
@@ -276,7 +348,7 @@ function Comments({ chapterId, me }: { chapterId: string; me: Me }) {
             </div>
           ))
         ) : (
-          <p className="text-sm text-muted">Aucun commentaire pour l'instant. Lancez la discussion !</p>
+          <p className="text-sm text-muted">Aucun commentaire pour l&apos;instant. Lancez la discussion !</p>
         )}
       </div>
     </div>

@@ -71,7 +71,8 @@ async function uploadVideoResumable(
     });
   });
 
-  return supabase.storage.from(BUCKET).getPublicUrl(objectName).data.publicUrl;
+  // On stocke le CHEMIN (bucket privé) ; l'URL est signée à la lecture.
+  return objectName;
 }
 
 export default function CourseBuilder({
