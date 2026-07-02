@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { ensureRealtimeAuth } from '@/lib/realtime';
 import Avatar from '@/components/Avatar';
 import { CONTACTS, contactByKey } from '@/lib/coaches';
 import { IconChat, IconChevronRight } from '@/components/Icons';
@@ -11,12 +13,14 @@ const supabase = createClient();
 type Me = { id: string; name: string };
 type Msg = {
   id: string;
+  recipient: string;
   student_id: string;
   body: string;
   from_admin: boolean;
   sender_name: string | null;
   created_at: string;
 };
+type Marks = Map<string, number>; // scope -> last_read_at (ms)
 
 function initialsOf(name: string | null) {
   return (name || 'M').split(/\s+/).map((n) => n[0]).join('').slice(0, 2).toUpperCase();
@@ -30,65 +34,126 @@ function timeAgo(iso: string) {
   return `il y a ${Math.floor(s / 86400)} j`;
 }
 
+const scopeOf = (coach: string, student: string) => `admincv:${coach}:${student}`;
+
 export default function AdminMessagesClient({ me }: { me: Me }) {
+  const router = useRouter();
   const [coach, setCoach] = useState(CONTACTS[0].key);
-  const [messages, setMessages] = useState<Msg[]>([]);
+  const [messages, setMessages] = useState<Msg[]>([]); // TOUS les messages (tous coachs)
+  const [marks, setMarks] = useState<Marks>(new Map());
   const [student, setStudent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function load(recipient: string) {
-    setLoading(true);
-    const { data } = await supabase
-      .from('support_messages')
-      .select('id, student_id, body, from_admin, sender_name, created_at')
-      .eq('recipient', recipient)
-      .order('created_at', { ascending: true });
-    setMessages(data ?? []);
+  async function loadAll() {
+    const [{ data: msgs }, { data: mk }] = await Promise.all([
+      supabase
+        .from('support_messages')
+        .select('id, recipient, student_id, body, from_admin, sender_name, created_at')
+        .order('created_at', { ascending: true }),
+      supabase.from('read_marks').select('scope, last_read_at').eq('user_id', me.id),
+    ]);
+    setMessages(msgs ?? []);
+    setMarks(new Map((mk ?? []).map((m) => [m.scope, new Date(m.last_read_at).getTime()])));
     setLoading(false);
   }
 
   useEffect(() => {
-    setStudent(null);
-    load(coach);
+    loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coach]);
+  }, []);
 
-  // Conversations groupées par élève
-  const conversations = new Map<string, { name: string; last: Msg; count: number }>();
-  for (const m of messages) {
+  // Temps réel : tout nouveau message (élève ou autre admin) apparaît sans recharger
+  useEffect(() => {
+    void ensureRealtimeAuth();
+    const channel = supabase
+      .channel('admin-messages')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'support_messages' },
+        (payload) => {
+          const m = payload.new as Msg;
+          setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  function isUnread(m: Msg): boolean {
+    if (m.from_admin) return false;
+    const seen = marks.get(scopeOf(m.recipient, m.student_id)) ?? 0;
+    return new Date(m.created_at).getTime() > seen;
+  }
+
+  async function markRead(coachKey: string, studentId: string) {
+    const scope = scopeOf(coachKey, studentId);
+    const now = Date.now();
+    setMarks((prev) => new Map(prev).set(scope, now));
+    await supabase.from('read_marks').upsert(
+      { user_id: me.id, scope, last_read_at: new Date(now).toISOString() },
+      { onConflict: 'user_id,scope' }
+    );
+    router.refresh(); // met à jour la pastille de la nav admin
+  }
+
+  // Marque lu quand un nouveau message élève arrive alors que le fil est ouvert
+  useEffect(() => {
+    if (!student) return;
+    const hasNew = messages.some((m) => m.recipient === coach && m.student_id === student && isUnread(m));
+    if (hasNew) void markRead(coach, student);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length, student]);
+
+  const coachMessages = messages.filter((m) => m.recipient === coach);
+  const unreadByCoach: Record<string, number> = {};
+  for (const m of messages) if (isUnread(m)) unreadByCoach[m.recipient] = (unreadByCoach[m.recipient] ?? 0) + 1;
+
+  // Conversations groupées par élève (pour le coach sélectionné)
+  const conversations = new Map<string, { name: string; last: Msg; unread: number }>();
+  for (const m of coachMessages) {
     const prev = conversations.get(m.student_id);
     const name = !m.from_admin && m.sender_name ? m.sender_name : prev?.name || 'Élève';
     conversations.set(m.student_id, {
       name,
       last: m,
-      count: (prev?.count ?? 0) + 1,
+      unread: (prev?.unread ?? 0) + (isUnread(m) ? 1 : 0),
     });
   }
   const convList = [...conversations.entries()].sort(
     (a, b) => new Date(b[1].last.created_at).getTime() - new Date(a[1].last.created_at).getTime()
   );
 
-  const thread = student ? messages.filter((m) => m.student_id === student) : [];
+  const thread = student ? coachMessages.filter((m) => m.student_id === student) : [];
   const studentName = student ? conversations.get(student)?.name ?? 'Élève' : '';
 
   return (
     <>
       <h1 className="mb-1 text-xl font-bold text-ink">Messagerie des coachs</h1>
       <p className="mb-4 text-sm text-muted">
-        Les messages envoyés par les élèves, par coach. Tout admin peut lire et répondre.
+        Les messages envoyés par les élèves, par coach. Tout admin peut lire et répondre. Mise à jour en temps réel.
       </p>
 
-      {/* Onglets coachs */}
+      {/* Onglets coachs (avec non-lus) */}
       <div className="scrollbar-hide mb-5 flex gap-2 overflow-x-auto pb-1">
         {CONTACTS.map((c) => (
           <button
             key={c.key}
-            onClick={() => setCoach(c.key)}
-            className={`chip shrink-0 px-4 py-2.5 text-sm transition ${
+            onClick={() => {
+              setCoach(c.key);
+              setStudent(null);
+            }}
+            className={`chip shrink-0 gap-2 px-4 py-2.5 text-sm transition ${
               coach === c.key ? 'bg-ink text-white' : 'border border-line bg-white text-muted hover:bg-black/[0.03] hover:text-ink'
             }`}
           >
             {c.name}
+            {unreadByCoach[c.key] ? (
+              <span className="grid h-4 min-w-[16px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                {unreadByCoach[c.key] > 9 ? '9+' : unreadByCoach[c.key]}
+              </span>
+            ) : null}
           </button>
         ))}
       </div>
@@ -103,24 +168,32 @@ export default function AdminMessagesClient({ me }: { me: Me }) {
           studentName={studentName}
           thread={thread}
           onBack={() => setStudent(null)}
-          onSent={(m) => setMessages((all) => [...all, m])}
+          onSent={(m) => setMessages((all) => (all.some((x) => x.id === m.id) ? all : [...all, m]))}
         />
       ) : convList.length ? (
         <div className="card divide-y divide-line overflow-hidden">
           {convList.map(([sid, c]) => (
             <button
               key={sid}
-              onClick={() => setStudent(sid)}
+              onClick={() => {
+                setStudent(sid);
+                void markRead(coach, sid);
+              }}
               className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-black/[0.02]"
             >
               <Avatar initials={initialsOf(c.name)} size={40} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold text-ink">{c.name}</span>
-                <span className="block truncate text-xs text-muted">
+                <span className={`block truncate text-xs ${c.unread ? 'font-semibold text-ink' : 'text-muted'}`}>
                   {c.last.from_admin ? 'Vous : ' : ''}
                   {c.last.body}
                 </span>
               </span>
+              {c.unread > 0 && (
+                <span className="grid h-5 min-w-[20px] shrink-0 place-items-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white">
+                  {c.unread > 9 ? '9+' : c.unread}
+                </span>
+              )}
               <span className="shrink-0 text-xs text-muted">{timeAgo(c.last.created_at)}</span>
               <IconChevronRight width={16} height={16} className="shrink-0 text-muted" />
             </button>
@@ -173,10 +246,10 @@ function AdminThread({
         from_admin: true,
         body: text,
       })
-      .select('id, student_id, body, from_admin, sender_name, created_at')
+      .select('id, recipient, student_id, body, from_admin, sender_name, created_at')
       .single();
     if (!error && data) {
-      onSent(data);
+      onSent(data as Msg);
       setBody('');
     }
     setBusy(false);

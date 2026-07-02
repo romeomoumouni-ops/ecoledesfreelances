@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { ensureRealtimeAuth } from '@/lib/realtime';
 import { PageHeader } from '@/components/UI';
 import Avatar from '@/components/Avatar';
 import { CONTACTS, contactByKey } from '@/lib/coaches';
@@ -12,14 +14,58 @@ const supabase = createClient();
 type Me = { id: string; name: string };
 type Msg = {
   id: string;
+  recipient: string;
   body: string;
   from_admin: boolean;
   sender_name: string | null;
   created_at: string;
 };
 
+async function markRead(userId: string, coachKey: string) {
+  await supabase.from('read_marks').upsert(
+    { user_id: userId, scope: `contact:${coachKey}`, last_read_at: new Date().toISOString() },
+    { onConflict: 'user_id,scope' }
+  );
+}
+
 export default function ContactClient({ me }: { me: Me }) {
+  const router = useRouter();
   const [selected, setSelected] = useState<string | null>(null);
+  const [unread, setUnread] = useState<Record<string, number>>({});
+
+  // Non-lus par coach (réponses admin plus récentes que mon marqueur de lecture)
+  async function loadUnread() {
+    const [{ data: msgs }, { data: marks }] = await Promise.all([
+      supabase
+        .from('support_messages')
+        .select('recipient, created_at')
+        .eq('student_id', me.id)
+        .eq('from_admin', true),
+      supabase.from('read_marks').select('scope, last_read_at').eq('user_id', me.id),
+    ]);
+    const readAt = new Map(
+      (marks ?? [])
+        .filter((m) => m.scope.startsWith('contact:'))
+        .map((m) => [m.scope.slice(8), new Date(m.last_read_at).getTime()])
+    );
+    const counts: Record<string, number> = {};
+    for (const m of msgs ?? []) {
+      if (new Date(m.created_at).getTime() > (readAt.get(m.recipient) ?? 0)) {
+        counts[m.recipient] = (counts[m.recipient] ?? 0) + 1;
+      }
+    }
+    setUnread(counts);
+  }
+
+  useEffect(() => {
+    loadUnread();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
+
+  function openThread(key: string) {
+    setSelected(key);
+    void markRead(me.id, key).then(() => router.refresh());
+  }
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -33,15 +79,21 @@ export default function ContactClient({ me }: { me: Me }) {
           {CONTACTS.map((c) => (
             <button
               key={c.key}
-              onClick={() => setSelected(c.key)}
-              className="card group flex items-center gap-4 p-5 text-left transition hover:border-[#e0e0de] hover:shadow-soft"
+              onClick={() => openThread(c.key)}
+              className="card group relative flex items-center gap-4 p-5 text-left transition hover:border-[#e0e0de] hover:shadow-soft"
             >
               <Avatar initials={c.name.replace('Coach ', '').slice(0, 2).toUpperCase()} size={48} />
               <span className="min-w-0 flex-1">
                 <span className="block font-semibold text-ink">{c.name}</span>
                 <span className="block text-xs text-muted">{c.role} · Envoyer un message</span>
               </span>
-              <IconChevronRight width={18} height={18} className="text-muted transition group-hover:translate-x-0.5" />
+              {unread[c.key] ? (
+                <span className="grid h-5 min-w-[20px] place-items-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white">
+                  {unread[c.key] > 9 ? '9+' : unread[c.key]}
+                </span>
+              ) : (
+                <IconChevronRight width={18} height={18} className="text-muted transition group-hover:translate-x-0.5" />
+              )}
             </button>
           ))}
         </div>
@@ -53,6 +105,7 @@ export default function ContactClient({ me }: { me: Me }) {
 }
 
 function Thread({ me, contactKey, onBack }: { me: Me; contactKey: string; onBack: () => void }) {
+  const router = useRouter();
   const contact = contactByKey(contactKey)!;
   const [messages, setMessages] = useState<Msg[]>([]);
   const [body, setBody] = useState('');
@@ -64,7 +117,7 @@ function Thread({ me, contactKey, onBack }: { me: Me; contactKey: string; onBack
     let active = true;
     supabase
       .from('support_messages')
-      .select('id, body, from_admin, sender_name, created_at')
+      .select('id, recipient, body, from_admin, sender_name, created_at')
       .eq('student_id', me.id)
       .eq('recipient', contactKey)
       .order('created_at', { ascending: true })
@@ -77,6 +130,35 @@ function Thread({ me, contactKey, onBack }: { me: Me; contactKey: string; onBack
     return () => {
       active = false;
     };
+  }, [contactKey, me.id]);
+
+  // Temps réel : la réponse du coach apparaît sans recharger
+  useEffect(() => {
+    void ensureRealtimeAuth();
+    const channel = supabase
+      .channel(`thread-${me.id}-${contactKey}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'support_messages',
+          filter: `student_id=eq.${me.id}`,
+        },
+        (payload) => {
+          const m = payload.new as Msg;
+          if (m.recipient !== contactKey) return;
+          setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+          if (m.from_admin) {
+            void markRead(me.id, contactKey).then(() => router.refresh());
+          }
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactKey, me.id]);
 
   useEffect(() => {
@@ -97,10 +179,10 @@ function Thread({ me, contactKey, onBack }: { me: Me; contactKey: string; onBack
         from_admin: false,
         body: text,
       })
-      .select('id, body, from_admin, sender_name, created_at')
+      .select('id, recipient, body, from_admin, sender_name, created_at')
       .single();
     if (!error && data) {
-      setMessages((m) => [...m, data]);
+      setMessages((m) => (m.some((x) => x.id === data.id) ? m : [...m, data]));
       setBody('');
     }
     setBusy(false);

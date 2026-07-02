@@ -37,10 +37,12 @@ export default function Sidebar({
   open = false,
   onClose,
   isAdmin = false,
+  contactUnread = 0,
 }: {
   open?: boolean;
   onClose?: () => void;
   isAdmin?: boolean;
+  contactUnread?: number;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -143,9 +145,14 @@ export default function Sidebar({
           <Link
             href="/contact"
             onClick={onClose}
-            className="mt-3 block w-full rounded-lg bg-ink py-2 text-center text-xs font-semibold text-white transition hover:bg-black"
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-ink py-2 text-center text-xs font-semibold text-white transition hover:bg-black"
           >
             Contacter les coachs
+            {contactUnread > 0 && (
+              <span className="grid h-4 min-w-[16px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                {contactUnread > 9 ? '9+' : contactUnread}
+              </span>
+            )}
           </Link>
         </div>
 

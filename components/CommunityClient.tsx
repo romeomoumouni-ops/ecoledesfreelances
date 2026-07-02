@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { ensureRealtimeAuth } from '@/lib/realtime';
 import { uploadResumable } from '@/lib/uploadResumable';
 import { PageHeader } from '@/components/UI';
 import Avatar from '@/components/Avatar';
@@ -85,6 +86,72 @@ export default function CommunityClient({ me }: { me: Me }) {
     loadFeed(channel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channel]);
+
+  // Temps réel : posts, likes et commentaires des autres apparaissent sans recharger
+  useEffect(() => {
+    void ensureRealtimeAuth();
+    const ch = supabase
+      .channel(`community-${channel}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'community_posts', filter: `channel=eq.${channel}` },
+        (payload) => {
+          const p = payload.new as Post;
+          setPosts((prev) =>
+            prev.some((x) => x.id === p.id)
+              ? prev
+              : [{ ...p, likeCount: 0, commentCount: 0, likedByMe: false }, ...prev]
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'community_posts' },
+        (payload) => {
+          const id = (payload.old as { id: string }).id;
+          setPosts((prev) => prev.filter((p) => p.id !== id));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'community_comments' },
+        (payload) => {
+          const c = payload.new as { post_id: string; user_id: string };
+          setPosts((prev) =>
+            prev.map((p) => (p.id === c.post_id ? { ...p, commentCount: p.commentCount + 1 } : p))
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'community_likes' },
+        (payload) => {
+          const l = payload.new as { post_id: string; user_id: string };
+          if (l.user_id === me.id) return; // déjà compté en optimiste
+          setPosts((prev) =>
+            prev.map((p) => (p.id === l.post_id ? { ...p, likeCount: p.likeCount + 1 } : p))
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'community_likes' },
+        (payload) => {
+          const l = payload.old as { post_id: string; user_id: string };
+          if (l.user_id === me.id) return;
+          setPosts((prev) =>
+            prev.map((p) =>
+              p.id === l.post_id ? { ...p, likeCount: Math.max(0, p.likeCount - 1) } : p
+            )
+          );
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channel, me.id]);
 
   async function deletePost(id: string) {
     if (!confirm('Supprimer cette publication ?')) return;
@@ -376,6 +443,33 @@ function PostComments({ postId, me }: { postId: string; me: Me }) {
       });
     return () => {
       active = false;
+    };
+  }, [postId]);
+
+  // Temps réel : commentaires des autres membres
+  useEffect(() => {
+    void ensureRealtimeAuth();
+    const ch = supabase
+      .channel(`comments-${postId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'community_comments', filter: `post_id=eq.${postId}` },
+        (payload) => {
+          const c = payload.new as PostComment;
+          setComments((prev) => (prev.some((x) => x.id === c.id) ? prev : [...prev, c]));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'community_comments' },
+        (payload) => {
+          const id = (payload.old as { id: string }).id;
+          setComments((prev) => prev.filter((c) => c.id !== id));
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
     };
   }, [postId]);
 

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Avatar from './Avatar';
 import type { ShellProfile } from './AppShell';
-import { IconMenu, IconChevronDown } from './Icons';
+import { IconMenu, IconChevronDown, IconChat } from './Icons';
 
 function initials(name: string, email: string) {
   const base = name || email || 'M';
@@ -18,9 +18,11 @@ function initials(name: string, email: string) {
 export default function Topbar({
   onMenu,
   profile,
+  contactUnread = 0,
 }: {
   onMenu?: () => void;
   profile: ShellProfile;
+  contactUnread?: number;
 }) {
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-line bg-surface/80 px-4 backdrop-blur-xl sm:px-8">
@@ -33,6 +35,22 @@ export default function Topbar({
       </button>
 
       <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
+        {/* Messages coachs (avec pastille non-lus, mise à jour en direct) */}
+        <Link
+          href="/contact"
+          className="relative grid h-9 w-9 place-items-center rounded-lg text-muted transition hover:bg-black/[0.05] hover:text-ink"
+          aria-label="Messages des coachs"
+        >
+          <IconChat width={19} height={19} />
+          {contactUnread > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-[16px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+              {contactUnread > 9 ? '9+' : contactUnread}
+            </span>
+          )}
+        </Link>
+
+        <div className="mx-1 hidden h-6 w-px bg-line sm:block" />
+
         <Link
           href="/parametres"
           className="flex items-center gap-2.5 rounded-lg py-1 pl-1 pr-1.5 transition hover:bg-black/[0.04]"

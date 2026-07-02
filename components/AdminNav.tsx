@@ -14,7 +14,7 @@ const items = [
   { href: '/admin/utilisateurs', label: 'Utilisateurs', Icon: IconUsers },
 ];
 
-export default function AdminNav() {
+export default function AdminNav({ messagesUnread = 0 }: { messagesUnread?: number }) {
   const pathname = usePathname();
   const active = (href: string, exact?: boolean) =>
     exact ? pathname === href : pathname === href || pathname.startsWith(href + '/');
@@ -24,16 +24,22 @@ export default function AdminNav() {
       <nav className="scrollbar-hide flex gap-1 overflow-x-auto">
         {items.map((it) => {
           const on = active(it.href, it.exact);
+          const badge = it.href === '/admin/messages' && messagesUnread > 0;
           return (
             <Link
               key={it.href}
               href={it.href}
-              className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${
+              className={`relative flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${
                 on ? 'bg-ink text-white' : 'text-muted hover:bg-black/[0.05] hover:text-ink'
               }`}
             >
               <it.Icon width={17} height={17} />
               {it.label}
+              {badge && (
+                <span className="grid h-4 min-w-[16px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                  {messagesUnread > 9 ? '9+' : messagesUnread}
+                </span>
+              )}
             </Link>
           );
         })}
