@@ -44,6 +44,14 @@ export default function CoursePlayer({
   const [currentId, setCurrentId] = useState<string | null>(ordered[0]?.id ?? chapters[0]?.id ?? null);
   const current = chapters.find((c) => c.id === currentId) ?? null;
 
+  const idx = ordered.findIndex((c) => c.id === currentId);
+  const prevChapter = idx > 0 ? ordered[idx - 1] : null;
+  const nextChapter = idx >= 0 && idx < ordered.length - 1 ? ordered[idx + 1] : null;
+  function goTo(id: string) {
+    setCurrentId(id);
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   if (chapters.length === 0) {
     return (
       <div className="mx-auto max-w-2xl">
@@ -61,9 +69,33 @@ export default function CoursePlayer({
 
   return (
     <div>
-      <Link href="/mes-formations" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-ink">
-        <IconChevronRight width={16} height={16} className="rotate-180" /> Mes cours
-      </Link>
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <Link href="/mes-formations" className="inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-ink">
+          <IconChevronRight width={16} height={16} className="rotate-180" /> Mes cours
+        </Link>
+        <div className="flex items-center gap-2">
+          {prevChapter && (
+            <button
+              onClick={() => goTo(prevChapter.id)}
+              className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-3 py-1.5 text-sm font-semibold text-muted transition hover:bg-black/[0.03] hover:text-ink"
+              title={`Précédent : ${prevChapter.title}`}
+            >
+              <IconChevronRight width={15} height={15} className="rotate-180" />
+              <span className="hidden sm:inline">Précédent</span>
+            </button>
+          )}
+          {nextChapter && (
+            <button
+              onClick={() => goTo(nextChapter.id)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3.5 py-1.5 text-sm font-semibold text-white transition hover:bg-black"
+              title={`Suivant : ${nextChapter.title}`}
+            >
+              Suivant
+              <IconChevronRight width={15} height={15} />
+            </button>
+          )}
+        </div>
+      </div>
       <h1 className="mb-4 text-xl font-bold text-ink">{course.title}</h1>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -93,6 +125,12 @@ export default function CoursePlayer({
                     <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-muted">
                       <RichText text={current.description} />
                     </p>
+                  )}
+                  {nextChapter && (
+                    <button onClick={() => goTo(nextChapter.id)} className="btn-primary mt-4 w-full">
+                      Chapitre suivant : {nextChapter.title}
+                      <IconChevronRight width={17} height={17} />
+                    </button>
                   )}
                 </div>
               </div>
