@@ -126,12 +126,6 @@ export default function CoursePlayer({
                       <RichText text={current.description} />
                     </p>
                   )}
-                  {nextChapter && (
-                    <button onClick={() => goTo(nextChapter.id)} className="btn-primary mt-4 w-full">
-                      Chapitre suivant : {nextChapter.title}
-                      <IconChevronRight width={17} height={17} />
-                    </button>
-                  )}
                 </div>
               </div>
 
