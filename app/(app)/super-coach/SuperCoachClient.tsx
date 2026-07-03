@@ -11,7 +11,7 @@ import { IconSparkle, IconArrowRight } from '@/components/Icons';
 type Msg = { role: 'user' | 'assistant'; content: string };
 
 // Recharge de questions IA : 1 500 FCFA = +15 questions (crédit automatique)
-const RECHARGE_LINK = 'https://bajiuulm.mychariow.shop/prd_2x0anel9/checkout';
+const RECHARGE_LINK = 'https://romeomoumouni.mychariow.shop/prd_v19rl2tn/checkout';
 
 const SUGGESTIONS = [
   'Comment trouver mes premiers clients ?',

@@ -20,7 +20,7 @@ const CHARIOW_API = 'https://api.chariow.com/v1';
 // Produits d'accès à la plateforme (1x / 3x / 6x)
 const ACCESS_PRODUCTS = new Set(['prd_97u01b', 'prd_ocqbu9', 'prd_mq2c4np5']);
 // Recharge de questions du Super Coach (1500 FCFA = +15 questions)
-const COACH_QUESTIONS_PRODUCT = 'prd_2x0anel9';
+const COACH_QUESTIONS_PRODUCT = 'prd_v19rl2tn';
 const PRODUCTS = new Set([...ACCESS_PRODUCTS, COACH_QUESTIONS_PRODUCT]);
 
 function apiKeys(): string[] {
