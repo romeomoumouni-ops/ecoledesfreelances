@@ -201,7 +201,7 @@ export default function SuperCoachClient({
           </button>
         </div>
         <p className="mt-1.5 text-center text-[11px] text-muted">
-          Le Super Coach est une IA : vérifie les infos importantes. 30 messages / jour.
+          Le Super Coach est une IA : pour une réponse personnalisée, passe par le suivi hebdomadaire.
         </p>
       </div>
     </div>

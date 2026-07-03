@@ -5,10 +5,94 @@ import { createClient } from '@/lib/supabase/server';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-// Messages élève max par jour (protège le coût de l'API)
-const DAILY_LIMIT = 30;
-// Tours d'historique renvoyés au modèle
+/**
+ * Super Coach Roméo — moteur hybride.
+ *
+ * MODE GRATUIT (par défaut, aucun coût, scalable à l'infini) :
+ * répond depuis les données fournies par les admins — FAQ (réponses exactes)
+ * puis extraits du « cerveau » (coach_knowledge, recherche plein texte
+ * française dans Postgres). Question trop complexe -> redirection vers le
+ * suivi hebdomadaire / les coachs.
+ *
+ * MODE IA COMPLET (optionnel) : si ANTHROPIC_API_KEY est configurée sur
+ * Vercel, bascule automatiquement sur Claude (réponses génératives).
+ */
+
 const HISTORY_TURNS = 12;
+
+function hasClaudeKey(): boolean {
+  const k = process.env.ANTHROPIC_API_KEY;
+  return !!k && !k.startsWith('a-remplir');
+}
+
+/* ------------------------- Mode gratuit (local) ------------------------- */
+
+const FALLBACK =
+  "Bonne question — mais elle mérite une **réponse personnalisée d'un humain** ! 👇\n\n" +
+  "• Écris à ton chargé de suivi dans l'onglet **Suivi hebdomadaire** (réponse sous 3 à 5 jours)\n" +
+  '• Ou passe par **Contacter les coachs** dans le menu\n\n' +
+  'Tu peux aussi reformuler avec des mots-clés plus précis (ex. « prospection », « Comeup », « portfolio ») : je fouille dans les méthodes de Roméo.';
+
+function normalize(s: string) {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .trim();
+}
+
+function smalltalk(message: string, firstName: string): string | null {
+  const m = normalize(message);
+  if (/^(bonjour|bonsoir|salut|slt|hello|hi|coucou|cc|yo|bjr)\b/.test(m) && m.length < 30) {
+    return `Salut ${firstName} 👋 Content de te voir ! Pose-moi ta question sur le freelancing ou le programme : prospection, Comeup, cours à suivre, objectif… je réponds tout de suite.`;
+  }
+  if (/^(merci|thanks|top|super|parfait|ok merci|d accord|daccord)\b/.test(m) && m.length < 30) {
+    return `Avec plaisir 💪 Fonce, et reviens quand tu veux. **L'action bat la perfection** — c'est comme ça qu'on réussit dans le programme.`;
+  }
+  if (/^(ok|ca va|ça va|oui|non|d accord)\s*[!?.]*$/.test(m)) {
+    return `Parfait ! Si tu as une question sur les cours, la prospection ou ton objectif, je suis là.`;
+  }
+  return null;
+}
+
+async function localAnswer(
+  supabase: ReturnType<typeof createClient>,
+  message: string,
+  firstName: string
+): Promise<string> {
+  const small = smalltalk(message, firstName);
+  if (small) return small;
+
+  const [{ data: faq }, { data: knowledge }] = await Promise.all([
+    supabase.rpc('search_coach_faq', { p_query: message }),
+    supabase.rpc('search_coach_knowledge', { p_query: message }),
+  ]);
+
+  // 1) Réponse exacte de la FAQ si la correspondance est bonne
+  const f = faq as { question: string; answer: string; rank: number } | null;
+  if (f && f.rank >= 0.05) return f.answer;
+
+  // 2) Extraits du cerveau de Roméo
+  const ks = (knowledge ?? []) as { title: string; content: string }[];
+  if (Array.isArray(ks) && ks.length) {
+    const parts = ks.slice(0, 2).map((k) => {
+      const text = k.content.length > 1200 ? k.content.slice(0, 1200).trimEnd() + '…' : k.content;
+      return `**${k.title}**\n${text}`;
+    });
+    return (
+      `Voici ce que Roméo enseigne là-dessus 👇\n\n${parts.join('\n\n')}\n\n` +
+      `Si tu veux aller plus loin, regarde les cours dans **Mes cours à suivre** ou pose une question plus précise.`
+    );
+  }
+
+  // 3) FAQ faible mais existante ? On la propose quand même.
+  if (f) return `${f.answer}\n\n_Si ce n'était pas ta question : ${FALLBACK}_`;
+
+  // 4) Trop complexe / hors base -> humain
+  return FALLBACK;
+}
+
+/* ----------------------- Mode IA complet (Claude) ----------------------- */
 
 const PERSONA = `Tu es « Super Coach Roméo », l'assistant IA officiel de L'École des Freelances,
 entraîné sur les connaissances de Roméo Moumouni, fondateur de l'école.
@@ -23,14 +107,9 @@ exemples pratiques, zéro blabla. Tu pousses à l'action. Tu peux utiliser le gr
 
 Règles :
 - Réponds en français.
-- Appuie-toi d'abord sur les CONNAISSANCES fournies ci-dessous quand elles sont pertinentes ;
-  sinon, réponds avec les meilleures pratiques du freelancing en Afrique francophone.
-- Si on te demande un avis médical, juridique, ou un sujet hors freelancing/programme,
-  redirige poliment vers le cadre du programme.
-- Pour les questions personnelles (paiement, accès, suivi individuel), oriente vers
-  l'onglet « Suivi hebdomadaire » ou « Contacter les coachs ».
-- Rappelle si utile : le suivi hebdomadaire répond sous 3 à 5 jours ; toi tu réponds
-  immédiatement, mais tu es une IA — pour un humain, il y a les coachs.
+- Appuie-toi d'abord sur les CONNAISSANCES fournies quand elles sont pertinentes.
+- Questions personnelles (paiement, accès, suivi individuel) -> onglet « Suivi
+  hebdomadaire » ou « Contacter les coachs ».
 - Sois honnête quand tu ne sais pas. N'invente jamais de chiffres sur l'école.`;
 
 async function platformContext(supabase: ReturnType<typeof createClient>): Promise<string> {
@@ -48,30 +127,24 @@ async function platformContext(supabase: ReturnType<typeof createClient>): Promi
     if (chs.length) lines.push(`  Chapitres : ${chs.slice(0, 30).join(' · ')}`);
   }
   lines.push(
-    "\nFONCTIONNEMENT DE LA PLATEFORME : onglets « Mes cours à suivre » (vidéos, quiz, commentaires), " +
-      '« Live » (coachings de groupe), « Objectif » (100 points de tâches à accomplir honnêtement), ' +
-      '« Suivi hebdomadaire » (messagerie privée avec un chargé de suivi, réponse sous 3 à 5 jours si le message est pertinent), ' +
-      '« Résultats et témoignages » (publier ses chiffres), « Communauté » (Annonces, Publications des membres, Vos victoires du jour), ' +
-      '« Contacter les coachs » (Coach Christian, Coach Tobby, Coach Mohamed, Mariane).'
+    "\nFONCTIONNEMENT DE LA PLATEFORME : « Mes cours à suivre » (vidéos, quiz, commentaires), " +
+      '« Live » (coachings de groupe), « Objectif » (100 points de tâches), ' +
+      '« Suivi hebdomadaire » (messagerie privée, réponse sous 3 à 5 jours), ' +
+      '« Résultats et témoignages », « Communauté », « Contacter les coachs » ' +
+      '(Coach Christian, Coach Tobby, Coach Mohamed, Mariane).'
   );
   return lines.join('\n');
 }
 
-export async function POST(req: NextRequest) {
-  if (!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY.startsWith('a-remplir')) {
-    return NextResponse.json(
-      { error: "Le Super Coach n'est pas encore activé (clé API manquante)." },
-      { status: 503 }
-    );
-  }
+/* --------------------------------- Route -------------------------------- */
 
+export async function POST(req: NextRequest) {
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Non connecté.' }, { status: 401 });
 
-  // Garde-fou paiement : mêmes règles que le reste de l'app
   const { data: access } = await supabase.rpc('get_my_access');
   if ((access as { active?: boolean } | null)?.active !== true) {
     return NextResponse.json({ error: 'Accès inactif.' }, { status: 403 });
@@ -86,7 +159,9 @@ export async function POST(req: NextRequest) {
   const message = (body.message ?? '').trim().slice(0, 2000);
   if (!message) return NextResponse.json({ error: 'Message vide.' }, { status: 400 });
 
-  // Limite quotidienne
+  const claude = hasClaudeKey();
+  const dailyLimit = claude ? 30 : 100; // mode gratuit : limite anti-spam seulement
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const { count } = await supabase
@@ -95,14 +170,28 @@ export async function POST(req: NextRequest) {
     .eq('user_id', user.id)
     .eq('role', 'user')
     .gte('created_at', today.toISOString());
-  if ((count ?? 0) >= DAILY_LIMIT) {
+  if ((count ?? 0) >= dailyLimit) {
     return NextResponse.json(
-      { error: `Tu as atteint la limite de ${DAILY_LIMIT} messages par jour. Reviens demain, ou écris à ton chargé de suivi.` },
+      { error: `Tu as atteint la limite de ${dailyLimit} messages par jour. Reviens demain, ou écris à ton chargé de suivi.` },
       { status: 429 }
     );
   }
 
-  // Historique récent + connaissances pertinentes + catalogue
+  const { data: prof } = await supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
+  const firstName = (prof?.full_name || 'champion').split(' ')[0];
+
+  await supabase.from('super_coach_messages').insert({ user_id: user.id, role: 'user', content: message });
+
+  /* ---- Mode gratuit ---- */
+  if (!claude) {
+    const answer = await localAnswer(supabase, message, firstName);
+    await supabase.from('super_coach_messages').insert({ user_id: user.id, role: 'assistant', content: answer });
+    return new Response(answer, {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+    });
+  }
+
+  /* ---- Mode IA complet (Claude) ---- */
   const [{ data: history }, { data: knowledge }, catalog] = await Promise.all([
     supabase
       .from('super_coach_messages')
@@ -115,14 +204,11 @@ export async function POST(req: NextRequest) {
   ]);
 
   const knowledgeText = Array.isArray(knowledge) && knowledge.length
-    ? 'CONNAISSANCES DE ROMÉO (extraits pertinents pour cette question) :\n\n' +
+    ? 'CONNAISSANCES DE ROMÉO (extraits pertinents) :\n\n' +
       (knowledge as { title: string; content: string }[])
         .map((k) => `— ${k.title} —\n${k.content}`)
         .join('\n\n')
     : '';
-
-  // Enregistre le message élève AVANT l'appel (compte pour la limite)
-  await supabase.from('super_coach_messages').insert({ user_id: user.id, role: 'user', content: message });
 
   const past = (history ?? []).reverse();
   const messages: Anthropic.MessageParam[] = [
