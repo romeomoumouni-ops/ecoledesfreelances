@@ -204,7 +204,7 @@ export async function POST(req: NextRequest) {
   }
   const { data: faqHit } = await supabase.rpc('search_coach_faq', { p_query: message });
   const fh = faqHit as { answer: string; rank: number } | null;
-  if (fh && fh.rank >= 0.09) {
+  if (fh && fh.rank >= 0.05) {
     await supabase.from('super_coach_messages').insert({ user_id: user.id, role: 'assistant', content: fh.answer });
     return new Response(fh.answer, {
       headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
