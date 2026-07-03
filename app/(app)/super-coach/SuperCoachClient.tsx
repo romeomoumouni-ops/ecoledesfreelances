@@ -127,7 +127,9 @@ export default function SuperCoachClient({
               <IconSparkle width={12} height={12} /> IA
             </span>
           </p>
-          <p className="text-xs text-muted">Réponses immédiates, 24h/24 — plus rapide que les coachs.</p>
+          <p className="text-xs text-muted">
+            Réponses immédiates, 24h/24 — plus rapide que les coachs (tu as droit à 15 questions gratuites).
+          </p>
         </div>
       </div>
 
