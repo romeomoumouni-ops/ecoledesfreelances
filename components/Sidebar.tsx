@@ -15,6 +15,7 @@ import {
   IconSettings,
   IconHelp,
   IconShield,
+  IconSparkle,
   IconX,
   IconLogout,
 } from './Icons';
@@ -26,6 +27,7 @@ const mainMenu = [
   { href: '/objectif', label: 'Objectif', Icon: IconTarget },
   // { href: '/catalogue', label: 'Catalogue', Icon: IconCompass }, // masqué temporairement — à réactiver plus tard
   { href: '/suivi', label: 'Suivi hebdomadaire', Icon: IconCalendar },
+  { href: '/super-coach', label: 'Super Coach Roméo', Icon: IconSparkle },
   { href: '/temoignages', label: 'Résultats et témoignages', Icon: IconTrend },
   { href: '/communaute', label: 'Communauté', Icon: IconUsers },
 ];
