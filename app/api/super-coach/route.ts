@@ -20,6 +20,13 @@ export const maxDuration = 60;
 
 const HISTORY_TURNS = 8;
 
+// Tarifs par million de tokens (USD) pour le calcul du coût réel
+const PRICES: Record<string, { input: number; output: number }> = {
+  'claude-haiku-4-5': { input: 1, output: 5 },
+  'claude-sonnet-4-6': { input: 3, output: 15 },
+  'claude-opus-4-8': { input: 5, output: 25 },
+};
+
 function hasClaudeKey(): boolean {
   const k = process.env.ANTHROPIC_API_KEY;
   return !!k && !k.startsWith('a-remplir');
@@ -250,13 +257,18 @@ export async function POST(req: NextRequest) {
 
   const anthropic = new Anthropic();
   const encoder = new TextEncoder();
+  const model = process.env.SUPER_COACH_MODEL || 'claude-opus-4-8';
   let full = '';
+  let aiOk = true;
+  let inputTokens: number | null = null;
+  let outputTokens: number | null = null;
+  let costUsd: number | null = null;
 
   const stream = new ReadableStream({
     async start(controller) {
       try {
         const claudeStream = anthropic.messages.stream({
-          model: process.env.SUPER_COACH_MODEL || 'claude-opus-4-8',
+          model,
           max_tokens: 1500,
           system: [
             { type: 'text', text: PERSONA, cache_control: { type: 'ephemeral' } },
@@ -271,6 +283,15 @@ export async function POST(req: NextRequest) {
           }
         }
         const final = await claudeStream.finalMessage();
+        // Consommation réelle -> coût exact (visible dans Admin > Super Coach > Statistiques)
+        const u = final.usage;
+        inputTokens =
+          (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
+        outputTokens = u.output_tokens ?? 0;
+        const price = PRICES[model] ?? PRICES['claude-opus-4-8'];
+        const effectiveInput =
+          (u.input_tokens ?? 0) + 1.25 * (u.cache_creation_input_tokens ?? 0) + 0.1 * (u.cache_read_input_tokens ?? 0);
+        costUsd = (effectiveInput * price.input + outputTokens * price.output) / 1_000_000;
         if (final.stop_reason === 'refusal' && !full) {
           const msg = 'Je ne peux pas répondre à cette question. Pose-moi une question sur le freelancing ou le programme !';
           full = msg;
@@ -283,6 +304,7 @@ export async function POST(req: NextRequest) {
           controller.enqueue(encoder.encode(msg));
         } else {
           // Crédit API épuisé ou panne : repli gratuit + question remboursée
+          aiOk = false;
           await supabase.rpc('refund_coach_question');
           const fb = await localAnswer(supabase, message, firstName);
           full = fb;
@@ -290,9 +312,15 @@ export async function POST(req: NextRequest) {
         }
       } finally {
         if (full.trim()) {
-          await supabase
-            .from('super_coach_messages')
-            .insert({ user_id: user.id, role: 'assistant', content: full.trim() });
+          await supabase.from('super_coach_messages').insert({
+            user_id: user.id,
+            role: 'assistant',
+            content: full.trim(),
+            ai: aiOk,
+            input_tokens: inputTokens,
+            output_tokens: outputTokens,
+            cost_usd: costUsd,
+          });
         }
         controller.close();
       }

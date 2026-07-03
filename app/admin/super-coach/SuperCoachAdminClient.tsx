@@ -9,13 +9,26 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { IconPlus, IconX, IconSparkle } from '@/components/Icons';
-import type { Knowledge, Faq } from './page';
+import type { Knowledge, Faq, CoachStats } from './page';
 
 const supabase = createClient();
 
-export default function SuperCoachAdminClient({ items, faq }: { items: Knowledge[]; faq: Faq[] }) {
+// Taux indicatif pour l'affichage en FCFA
+const USD_FCFA = 600;
+
+export default function SuperCoachAdminClient({
+  items,
+  faq,
+  stats,
+  creditUsd,
+}: {
+  items: Knowledge[];
+  faq: Faq[];
+  stats: CoachStats | null;
+  creditUsd: number;
+}) {
   const router = useRouter();
-  const [tab, setTab] = useState<'faq' | 'contenus'>('faq');
+  const [tab, setTab] = useState<'faq' | 'contenus' | 'stats'>('faq');
   const [err, setErr] = useState<string | null>(null);
 
   return (
@@ -47,15 +60,125 @@ export default function SuperCoachAdminClient({ items, faq }: { items: Knowledge
         >
           Contenus ({items.length})
         </button>
+        <button
+          onClick={() => setTab('stats')}
+          className={`chip px-4 py-2.5 text-sm transition ${
+            tab === 'stats' ? 'bg-ink text-white' : 'border border-line bg-white text-muted hover:text-ink'
+          }`}
+        >
+          Statistiques
+        </button>
       </div>
 
       {err && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
 
       {tab === 'faq' ? (
         <FaqTab faq={faq} onError={setErr} onChange={() => router.refresh()} />
-      ) : (
+      ) : tab === 'contenus' ? (
         <ContenusTab items={items} onError={setErr} onChange={() => router.refresh()} />
+      ) : (
+        <StatsTab stats={stats} creditUsd={creditUsd} />
       )}
+    </>
+  );
+}
+
+/* ---------- Onglet Statistiques ---------- */
+function usd(n: number) {
+  return `${n.toFixed(2)} $`;
+}
+function fcfa(n: number) {
+  return `${Math.round(n).toLocaleString('fr-FR')} FCFA`;
+}
+
+function StatsTab({ stats, creditUsd }: { stats: CoachStats | null; creditUsd: number }) {
+  if (!stats) {
+    return <div className="card p-8 text-center text-sm text-muted">Statistiques indisponibles pour l&apos;instant.</div>;
+  }
+  const remaining = Math.max(0, creditUsd - stats.cost_total_usd);
+  const pctUsed = creditUsd > 0 ? Math.min(100, (stats.cost_total_usd / creditUsd) * 100) : 0;
+  const netFcfa = stats.recharges_fcfa - stats.cost_total_usd * USD_FCFA;
+
+  const Metric = ({ label, value, sub }: { label: string; value: string; sub?: string }) => (
+    <div className="card p-4">
+      <p className="text-xs font-medium text-muted">{label}</p>
+      <p className="mt-1 text-xl font-bold tracking-tight text-ink">{value}</p>
+      {sub && <p className="mt-0.5 text-xs text-muted">{sub}</p>}
+    </div>
+  );
+
+  return (
+    <>
+      {/* Crédit restant */}
+      <div className="card mb-4 p-5">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted">Crédit Anthropic restant (estimation)</p>
+            <p className="mt-1 text-3xl font-bold tracking-tight text-ink">
+              {usd(remaining)} <span className="text-base font-semibold text-muted">/ {usd(creditUsd)}</span>
+            </p>
+            <p className="text-xs text-muted">≈ {fcfa(remaining * USD_FCFA)} restants</p>
+          </div>
+          <p className="text-sm font-semibold text-ink">{pctUsed.toFixed(1)} % utilisé</p>
+        </div>
+        <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-black/[0.07]">
+          <div className="h-full rounded-full bg-ink transition-all" style={{ width: `${pctUsed}%` }} />
+        </div>
+        <p className="mt-2 text-[11px] text-muted">
+          Basé sur la consommation réelle enregistrée. Si tu recharges ton crédit sur console.anthropic.com,
+          mets à jour la variable SUPER_COACH_CREDIT_USD sur Vercel.
+        </p>
+      </div>
+
+      {/* Compteurs */}
+      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Metric
+          label="Élèves ayant écrit"
+          value={stats.users_total.toLocaleString('fr-FR')}
+          sub={`${stats.users_today} aujourd'hui · ${stats.users_month} ce mois-ci`}
+        />
+        <Metric
+          label="Questions IA"
+          value={stats.ai_total.toLocaleString('fr-FR')}
+          sub={`${stats.ai_today} aujourd'hui · ${stats.ai_month} ce mois-ci`}
+        />
+        <Metric
+          label="Coût total"
+          value={usd(stats.cost_total_usd)}
+          sub={`≈ ${fcfa(stats.cost_total_usd * USD_FCFA)} · ${usd(stats.cost_month_usd)} ce mois-ci`}
+        />
+        <Metric
+          label="Recharges encaissées"
+          value={fcfa(stats.recharges_fcfa)}
+          sub={`Net (recharges − coût) : ${fcfa(netFcfa)}`}
+        />
+      </div>
+
+      {/* 14 derniers jours */}
+      <div className="card overflow-hidden">
+        <p className="border-b border-line p-4 text-sm font-bold text-ink">Questions IA — 14 derniers jours</p>
+        {stats.daily.length ? (
+          <div className="divide-y divide-line">
+            {stats.daily.map((d) => (
+              <div key={d.jour} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                <span className="w-24 shrink-0 text-muted">
+                  {new Date(d.jour).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
+                </span>
+                <span className="w-24 shrink-0 font-semibold text-ink">{d.questions} question(s)</span>
+                <span className="w-20 shrink-0 text-xs text-muted">{usd(d.cout_usd)}</span>
+                <span className="h-2 rounded-full bg-ink/80" style={{ width: `${Math.min(100, d.questions * 4)}px` }} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="p-6 text-center text-sm text-muted">Aucune question IA pour l&apos;instant.</p>
+        )}
+      </div>
+
+      <p className="mt-3 text-xs text-muted">
+        Total messages élèves (salutations et FAQ comprises) : {stats.msgs_total.toLocaleString('fr-FR')}.
+        Les salutations et réponses FAQ sont gratuites et n&apos;apparaissent pas dans le coût.
+      </p>
     </>
   );
 }
