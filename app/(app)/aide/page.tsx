@@ -18,8 +18,8 @@ const faqs = [
     a: "Votre accès couvre l'intégralité du programme. De nouvelles leçons s'ajoutent en continu : vous progressez à votre rythme, sans rien racheter.",
   },
   {
-    q: 'Comment rendre un devoir ?',
-    a: "Dans l'onglet « Devoirs », réalisez l'exercice demandé puis cliquez sur « Marquer comme rendu ». Vous pouvez annuler un rendu en cas d'erreur.",
+    q: 'À quoi sert le suivi hebdomadaire ?',
+    a: "L'onglet « Suivi hebdomadaire » est votre fil direct avec l'équipe : écrivez-y où vous en êtes dans le programme, une question importante ou une préoccupation. Un chargé de suivi vous répond directement si votre message est pertinent et cohérent — comptez un délai de réponse de 3 à 5 jours maximum.",
   },
   {
     q: 'Comment participer aux sessions live ?',
@@ -27,7 +27,7 @@ const faqs = [
   },
   {
     q: 'Comment contacter un coach ?',
-    a: 'Utilisez le bouton « Contacter les coachs » ci-dessous : choisissez Coach Christian, Coach Tobi, Coach Mohamed ou Marianne, et envoyez votre message. La réponse arrive au même endroit.',
+    a: 'Utilisez le bouton « Contacter les coachs » ci-dessous : choisissez Coach Christian, Coach Tobby, Coach Mohamed ou Mariane, et envoyez votre message. La réponse arrive au même endroit.',
   },
 ];
 
