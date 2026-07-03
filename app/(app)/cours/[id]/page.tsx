@@ -2,16 +2,17 @@ export const dynamic = 'force-dynamic';
 
 import { notFound, redirect } from 'next/navigation';
 import { getCourseById } from '@/lib/db';
-import { getCourseChapters } from '@/lib/content';
+import { getCourseChapters, getCourseModules } from '@/lib/content';
 import { getCurrentProfile } from '@/lib/user';
 import { signMedia } from '@/lib/media';
 import { createClient } from '@/lib/supabase/server';
 import CoursePlayer from '@/components/CoursePlayer';
 
 export default async function CoursePlayerPage({ params }: { params: { id: string } }) {
-  const [course, chapters, profile] = await Promise.all([
+  const [course, chapters, modules, profile] = await Promise.all([
     getCourseById(params.id),
     getCourseChapters(params.id),
+    getCourseModules(params.id),
     getCurrentProfile(),
   ]);
   if (!course) notFound();
@@ -30,6 +31,7 @@ export default async function CoursePlayerPage({ params }: { params: { id: strin
       id: ch.id,
       title: ch.title,
       description: ch.description,
+      moduleId: ch.module_id,
       quiz: ch.quiz,
       videoUrl: await signMedia(ch.video_url),
       startAt: posMap.get(ch.id) ?? 0,
@@ -40,6 +42,7 @@ export default async function CoursePlayerPage({ params }: { params: { id: strin
     <CoursePlayer
       course={{ id: course.id, title: course.title }}
       chapters={playerChapters}
+      modules={modules.map((m) => ({ id: m.id, title: m.title }))}
       me={{ id: profile.id, name: profile.full_name, isAdmin: profile.is_admin }}
     />
   );

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getCourseById } from '@/lib/db';
-import { getCourseChapters } from '@/lib/content';
+import { getCourseChapters, getCourseModules } from '@/lib/content';
 import CourseBuilder from '@/components/admin/CourseBuilder';
 import EditCourseForm from '@/components/admin/EditCourseForm';
 import { IconChevronRight } from '@/components/Icons';
@@ -9,9 +9,10 @@ import { IconChevronRight } from '@/components/Icons';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminCourseBuilderPage({ params }: { params: { id: string } }) {
-  const [course, chapters] = await Promise.all([
+  const [course, chapters, modules] = await Promise.all([
     getCourseById(params.id),
     getCourseChapters(params.id),
+    getCourseModules(params.id),
   ]);
   if (!course) notFound();
 
@@ -24,7 +25,7 @@ export default async function AdminCourseBuilderPage({ params }: { params: { id:
       <EditCourseForm course={course} />
 
       <div className="mt-6">
-        <CourseBuilder course={{ id: course.id, title: course.title }} chapters={chapters} />
+        <CourseBuilder course={{ id: course.id, title: course.title }} chapters={chapters} modules={modules} />
       </div>
     </div>
   );

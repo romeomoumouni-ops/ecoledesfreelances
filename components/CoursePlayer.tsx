@@ -12,11 +12,13 @@ import { IconPlayFill, IconCheck, IconChevronRight, IconBook, IconCheckCircle, I
 const supabase = createClient();
 
 type Me = { id: string; name: string; isAdmin?: boolean };
+type PlayerModule = { id: string; title: string };
 type PlayerChapter = {
   id: string;
   title: string;
   description: string | null;
   videoUrl: string | null;
+  moduleId: string | null;
   startAt: number;
   quiz: QuizQuestion[];
 };
@@ -24,13 +26,22 @@ type PlayerChapter = {
 export default function CoursePlayer({
   course,
   chapters,
+  modules = [],
   me,
 }: {
   course: { id: string; title: string };
   chapters: PlayerChapter[];
+  modules?: PlayerModule[];
   me: Me;
 }) {
-  const [currentId, setCurrentId] = useState<string | null>(chapters[0]?.id ?? null);
+  // Regroupe les chapitres par module (dans l'ordre des modules), puis les non classés.
+  const grouped = modules.map((m) => ({ module: m, items: chapters.filter((c) => c.moduleId === m.id) }));
+  const ungrouped = chapters.filter((c) => !c.moduleId || !modules.some((m) => m.id === c.moduleId));
+  const ordered = [...grouped.flatMap((g) => g.items), ...ungrouped];
+  const numberById = new Map(ordered.map((c, i) => [c.id, i + 1]));
+  const useModules = modules.length > 0;
+
+  const [currentId, setCurrentId] = useState<string | null>(ordered[0]?.id ?? chapters[0]?.id ?? null);
   const current = chapters.find((c) => c.id === currentId) ?? null;
 
   if (chapters.length === 0) {
@@ -97,30 +108,77 @@ export default function CoursePlayer({
           <div className="card overflow-hidden lg:sticky lg:top-[88px]">
             <div className="border-b border-line p-4">
               <p className="font-bold text-ink">Contenu du cours</p>
-              <p className="text-xs text-muted">{chapters.length} chapitre(s)</p>
+              <p className="text-xs text-muted">
+                {useModules ? `${modules.length} module(s) · ` : ''}{chapters.length} chapitre(s)
+              </p>
             </div>
             <div className="max-h-[70vh] overflow-y-auto">
-              {chapters.map((ch, i) => {
-                const on = ch.id === currentId;
-                return (
-                  <button
-                    key={ch.id}
-                    onClick={() => setCurrentId(ch.id)}
-                    className={`flex w-full items-center gap-3 border-t border-line px-4 py-3 text-left transition first:border-t-0 ${on ? 'bg-black/[0.04]' : 'hover:bg-black/[0.02]'}`}
-                  >
-                    <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold ${on ? 'bg-ink text-white' : 'bg-black/[0.05] text-muted'}`}>
-                      {i + 1}
-                    </span>
-                    <span className={`flex-1 text-sm ${on ? 'font-semibold text-ink' : 'text-ink'}`}>{ch.title}</span>
-                    {ch.videoUrl && <IconPlayFill width={12} height={12} className="text-muted" />}
-                  </button>
-                );
-              })}
+              {useModules ? (
+                <>
+                  {grouped.map((g, gi) => (
+                    <div key={g.module.id}>
+                      <div className="sticky top-0 z-[1] border-t border-line bg-[#f2f2f0] px-4 py-2 first:border-t-0">
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-muted">
+                          Module {gi + 1}
+                        </p>
+                        <p className="text-sm font-bold text-ink">{g.module.title}</p>
+                      </div>
+                      {g.items.length ? (
+                        g.items.map((ch) => (
+                          <ChapterRow key={ch.id} ch={ch} n={numberById.get(ch.id)!} on={ch.id === currentId} onClick={() => setCurrentId(ch.id)} />
+                        ))
+                      ) : (
+                        <p className="px-4 py-2 text-xs text-muted">À venir…</p>
+                      )}
+                    </div>
+                  ))}
+                  {ungrouped.length > 0 && (
+                    <div>
+                      <div className="sticky top-0 z-[1] border-t border-line bg-[#f2f2f0] px-4 py-2">
+                        <p className="text-sm font-bold text-ink">Autres chapitres</p>
+                      </div>
+                      {ungrouped.map((ch) => (
+                        <ChapterRow key={ch.id} ch={ch} n={numberById.get(ch.id)!} on={ch.id === currentId} onClick={() => setCurrentId(ch.id)} />
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                chapters.map((ch, i) => (
+                  <ChapterRow key={ch.id} ch={ch} n={i + 1} on={ch.id === currentId} onClick={() => setCurrentId(ch.id)} />
+                ))
+              )}
             </div>
           </div>
         </aside>
       </div>
     </div>
+  );
+}
+
+/* ---------- Ligne de chapitre (sommaire) ---------- */
+function ChapterRow({
+  ch,
+  n,
+  on,
+  onClick,
+}: {
+  ch: PlayerChapter;
+  n: number;
+  on: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex w-full items-center gap-3 border-t border-line px-4 py-3 text-left transition first:border-t-0 ${on ? 'bg-black/[0.04]' : 'hover:bg-black/[0.02]'}`}
+    >
+      <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold ${on ? 'bg-ink text-white' : 'bg-black/[0.05] text-muted'}`}>
+        {n}
+      </span>
+      <span className={`flex-1 text-sm ${on ? 'font-semibold text-ink' : 'text-ink'}`}>{ch.title}</span>
+      {ch.videoUrl && <IconPlayFill width={12} height={12} className="text-muted" />}
+    </button>
   );
 }
 

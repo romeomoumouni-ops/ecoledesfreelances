@@ -28,8 +28,26 @@ export type Chapter = {
   title: string;
   description: string | null;
   video_url: string | null;
+  module_id: string | null;
+  position: number;
   quiz: QuizQuestion[];
 };
+
+export type Module = {
+  id: string;
+  title: string;
+  position: number;
+};
+
+/** Modules d'un cours (ordonnés). */
+export async function getCourseModules(courseId: string): Promise<Module[]> {
+  const { data } = await sb()
+    .from('modules')
+    .select('id, title, position')
+    .eq('course_id', courseId)
+    .order('position');
+  return (data ?? []).map((m) => ({ id: m.id, title: m.title, position: m.position }));
+}
 
 /** Chapitres d'un cours (ordonnés), chacun avec son quiz (sans les réponses). */
 export async function getCourseChapters(courseId: string): Promise<Chapter[]> {
@@ -54,6 +72,8 @@ export async function getCourseChapters(courseId: string): Promise<Chapter[]> {
     title: ch.title,
     description: ch.description,
     video_url: ch.video_url,
+    module_id: ch.module_id ?? null,
+    position: ch.position ?? 0,
     quiz: quizByChapter.get(ch.id) ?? [],
   }));
 }
