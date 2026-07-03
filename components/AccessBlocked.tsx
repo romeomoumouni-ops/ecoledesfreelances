@@ -72,7 +72,7 @@ export default function AccessBlocked({ email, state }: { email: string; state: 
           <div className="mt-6 space-y-2.5">
             {expired && plan ? (
               <a href={PAY_LINKS[plan]} target="_blank" rel="noopener noreferrer" className="btn-primary w-full">
-                Régler mon échéance ({plan === '3x' ? 'paiement en 3 fois' : 'paiement en 6 fois'})
+                Régler mon échéance
                 <IconArrowRight width={17} height={17} />
               </a>
             ) : (
@@ -96,20 +96,24 @@ export default function AccessBlocked({ email, state }: { email: string; state: 
             simplement cette page.
           </p>
 
-          <button
-            onClick={() => router.refresh()}
-            className="btn-outline mt-4 w-full"
-          >
-            J&apos;ai payé — vérifier mon accès
-          </button>
+          {!expired && (
+            <button
+              onClick={() => router.refresh()}
+              className="btn-outline mt-4 w-full"
+            >
+              J&apos;ai payé — vérifier mon accès
+            </button>
+          )}
         </div>
 
-        <button
-          onClick={logout}
-          className="mx-auto mt-4 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted transition hover:text-ink"
-        >
-          <IconLogout width={16} height={16} /> Se déconnecter
-        </button>
+        {!expired && (
+          <button
+            onClick={logout}
+            className="mx-auto mt-4 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted transition hover:text-ink"
+          >
+            <IconLogout width={16} height={16} /> Se déconnecter
+          </button>
+        )}
       </div>
     </div>
   );
