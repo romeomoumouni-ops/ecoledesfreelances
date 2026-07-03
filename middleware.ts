@@ -66,6 +66,29 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Garde-fou paiement : sans accès actif (achat, autorisation manuelle ou
+  // admin), on redirige vers /acces AVANT tout rendu de page — aucune donnée
+  // (URLs vidéo signées…) n'est donc calculée ni exposée pour un compte bloqué.
+  if (user && !isAuthPage && path !== '/acces') {
+    const { data: access } = await supabase.rpc('get_my_access');
+    const active = (access as { active?: boolean } | null)?.active === true;
+    if (!active) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/acces';
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // Compte redevenu actif : /acces renvoie vers l'application
+  if (user && path === '/acces') {
+    const { data: access } = await supabase.rpc('get_my_access');
+    if ((access as { active?: boolean } | null)?.active === true) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/tableau-de-bord';
+      return NextResponse.redirect(url);
+    }
+  }
+
   return response;
 }
 
