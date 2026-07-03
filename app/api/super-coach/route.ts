@@ -18,7 +18,7 @@ export const maxDuration = 60;
  * Vercel, bascule automatiquement sur Claude (réponses génératives).
  */
 
-const HISTORY_TURNS = 12;
+const HISTORY_TURNS = 8;
 
 function hasClaudeKey(): boolean {
   const k = process.env.ANTHROPIC_API_KEY;
@@ -192,6 +192,25 @@ export async function POST(req: NextRequest) {
   }
 
   /* ---- Mode IA complet (Claude) ---- */
+
+  // Économie : salutations et questions déjà couvertes par la FAQ sont
+  // répondues gratuitement, sans appel API.
+  const small = smalltalk(message, firstName);
+  if (small) {
+    await supabase.from('super_coach_messages').insert({ user_id: user.id, role: 'assistant', content: small });
+    return new Response(small, {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+    });
+  }
+  const { data: faqHit } = await supabase.rpc('search_coach_faq', { p_query: message });
+  const fh = faqHit as { answer: string; rank: number } | null;
+  if (fh && fh.rank >= 0.09) {
+    await supabase.from('super_coach_messages').insert({ user_id: user.id, role: 'assistant', content: fh.answer });
+    return new Response(fh.answer, {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+    });
+  }
+
   const [{ data: history }, { data: knowledge }, catalog] = await Promise.all([
     supabase
       .from('super_coach_messages')
@@ -245,11 +264,16 @@ export async function POST(req: NextRequest) {
           controller.enqueue(encoder.encode(msg));
         }
       } catch {
-        const msg = full
-          ? '\n\n[Connexion interrompue — repose ta question.]'
-          : 'Le Super Coach est momentanément indisponible. Réessaie dans quelques instants.';
-        full += msg;
-        controller.enqueue(encoder.encode(msg));
+        if (full) {
+          const msg = '\n\n[Connexion interrompue — repose ta question.]';
+          full += msg;
+          controller.enqueue(encoder.encode(msg));
+        } else {
+          // Crédit API épuisé ou panne : on rebascule sur le moteur gratuit
+          const fb = await localAnswer(supabase, message, firstName);
+          full = fb;
+          controller.enqueue(encoder.encode(fb));
+        }
       } finally {
         if (full.trim()) {
           await supabase
