@@ -25,6 +25,14 @@ export const IconGrip = (p: IconProps) => (
   </svg>
 );
 
+export const IconCard = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="3" y="5.5" width="18" height="13" rx="2.5" />
+    <path d="M3 10h18" />
+    <path d="M7 14.5h4" />
+  </svg>
+);
+
 export const IconLink = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07l-1.41 1.41" />

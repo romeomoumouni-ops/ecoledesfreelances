@@ -10,6 +10,7 @@ import {
   IconChat,
   IconMail,
   IconCalendar,
+  IconCard,
   IconArrowRight,
 } from './Icons';
 
@@ -19,6 +20,7 @@ const items = [
   { href: '/admin/live', label: 'Live', Icon: IconLive },
   { href: '/admin/messages', label: 'Messages', Icon: IconMail },
   { href: '/admin/suivi', label: 'Suivi', Icon: IconCalendar },
+  { href: '/admin/paiements', label: 'Paiements', Icon: IconCard },
   { href: '/admin/communaute', label: 'Communauté', Icon: IconChat },
   { href: '/admin/utilisateurs', label: 'Utilisateurs', Icon: IconUsers },
 ];
