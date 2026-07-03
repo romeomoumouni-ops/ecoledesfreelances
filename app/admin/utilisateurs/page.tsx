@@ -19,6 +19,13 @@ export type AccesDonne = {
   access_until: string | null;
 };
 
+export type AccesManuel = {
+  email: string;
+  source: string | null;
+  created_at: string;
+};
+// (types importés par UtilisateursClient)
+
 export default async function AdminUsersPage() {
   const supabase = createClient();
   const {
@@ -43,11 +50,18 @@ export default async function AdminUsersPage() {
     if (!data || data.length < PAGE) break;
   }
 
+  // Accès donnés manuellement (hors paiement Chariow)
+  const { data: manuels } = await supabase
+    .from('allowed_emails')
+    .select('email, source, created_at')
+    .order('created_at', { ascending: false });
+
   return (
     <UtilisateursClient
       meId={user?.id ?? ''}
       membres={(profiles ?? []) as Membre[]}
       acces={acces}
+      manuels={(manuels ?? []) as AccesManuel[]}
     />
   );
 }

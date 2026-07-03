@@ -11,8 +11,8 @@ import { createClient } from '@/lib/supabase/client';
 import { setUserAdmin } from '@/lib/admin-actions';
 import Avatar from '@/components/Avatar';
 import { Badge } from '@/components/UI';
-import { IconPen, IconX, IconCheck } from '@/components/Icons';
-import type { Membre, AccesDonne } from './page';
+import { IconPen, IconX, IconCheck, IconPlus } from '@/components/Icons';
+import type { Membre, AccesDonne, AccesManuel } from './page';
 
 const supabase = createClient();
 
@@ -42,13 +42,15 @@ export default function UtilisateursClient({
   meId,
   membres,
   acces,
+  manuels,
 }: {
   meId: string;
   membres: Membre[];
   acces: AccesDonne[];
+  manuels: AccesManuel[];
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<'membres' | 'acces'>('membres');
+  const [tab, setTab] = useState<'membres' | 'acces' | 'manuels'>('membres');
   const [query, setQuery] = useState('');
   const [err, setErr] = useState<string | null>(null);
 
@@ -72,6 +74,10 @@ export default function UtilisateursClient({
     [membres, q]
   );
   const accesFiltres = useMemo(() => acces.filter((a) => !q || a.email.includes(q)), [acces, q]);
+  const manuelsFiltres = useMemo(
+    () => manuels.filter((m) => !q || m.email.toLowerCase().includes(q)),
+    [manuels, q]
+  );
 
   return (
     <>
@@ -98,6 +104,14 @@ export default function UtilisateursClient({
         >
           Accès donnés ({acces.length.toLocaleString('fr-FR')})
         </button>
+        <button
+          onClick={() => setTab('manuels')}
+          className={`chip px-4 py-2.5 text-sm transition ${
+            tab === 'manuels' ? 'bg-ink text-white' : 'border border-line bg-white text-muted hover:text-ink'
+          }`}
+        >
+          Donner un accès manuellement ({manuels.length.toLocaleString('fr-FR')})
+        </button>
       </div>
 
       {err && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
@@ -111,8 +125,15 @@ export default function UtilisateursClient({
 
       {tab === 'membres' ? (
         <MembresList meId={meId} list={membresFiltres} />
-      ) : (
+      ) : tab === 'acces' ? (
         <AccesList list={accesFiltres} onError={fail} onChange={() => router.refresh()} />
+      ) : (
+        <ManuelsList
+          list={manuelsFiltres}
+          dejaAcheteurs={acces}
+          onError={fail}
+          onChange={() => router.refresh()}
+        />
       )}
     </>
   );
@@ -149,6 +170,102 @@ function MembresList({ meId, list }: { meId: string; list: Membre[] }) {
         );
       })}
     </div>
+  );
+}
+
+/* ---------- Onglet Donner un accès manuellement ---------- */
+function ManuelsList({
+  list,
+  dejaAcheteurs,
+  onError,
+  onChange,
+}: {
+  list: AccesManuel[];
+  dejaAcheteurs: AccesDonne[];
+  onError: (e: unknown) => void;
+  onChange: () => void;
+}) {
+  const [email, setEmail] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [info, setInfo] = useState<string | null>(null);
+
+  async function give() {
+    const v = email.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return onError(new Error('Adresse e-mail invalide.'));
+    if (list.some((m) => m.email.toLowerCase() === v)) return onError(new Error('Cet e-mail a déjà un accès manuel.'));
+    setBusy(true);
+    const { error } = await supabase.from('allowed_emails').insert({ email: v, source: 'manual', product: 'manuel' });
+    setBusy(false);
+    if (error) return onError(new Error(error.message));
+    setInfo(
+      dejaAcheteurs.some((a) => a.email === v)
+        ? `Accès manuel donné à ${v} (note : cette personne a déjà un accès par paiement).`
+        : `Accès donné à ${v}. La personne peut maintenant créer son compte avec cet e-mail.`
+    );
+    setTimeout(() => setInfo(null), 8000);
+    setEmail('');
+    onChange();
+  }
+
+  async function revoke(v: string) {
+    if (!confirm(`Retirer l'accès manuel de ${v} ?`)) return;
+    const { error } = await supabase.from('allowed_emails').delete().eq('email', v);
+    if (error) return onError(new Error(error.message));
+    onChange();
+  }
+
+  return (
+    <>
+      {/* Donner un accès */}
+      <div className="card mb-4 p-4">
+        <p className="font-semibold text-ink">Donner un accès</p>
+        <p className="mb-3 mt-0.5 text-xs text-muted">
+          La personne pourra créer son compte et accéder à la plateforme avec cet e-mail, sans paiement.
+          L&apos;accès reste valable tant qu&apos;il n&apos;est pas retiré.
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && give()}
+            className="input sm:max-w-sm"
+            placeholder="email@exemple.com"
+          />
+          <button onClick={give} disabled={busy || !email.trim()} className="btn-primary disabled:opacity-60">
+            <IconPlus width={17} height={17} /> {busy ? 'Ajout…' : "Donner l'accès"}
+          </button>
+        </div>
+        {info && <p className="mt-3 rounded-lg bg-black/[0.04] px-3 py-2 text-sm text-ink">{info}</p>}
+      </div>
+
+      {/* Liste des accès manuels */}
+      {list.length ? (
+        <div className="card divide-y divide-line overflow-hidden">
+          {list.map((m) => (
+            <div key={m.email} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 p-4">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-ink">{m.email}</p>
+                <p className="text-xs text-muted">
+                  {m.source === 'grandfather' ? 'Compte historique' : 'Accès manuel'} · donné le {dateFr(m.created_at)}
+                </p>
+              </div>
+              <span className="chip border border-line bg-white text-ink">Accès actif</span>
+              <button
+                onClick={() => revoke(m.email)}
+                className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-red-50 hover:text-red-600"
+                aria-label="Retirer l'accès"
+                title="Retirer l'accès"
+              >
+                <IconX width={16} height={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="card p-10 text-center text-sm text-muted">Aucun accès manuel ne correspond.</div>
+      )}
+    </>
   );
 }
 
