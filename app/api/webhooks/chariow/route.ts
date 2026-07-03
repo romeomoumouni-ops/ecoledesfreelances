@@ -26,7 +26,7 @@ function apiKeys(): string[] {
   );
 }
 
-type VerifiedSale = { email: string; productId: string; status: string };
+type VerifiedSale = { email: string; productId: string; status: string; amount: number | null };
 
 /** Vérifie la vente auprès de Chariow (essaie chaque clé API configurée : une par boutique). */
 async function verifySale(saleId: string): Promise<VerifiedSale | null> {
@@ -43,7 +43,9 @@ async function verifySale(saleId: string): Promise<VerifiedSale | null> {
       const email = sale?.customer?.email;
       const productId = sale?.product?.id;
       const status = sale?.status;
-      if (email && productId) return { email, productId, status };
+      const rawAmount = sale?.amount?.value;
+      const amount = typeof rawAmount === 'number' && rawAmount > 0 ? rawAmount : null;
+      if (email && productId) return { email, productId, status, amount };
     } catch {
       // réseau : on tentera la clé suivante ; si tout échoue -> 500 plus bas (Chariow réessaie)
     }
@@ -106,6 +108,7 @@ export async function POST(req: NextRequest) {
     p_email: verified.email,
     p_product: verified.productId,
     p_sale_id: saleId,
+    p_amount: verified.amount,
   });
 
   if (error) {

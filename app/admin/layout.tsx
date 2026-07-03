@@ -58,7 +58,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </Link>
             <span className="chip bg-black/[0.05] text-muted">Administration</span>
           </div>
-          <AdminNav messagesUnread={messagesUnread} suiviUnread={suiviUnread} />
+          <AdminNav messagesUnread={messagesUnread} suiviUnread={suiviUnread} superAdmin={!!profile.is_super_admin} />
         </div>
       </header>
       <main className="mx-auto max-w-content px-4 py-6 sm:px-8 sm:py-8">{children}</main>

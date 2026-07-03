@@ -4,7 +4,7 @@
 // échéances réglées et statut d'accès. Recherche par e-mail, compteurs en tête.
 
 import { useMemo, useState } from 'react';
-import type { ClientAcces } from './page';
+import type { ClientAcces, Revenue } from './page';
 import { IconUsers, IconCheckCircle, IconCard, IconX } from '@/components/Icons';
 
 const PLAN_LABEL: Record<string, string> = {
@@ -12,6 +12,10 @@ const PLAN_LABEL: Record<string, string> = {
   '3x': 'Paiement en 3 fois',
   '6x': 'Paiement en 6 fois',
 };
+
+function fcfa(n: number) {
+  return `${Math.round(n).toLocaleString('fr-FR')} FCFA`;
+}
 
 type Statut = 'a_vie' | 'actif' | 'expire';
 
@@ -32,7 +36,13 @@ function StatutChip({ c }: { c: ClientAcces }) {
   return <span className="chip bg-red-50 text-red-600">Expiré</span>;
 }
 
-export default function PaiementsClient({ clients }: { clients: ClientAcces[] }) {
+export default function PaiementsClient({
+  clients,
+  revenue,
+}: {
+  clients: ClientAcces[];
+  revenue: Revenue | null;
+}) {
   const [query, setQuery] = useState('');
   const [filtre, setFiltre] = useState<'tous' | Statut>('tous');
 
@@ -65,10 +75,35 @@ export default function PaiementsClient({ clients }: { clients: ClientAcces[] })
 
   return (
     <>
-      <h1 className="mb-1 text-xl font-bold text-ink">Paiements</h1>
+      <h1 className="mb-1 text-xl font-bold text-ink">Accès super admin</h1>
       <p className="mb-4 text-sm text-muted">
-        Clients ayant payé via Chariow. L&apos;accès s&apos;ouvre et se coupe automatiquement selon les échéances.
+        Espace réservé au fondateur : chiffre d&apos;affaires et clients Chariow. Les montants
+        s&apos;ajoutent automatiquement à chaque paiement sur les 3 liens.
       </p>
+
+      {/* Chiffre d'affaires */}
+      {revenue && (
+        <div className="card mb-4 overflow-hidden">
+          <div className="border-b border-line bg-ink p-5 text-white">
+            <p className="text-xs font-semibold uppercase tracking-wider text-white/60">
+              Chiffre d&apos;affaires total généré
+            </p>
+            <p className="mt-1 text-3xl font-bold tracking-tight">{fcfa(revenue.total)}</p>
+            <p className="mt-1 text-xs text-white/60">{revenue.ventes.toLocaleString('fr-FR')} paiement(s) encaissé(s)</p>
+          </div>
+          <div className="grid grid-cols-1 divide-y divide-line sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+            {(['1x', '3x', '6x'] as const).map((p) => (
+              <div key={p} className="p-4">
+                <p className="text-xs font-medium text-muted">{PLAN_LABEL[p]}</p>
+                <p className="mt-0.5 text-lg font-bold tracking-tight text-ink">
+                  {fcfa(revenue.plans?.[p]?.montant ?? 0)}
+                </p>
+                <p className="text-xs text-muted">{(revenue.plans?.[p]?.ventes ?? 0).toLocaleString('fr-FR')} paiement(s)</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Compteurs (cliquables = filtres) */}
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">

@@ -14,11 +14,22 @@ export type ClientAcces = {
   updated_at: string;
 };
 
+export type Revenue = {
+  total: number;
+  ventes: number;
+  plans: Record<string, { ventes: number; montant: number }>;
+};
+
 export default async function AdminPaiementsPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect('/connexion');
+  // Réservé au super admin (le middleware redirige déjà ; double garde ici)
+  if (!profile.is_super_admin) redirect('/admin');
 
   const supabase = createClient();
+
+  // Chiffre d'affaires (RPC réservée au super admin, côté base également)
+  const { data: revenue } = await supabase.rpc('super_admin_revenue');
 
   // Supabase limite chaque requête à 1000 lignes : on pagine pour tout ramener.
   const PAGE = 1000;
@@ -33,5 +44,5 @@ export default async function AdminPaiementsPage() {
     if (!data || data.length < PAGE) break;
   }
 
-  return <PaiementsClient clients={grants} />;
+  return <PaiementsClient clients={grants} revenue={(revenue as Revenue) ?? null} />;
 }

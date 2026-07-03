@@ -56,12 +56,18 @@ export async function middleware(request: NextRequest) {
   if (user && path.startsWith('/admin')) {
     const { data: prof } = await supabase
       .from('profiles')
-      .select('is_admin')
+      .select('is_admin, is_super_admin')
       .eq('id', user.id)
       .maybeSingle();
     if (!prof?.is_admin) {
       const url = request.nextUrl.clone();
       url.pathname = '/tableau-de-bord';
+      return NextResponse.redirect(url);
+    }
+    // L'espace « Accès super admin » (CA, paiements) est réservé au super admin
+    if (path.startsWith('/admin/paiements') && !prof?.is_super_admin) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/admin';
       return NextResponse.redirect(url);
     }
   }

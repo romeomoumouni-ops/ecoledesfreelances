@@ -7,6 +7,7 @@ export type Profile = {
   handle: string;
   avatar_url: string | null;
   is_admin: boolean;
+  is_super_admin: boolean;
   points: number;
   streak: number;
   courses_completed: number;
@@ -34,6 +35,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
     handle: p?.handle ?? '@' + name.toLowerCase().replace(/\s+/g, ''),
     avatar_url: p?.avatar_url ?? null,
     is_admin: p?.is_admin ?? false,
+    is_super_admin: p?.is_super_admin ?? false,
     points: p?.points ?? 0,
     streak: p?.streak ?? 0,
     courses_completed: p?.courses_completed ?? 0,

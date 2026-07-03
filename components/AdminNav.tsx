@@ -20,17 +20,25 @@ const items = [
   { href: '/admin/live', label: 'Live', Icon: IconLive },
   { href: '/admin/messages', label: 'Messages', Icon: IconMail },
   { href: '/admin/suivi', label: 'Suivi', Icon: IconCalendar },
-  { href: '/admin/paiements', label: 'Paiements', Icon: IconCard },
   { href: '/admin/communaute', label: 'Communauté', Icon: IconChat },
   { href: '/admin/utilisateurs', label: 'Utilisateurs', Icon: IconUsers },
 ];
 
+// Visible uniquement pour le super admin (compte fondateur)
+const superAdminItem: (typeof items)[number] = {
+  href: '/admin/paiements',
+  label: 'Accès super admin',
+  Icon: IconCard,
+};
+
 export default function AdminNav({
   messagesUnread = 0,
   suiviUnread = 0,
+  superAdmin = false,
 }: {
   messagesUnread?: number;
   suiviUnread?: number;
+  superAdmin?: boolean;
 }) {
   const pathname = usePathname();
   const active = (href: string, exact?: boolean) =>
@@ -41,7 +49,7 @@ export default function AdminNav({
   return (
     <div className="flex items-center gap-2 overflow-x-auto">
       <nav className="scrollbar-hide flex gap-1 overflow-x-auto">
-        {items.map((it) => {
+        {[...items, ...(superAdmin ? [superAdminItem] : [])].map((it) => {
           const on = active(it.href, it.exact);
           const badge = badgeFor(it.href);
           return (
