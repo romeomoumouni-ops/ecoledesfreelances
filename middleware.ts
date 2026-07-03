@@ -4,6 +4,12 @@ import { createServerClient } from '@supabase/ssr';
 const AUTH_PATHS = ['/connexion', '/inscription'];
 
 export async function middleware(request: NextRequest) {
+  // Les routes API (webhooks…) gèrent leur propre authentification (token) :
+  // on ne les redirige jamais vers la page de connexion.
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    return NextResponse.next();
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
