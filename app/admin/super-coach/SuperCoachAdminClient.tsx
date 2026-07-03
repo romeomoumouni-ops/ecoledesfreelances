@@ -5,11 +5,12 @@
 // - Contenus : transcripts/méthodes où l'IA pioche des extraits pertinents
 // Recherche plein texte française côté Postgres — aucun appel payant.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { IconPlus, IconX, IconSparkle } from '@/components/Icons';
-import type { Knowledge, Faq, CoachStats } from './page';
+import { ensureRealtimeAuth } from '@/lib/realtime';
+import { IconPlus, IconX, IconSparkle, IconCard } from '@/components/Icons';
+import type { Knowledge, Faq, CoachStats, CoachRevenue } from './page';
 
 const supabase = createClient();
 
@@ -21,14 +22,18 @@ export default function SuperCoachAdminClient({
   faq,
   stats,
   creditUsd,
+  revenue,
+  isSuperAdmin,
 }: {
   items: Knowledge[];
   faq: Faq[];
   stats: CoachStats | null;
   creditUsd: number;
+  revenue: CoachRevenue | null;
+  isSuperAdmin: boolean;
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<'faq' | 'contenus' | 'stats'>('faq');
+  const [tab, setTab] = useState<'faq' | 'contenus' | 'stats' | 'revenus'>('faq');
   const [err, setErr] = useState<string | null>(null);
 
   return (
@@ -68,6 +73,16 @@ export default function SuperCoachAdminClient({
         >
           Statistiques
         </button>
+        {isSuperAdmin && (
+          <button
+            onClick={() => setTab('revenus')}
+            className={`chip px-4 py-2.5 text-sm transition ${
+              tab === 'revenus' ? 'bg-ink text-white' : 'border border-line bg-white text-muted hover:text-ink'
+            }`}
+          >
+            Revenus 💰
+          </button>
+        )}
       </div>
 
       {err && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
@@ -76,9 +91,121 @@ export default function SuperCoachAdminClient({
         <FaqTab faq={faq} onError={setErr} onChange={() => router.refresh()} />
       ) : tab === 'contenus' ? (
         <ContenusTab items={items} onError={setErr} onChange={() => router.refresh()} />
-      ) : (
+      ) : tab === 'stats' ? (
         <StatsTab stats={stats} creditUsd={creditUsd} />
+      ) : (
+        <RevenusTab initial={revenue} />
       )}
+    </>
+  );
+}
+
+/* ---------- Onglet Revenus (super admin, temps réel) ---------- */
+type Vente = { email: string; amount: number; created_at: string };
+
+function RevenusTab({ initial }: { initial: CoachRevenue | null }) {
+  const [total, setTotal] = useState(initial?.total ?? 0);
+  const [ventes, setVentes] = useState(initial?.ventes ?? 0);
+  const [today, setToday] = useState(initial?.today ?? 0);
+  const [month, setMonth] = useState(initial?.month ?? 0);
+  const [list, setList] = useState<Vente[]>(initial?.list ?? []);
+  const [flash, setFlash] = useState(false);
+
+  // Temps réel : chaque paiement de recharge apparaît instantanément
+  useEffect(() => {
+    void ensureRealtimeAuth();
+    const ch = supabase
+      .channel('coach-revenus')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chariow_purchases', filter: 'plan=eq.coach15' },
+        (payload) => {
+          const p = payload.new as { email: string; amount: number | string | null; created_at: string };
+          const amount = Number(p.amount ?? 1500);
+          setList((l) => [{ email: p.email, amount, created_at: p.created_at }, ...l].slice(0, 100));
+          setTotal((t) => t + amount);
+          setVentes((n) => n + 1);
+          setToday((t) => t + amount);
+          setMonth((m) => m + amount);
+          setFlash(true);
+          setTimeout(() => setFlash(false), 3000);
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, []);
+
+  if (!initial) {
+    return (
+      <div className="card p-10 text-center text-sm text-muted">
+        Cet onglet est réservé au super admin.
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Total généré */}
+      <div className={`card mb-4 overflow-hidden transition-shadow ${flash ? 'ring-2 ring-green-400' : ''}`}>
+        <div className="bg-ink p-5 text-white">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wider text-white/60">
+              Généré avec le Super Coach IA
+            </p>
+            <span className="flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" /> Temps réel
+            </span>
+          </div>
+          <p className="mt-1 text-3xl font-bold tracking-tight">{fcfa(total)}</p>
+          <p className="mt-1 text-xs text-white/60">{ventes.toLocaleString('fr-FR')} recharge(s) de 15 questions</p>
+        </div>
+        <div className="grid grid-cols-2 divide-x divide-line">
+          <div className="p-4">
+            <p className="text-xs font-medium text-muted">Aujourd&apos;hui</p>
+            <p className="mt-0.5 text-lg font-bold tracking-tight text-ink">{fcfa(today)}</p>
+          </div>
+          <div className="p-4">
+            <p className="text-xs font-medium text-muted">Ce mois-ci</p>
+            <p className="mt-0.5 text-lg font-bold tracking-tight text-ink">{fcfa(month)}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Liste des paiements */}
+      <div className="card overflow-hidden">
+        <p className="border-b border-line p-4 text-sm font-bold text-ink">Derniers paiements</p>
+        {list.length ? (
+          <div className="divide-y divide-line">
+            {list.map((v, i) => (
+              <div key={`${v.email}-${v.created_at}-${i}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-4">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-black/[0.04] text-ink">
+                  <IconCard width={16} height={16} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-ink">{v.email}</p>
+                  <p className="text-xs text-muted">
+                    {new Date(v.created_at).toLocaleDateString('fr-FR', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                    })}{' '}
+                    à{' '}
+                    {new Date(v.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+                <span className="chip bg-ink text-white">+{fcfa(v.amount)}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="p-8 text-center text-sm text-muted">
+            Aucune recharge pour l&apos;instant. Dès qu&apos;un élève paie, le paiement apparaît ici
+            instantanément.
+          </p>
+        )}
+      </div>
     </>
   );
 }

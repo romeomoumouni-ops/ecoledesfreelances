@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentProfile } from '@/lib/user';
 import SuperCoachAdminClient from './SuperCoachAdminClient';
 
 export const dynamic = 'force-dynamic';
@@ -20,9 +21,18 @@ export type CoachStats = {
   daily: { jour: string; questions: number; cout_usd: number }[];
 };
 
+export type CoachRevenue = {
+  total: number;
+  ventes: number;
+  today: number;
+  month: number;
+  list: { email: string; amount: number; created_at: string }[];
+};
+
 export default async function AdminSuperCoachPage() {
+  const profile = await getCurrentProfile();
   const supabase = createClient();
-  const [{ data: knowledge }, { data: faq }, { data: stats }] = await Promise.all([
+  const [{ data: knowledge }, { data: faq }, { data: stats }, { data: revenue }] = await Promise.all([
     supabase
       .from('coach_knowledge')
       .select('id, title, content, created_at')
@@ -32,6 +42,7 @@ export default async function AdminSuperCoachPage() {
       .select('id, question, answer, created_at')
       .order('created_at', { ascending: false }),
     supabase.rpc('super_coach_stats'),
+    supabase.rpc('super_coach_revenue'), // renvoie une erreur (ignorée) si non super admin
   ]);
 
   // Crédit chargé chez Anthropic (modifiable via la variable Vercel SUPER_COACH_CREDIT_USD)
@@ -43,6 +54,8 @@ export default async function AdminSuperCoachPage() {
       faq={(faq ?? []) as Faq[]}
       stats={(stats ?? null) as CoachStats | null}
       creditUsd={creditUsd}
+      revenue={(revenue ?? null) as CoachRevenue | null}
+      isSuperAdmin={!!profile?.is_super_admin}
     />
   );
 }
