@@ -10,7 +10,7 @@ export default async function SuperCoachPage() {
   if (!profile) redirect('/connexion');
 
   const supabase = createClient();
-  const [{ data: founder }, { data: history }] = await Promise.all([
+  const [{ data: founder }, { data: history }, { data: quota }] = await Promise.all([
     supabase.rpc('founder_profile'),
     supabase
       .from('super_coach_messages')
@@ -18,15 +18,18 @@ export default async function SuperCoachPage() {
       .eq('user_id', profile.id)
       .order('created_at', { ascending: true })
       .limit(200),
+    supabase.rpc('my_coach_questions'),
   ]);
 
   const f = (founder ?? {}) as { name?: string; avatar_url?: string | null };
+  const qt = (quota ?? { remaining: 15 }) as { remaining: number };
 
   return (
     <SuperCoachClient
-      me={{ name: profile.full_name }}
+      me={{ name: profile.full_name, email: profile.email }}
       coachAvatar={f.avatar_url ?? null}
       history={(history ?? []).map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))}
+      remaining={qt.remaining ?? 15}
     />
   );
 }

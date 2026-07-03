@@ -160,8 +160,8 @@ export async function POST(req: NextRequest) {
   if (!message) return NextResponse.json({ error: 'Message vide.' }, { status: 400 });
 
   const claude = hasClaudeKey();
-  const dailyLimit = claude ? 30 : 100; // mode gratuit : limite anti-spam seulement
 
+  // Plafond anti-spam global (tous types de messages confondus)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const { count } = await supabase
@@ -170,9 +170,9 @@ export async function POST(req: NextRequest) {
     .eq('user_id', user.id)
     .eq('role', 'user')
     .gte('created_at', today.toISOString());
-  if ((count ?? 0) >= dailyLimit) {
+  if ((count ?? 0) >= 100) {
     return NextResponse.json(
-      { error: `Tu as atteint la limite de ${dailyLimit} messages par jour. Reviens demain, ou écris à ton chargé de suivi.` },
+      { error: 'Tu as atteint la limite de messages du jour. Reviens demain, ou écris à ton chargé de suivi.' },
       { status: 429 }
     );
   }
@@ -209,6 +209,19 @@ export async function POST(req: NextRequest) {
     return new Response(fh.answer, {
       headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
     });
+  }
+
+  // Vraie question IA : consomme 1 question du quota (15 gratuites, puis recharge)
+  const { data: quota } = await supabase.rpc('use_coach_question');
+  const q = quota as { ok?: boolean; remaining?: number } | null;
+  if (!q?.ok) {
+    return NextResponse.json(
+      {
+        error: 'Tu as utilisé toutes tes questions IA.',
+        type: 'quota',
+      },
+      { status: 402 }
+    );
   }
 
   const [{ data: history }, { data: knowledge }, catalog] = await Promise.all([
@@ -269,7 +282,8 @@ export async function POST(req: NextRequest) {
           full += msg;
           controller.enqueue(encoder.encode(msg));
         } else {
-          // Crédit API épuisé ou panne : on rebascule sur le moteur gratuit
+          // Crédit API épuisé ou panne : repli gratuit + question remboursée
+          await supabase.rpc('refund_coach_question');
           const fb = await localAnswer(supabase, message, firstName);
           full = fb;
           controller.enqueue(encoder.encode(fb));
@@ -286,6 +300,10 @@ export async function POST(req: NextRequest) {
   });
 
   return new Response(stream, {
-    headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'X-Questions-Remaining': String(q.remaining ?? 0),
+    },
   });
 }

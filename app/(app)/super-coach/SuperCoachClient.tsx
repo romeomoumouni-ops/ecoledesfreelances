@@ -10,6 +10,9 @@ import { IconSparkle, IconArrowRight } from '@/components/Icons';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 
+// Recharge de questions IA : 1 500 FCFA = +15 questions (crédit automatique)
+const RECHARGE_LINK = 'https://bajiuulm.mychariow.shop/prd_2x0anel9/checkout';
+
 const SUGGESTIONS = [
   'Comment trouver mes premiers clients ?',
   'Par quel cours je devrais commencer ?',
@@ -38,15 +41,19 @@ export default function SuperCoachClient({
   me,
   coachAvatar,
   history,
+  remaining,
 }: {
-  me: { name: string };
+  me: { name: string; email: string };
   coachAvatar: string | null;
   history: Msg[];
+  remaining: number;
 }) {
   const [messages, setMessages] = useState<Msg[]>(history);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [quotaOut, setQuotaOut] = useState(remaining <= 0);
+  const [left, setLeft] = useState(remaining);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -67,10 +74,21 @@ export default function SuperCoachClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: q }),
       });
+      if (res.status === 402) {
+        // Quota de questions IA épuisé -> panneau de recharge
+        setMessages((m) => m.slice(0, -2));
+        setInput(q);
+        setQuotaOut(true);
+        setLeft(0);
+        setBusy(false);
+        return;
+      }
       if (!res.ok) {
         const j = await res.json().catch(() => null);
         throw new Error(j?.error ?? 'Le Super Coach est indisponible, réessaie.');
       }
+      const remHeader = res.headers.get('x-questions-remaining');
+      if (remHeader !== null) setLeft(Math.max(0, parseInt(remHeader, 10) || 0));
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       for (;;) {
@@ -174,6 +192,36 @@ export default function SuperCoachClient({
 
       {err && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
 
+      {/* Quota épuisé : panneau de recharge */}
+      {quotaOut && (
+        <div className="card mt-4 p-5 text-center">
+          <p className="font-bold text-ink">Tu as utilisé toutes tes questions IA 🔋</p>
+          <p className="mx-auto mt-1 max-w-sm text-sm leading-relaxed text-muted">
+            Recharge <b className="text-ink">15 questions supplémentaires pour 1 500 FCFA</b>. Paye avec
+            l&apos;adresse e-mail de ton compte (<b className="text-ink">{me.email}</b>) : tes questions
+            s&apos;ajoutent automatiquement en ~1 minute.
+          </p>
+          <a
+            href={RECHARGE_LINK}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-primary mx-auto mt-4"
+          >
+            Recharger 15 questions — 1 500 FCFA
+            <IconArrowRight width={17} height={17} />
+          </a>
+          <button
+            onClick={() => {
+              setQuotaOut(false);
+              window.location.reload();
+            }}
+            className="btn-outline mx-auto mt-2"
+          >
+            J&apos;ai payé — actualiser
+          </button>
+        </div>
+      )}
+
       {/* Composer (collant en bas) */}
       <div className="sticky bottom-0 mt-4 border-t border-line bg-surface pb-2 pt-3">
         <div className="flex items-end gap-2">
@@ -201,7 +249,9 @@ export default function SuperCoachClient({
           </button>
         </div>
         <p className="mt-1.5 text-center text-[11px] text-muted">
-          Le Super Coach est une IA : pour une réponse personnalisée, passe par le suivi hebdomadaire.
+          {left >= 9999
+            ? 'Le Super Coach est une IA : pour une réponse personnalisée, passe par le suivi hebdomadaire.'
+            : `Questions IA restantes : ${left} · Les salutations ne comptent pas · Recharge : 1 500 FCFA = 15 questions`}
         </p>
       </div>
     </div>

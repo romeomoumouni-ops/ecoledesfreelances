@@ -11,6 +11,7 @@ const PLAN_LABEL: Record<string, string> = {
   '1x': 'Paiement en 1 fois',
   '3x': 'Paiement en 3 fois',
   '6x': 'Paiement en 6 fois',
+  coach15: 'Recharges Super Coach',
 };
 
 function fcfa(n: number) {
@@ -91,8 +92,8 @@ export default function PaiementsClient({
             <p className="mt-1 text-3xl font-bold tracking-tight">{fcfa(revenue.total)}</p>
             <p className="mt-1 text-xs text-white/60">{revenue.ventes.toLocaleString('fr-FR')} paiement(s) encaissé(s)</p>
           </div>
-          <div className="grid grid-cols-1 divide-y divide-line sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-            {(['1x', '3x', '6x'] as const).map((p) => (
+          <div className="grid grid-cols-1 divide-y divide-line sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
+            {['1x', '3x', '6x', 'coach15'].map((p) => (
               <div key={p} className="p-4">
                 <p className="text-xs font-medium text-muted">{PLAN_LABEL[p]}</p>
                 <p className="mt-0.5 text-lg font-bold tracking-tight text-ink">
