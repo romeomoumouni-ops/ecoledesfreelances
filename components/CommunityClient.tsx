@@ -10,7 +10,7 @@ const CHANNELS = [
   { key: 'membres', label: 'Publications des membres' },
   { key: 'victoires', label: 'Vos victoires du jour' },
   { key: 'challenge', label: 'Challenge' },
-  { key: 'ressources', label: 'Ressources' },
+  { key: 'ressources', label: 'Ressources', adminOnly: true },
 ];
 
 const PLACEHOLDERS: Record<string, string> = {
@@ -21,7 +21,8 @@ const PLACEHOLDERS: Record<string, string> = {
 
 export default function CommunityClient({ me }: { me: FeedUser }) {
   const [channel, setChannel] = useState('membres');
-  const canPost = channel !== 'annonces' || me.isAdmin;
+  const current = CHANNELS.find((c) => c.key === channel);
+  const canPost = !current?.adminOnly || me.isAdmin;
 
   return (
     <>
@@ -48,7 +49,7 @@ export default function CommunityClient({ me }: { me: FeedUser }) {
 
       {!canPost && (
         <div className="card mb-5 flex items-center gap-2 p-4 text-sm text-muted">
-          <IconLock width={16} height={16} /> Seuls les administrateurs peuvent publier des annonces.
+          <IconLock width={16} height={16} /> Seuls les administrateurs peuvent publier dans « {current?.label} ».
         </div>
       )}
 
