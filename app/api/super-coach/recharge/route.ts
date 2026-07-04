@@ -40,8 +40,12 @@ export async function POST(req: NextRequest) {
   const country = (body.country ?? 'BJ').toUpperCase().slice(0, 2);
 
   const product = process.env.CHARIOW_CREDIT_PRODUCT;
-  const apiKey = process.env.CHARIOW_API_KEY;
-  if (!product || !apiKey) {
+  // Le produit licence peut vivre sur l'une ou l'autre boutique : on essaie
+  // chaque clé API configurée (une par boutique).
+  const apiKeys = [process.env.CHARIOW_API_KEY, process.env.CHARIOW_API_KEY_2].filter(
+    (k): k is string => !!k
+  );
+  if (!product || !apiKeys.length) {
     return NextResponse.json({ fallback: FALLBACK_STORE_LINK });
   }
   if (phone.length < 6 || phone.length > 15) {
@@ -61,34 +65,39 @@ export async function POST(req: NextRequest) {
   const firstName = (parts[0] || 'Membre').slice(0, 50);
   const lastName = (parts.slice(1).join(' ') || 'Freelance').slice(0, 50);
 
-  try {
-    const res = await fetch('https://api.chariow.com/v1/checkout', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        product_id: product,
-        email,
-        first_name: firstName,
-        last_name: lastName,
-        phone: { number: phone, country_code: country },
-        redirect_url: 'https://www.lecoledesfreelances.com/super-coach',
-        custom_metadata: { source: 'super-coach', user_id: user.id },
-      }),
-      cache: 'no-store',
-    });
-    const json = await res.json().catch(() => null);
-    const step = json?.data?.step;
-    const url = json?.data?.payment?.checkout_url;
+  for (const apiKey of apiKeys) {
+    try {
+      const res = await fetch('https://api.chariow.com/v1/checkout', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          product_id: product,
+          email,
+          first_name: firstName,
+          last_name: lastName,
+          phone: { number: phone, country_code: country },
+          redirect_url: 'https://www.lecoledesfreelances.com/super-coach',
+          custom_metadata: { source: 'super-coach', user_id: user.id },
+        }),
+        cache: 'no-store',
+      });
+      const json = await res.json().catch(() => null);
+      const step = json?.data?.step;
+      const url = json?.data?.payment?.checkout_url;
 
-    if (res.ok && step === 'payment' && url) {
-      return NextResponse.json({ url });
+      if (res.ok && step === 'payment' && url) {
+        return NextResponse.json({ url });
+      }
+      // Produit introuvable sur cette boutique -> on essaie la clé suivante
+      if (res.status === 404) continue;
+      // Autre réponse inattendue -> boutique en secours
+      return NextResponse.json({ fallback: FALLBACK_STORE_LINK });
+    } catch {
+      // réseau : essayer la clé suivante
     }
-    // Produit gratuit / déjà acheté / réponse inattendue -> boutique en secours
-    return NextResponse.json({ fallback: FALLBACK_STORE_LINK });
-  } catch {
-    return NextResponse.json({ fallback: FALLBACK_STORE_LINK });
   }
+  return NextResponse.json({ fallback: FALLBACK_STORE_LINK });
 }
