@@ -6,6 +6,7 @@ import { getCourses, getLiveSessions } from '@/lib/db';
 import { getCurrentProfile, getMyTaskKeys } from '@/lib/user';
 import { scoreFromKeys, OBJECTIVE_TARGET } from '@/lib/tasks';
 import { IconBook, IconLive, IconTarget, IconArrowRight } from '@/components/Icons';
+import IntroVideo from '@/components/IntroVideo';
 
 export default async function DashboardPage() {
   const [profile, courses, lives, taskKeys] = await Promise.all([
@@ -32,6 +33,11 @@ export default async function DashboardPage() {
         <StatCard label="Cours du programme" value={String(courses.length)} Icon={IconBook} note="Cours disponibles dans votre programme." />
         <StatCard label="Sessions live" value={String(lives.length)} Icon={IconLive} note="Coachings de groupe programmés." />
         <StatCard label="Objectif" value={`${percent}%`} Icon={IconTarget} note="Votre progression vers l'objectif (score sur 100)." />
+      </div>
+
+      {/* Vidéo de présentation de la plateforme */}
+      <div className="mt-6">
+        <IntroVideo />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
