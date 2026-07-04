@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { sendWelcomeEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -137,5 +138,17 @@ export async function POST(req: NextRequest) {
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
+
+  // E-mail de bienvenue : uniquement pour un accès à la plateforme, et seulement
+  // à la 1re activation (pas les échéances suivantes 3x/6x, pas les recharges IA).
+  const r = data as { status?: string; payments_count?: number } | null;
+  if (
+    ACCESS_PRODUCTS.has(verified.productId) &&
+    r?.status === 'granted' &&
+    r?.payments_count === 1
+  ) {
+    await sendWelcomeEmail(verified.email);
+  }
+
   return NextResponse.json({ ok: true, result: data });
 }

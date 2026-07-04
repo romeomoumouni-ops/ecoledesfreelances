@@ -1,0 +1,61 @@
+// Envoi d'e-mails transactionnels via Resend (https://resend.com).
+// Si RESEND_API_KEY n'est pas configurée, on ne fait rien (aucune erreur).
+
+const SITE_URL = 'https://www.lecoledesfreelances.com';
+
+function fromAddress(): string {
+  return process.env.RESEND_FROM || "L'École des Freelances <onboarding@resend.dev>";
+}
+
+async function send(to: string, subject: string, html: string): Promise<boolean> {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return false; // e-mail non configuré : on ignore proprement
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: fromAddress(), to, subject, html }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** E-mail de confirmation d'inscription + bouton « Rejoindre la plateforme ». */
+export async function sendWelcomeEmail(to: string): Promise<boolean> {
+  const subject = "Votre inscription à L'École des Freelances est confirmée ✅";
+  const html = `
+  <div style="margin:0;padding:24px;background:#f7f7f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1d1d1f;">
+    <div style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #ececeb;border-radius:16px;overflow:hidden;">
+      <div style="padding:28px 28px 8px;">
+        <div style="font-size:17px;font-weight:700;">L'École des Freelances</div>
+      </div>
+      <div style="padding:8px 28px 28px;">
+        <h1 style="font-size:20px;font-weight:700;margin:12px 0 8px;">Bienvenue 🎉 Ton accès est confirmé</h1>
+        <p style="font-size:14px;line-height:1.6;color:#4a4a4a;margin:0 0 14px;">
+          Ton paiement a bien été reçu et ton accès à <b>L'École des Freelances</b> est activé.
+          Il ne te reste plus qu'une étape&nbsp;: <b>créer ton compte</b> pour entrer dans le programme.
+        </p>
+        <div style="background:#f7f7f5;border-radius:12px;padding:14px 16px;margin:16px 0;">
+          <p style="font-size:13px;line-height:1.6;color:#1d1d1f;margin:0;">
+            👉 Crée ton compte avec <b>l'adresse e-mail que tu as utilisée pour payer</b> (celle-ci).<br/>
+            🔒 <b>Note et conserve bien ton mot de passe</b> — tu en auras besoin à chaque connexion.
+          </p>
+        </div>
+        <div style="text-align:center;margin:26px 0 10px;">
+          <a href="${SITE_URL}" style="display:inline-block;background:#1d1d1f;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 28px;border-radius:12px;">
+            Rejoindre la plateforme →
+          </a>
+        </div>
+        <p style="font-size:12px;line-height:1.6;color:#8a8a8a;text-align:center;margin:14px 0 0;">
+          Si tu as déjà créé ton compte, ce bouton t'amènera directement à ton tableau de bord.
+        </p>
+      </div>
+    </div>
+    <p style="max-width:520px;margin:14px auto 0;font-size:11px;color:#a0a0a0;text-align:center;">
+      L'École des Freelances — tu reçois cet e-mail car un accès a été activé pour cette adresse.
+    </p>
+  </div>`;
+  return send(to, subject, html);
+}

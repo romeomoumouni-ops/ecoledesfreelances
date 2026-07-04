@@ -409,17 +409,28 @@ function ManuelsList({
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return onError(new Error('Adresse e-mail invalide.'));
     if (list.some((m) => m.email.toLowerCase() === v)) return onError(new Error('Cet e-mail a déjà un accès manuel.'));
     setBusy(true);
-    const { error } = await supabase.from('allowed_emails').insert({ email: v, source: 'manual', product: 'manuel' });
-    setBusy(false);
-    if (error) return onError(new Error(error.message));
-    setInfo(
-      dejaAcheteurs.some((a) => a.email === v)
-        ? `Accès manuel donné à ${v} (note : cette personne a déjà un accès par paiement).`
-        : `Accès donné à ${v}. La personne peut maintenant créer son compte avec cet e-mail.`
-    );
-    setTimeout(() => setInfo(null), 8000);
-    setEmail('');
-    onChange();
+    // Route serveur : ajoute l'accès ET envoie l'e-mail de bienvenue (comme les acheteurs)
+    try {
+      const res = await fetch('/api/admin/manual-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: v }),
+      });
+      const j = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(j?.error ?? 'Échec de l’ajout.');
+      setInfo(
+        dejaAcheteurs.some((a) => a.email === v)
+          ? `Accès manuel donné à ${v} (note : cette personne a déjà un accès par paiement). E-mail de bienvenue envoyé.`
+          : `Accès donné à ${v}. E-mail de bienvenue envoyé. La personne peut créer son compte avec cet e-mail.`
+      );
+      setTimeout(() => setInfo(null), 8000);
+      setEmail('');
+      onChange();
+    } catch (e) {
+      onError(e instanceof Error ? e : new Error('Échec de l’ajout.'));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function revoke(v: string) {
