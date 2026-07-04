@@ -221,6 +221,7 @@ type UserProfile = {
     created_at: string | null;
     last_sign_in_at: string | null;
     access: { active?: boolean; reason?: string; plan?: string; access_until?: string | null } | null;
+    devices: number;
     counts: Record<string, number>;
   };
   activity: { typ: string; label: string; detail: string | null; at: string }[];
@@ -250,12 +251,15 @@ function fmtDateTime(iso: string | null) {
 function UserDetailModal({ membre, onClose }: { membre: Membre; onClose: () => void }) {
   const [data, setData] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [devices, setDevices] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
     supabase.rpc('admin_user_profile', { p_user: membre.id }).then(({ data }) => {
       if (active) {
-        setData((data ?? null) as UserProfile | null);
+        const d = (data ?? null) as UserProfile | null;
+        setData(d);
+        setDevices(d?.info.devices ?? 0);
         setLoading(false);
       }
     });
@@ -263,6 +267,12 @@ function UserDetailModal({ membre, onClose }: { membre: Membre; onClose: () => v
       active = false;
     };
   }, [membre.id]);
+
+  async function resetDevices() {
+    if (!confirm(`Réinitialiser les appareils de ${membre.full_name || membre.email} ?\n\nToutes ses connexions seront oubliées : il pourra se reconnecter sur ses appareils (utile s'il a changé de téléphone).`)) return;
+    const { error } = await supabase.rpc('admin_reset_devices', { p_user: membre.id });
+    if (!error) setDevices(0);
+  }
 
   const counts = data?.info.counts ?? {};
   const acc = data?.info.access;
@@ -314,9 +324,20 @@ function UserDetailModal({ membre, onClose }: { membre: Membre; onClose: () => v
                 <p className="text-xs text-muted">Dernière connexion</p>
                 <p className="font-semibold text-ink">{fmtDateTime(data?.info.last_sign_in_at ?? null)}</p>
               </div>
-              <div className="rounded-lg bg-black/[0.03] p-3 col-span-2">
+              <div className="rounded-lg bg-black/[0.03] p-3">
                 <p className="text-xs text-muted">Inscrit le</p>
                 <p className="font-semibold text-ink">{fmtDateTime(data?.info.created_at ?? null)}</p>
+              </div>
+              <div className="rounded-lg bg-black/[0.03] p-3">
+                <p className="text-xs text-muted">Appareils connectés</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-semibold text-ink">{devices ?? 0} / 3</p>
+                  {(devices ?? 0) > 0 && (
+                    <button onClick={resetDevices} className="text-xs font-semibold text-red-600 hover:underline">
+                      Réinitialiser
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 

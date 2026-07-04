@@ -45,8 +45,8 @@ export default function AuthForm() {
     setError(null);
     setMessage(null);
     if (!validate()) return;
-    if (password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères.');
+    if (password.length < 8) {
+      setError('Le mot de passe doit contenir au moins 8 caractères.');
       return;
     }
     setLoading('signup');
@@ -114,7 +114,7 @@ export default function AuthForm() {
             id="password"
             type="password"
             required
-            minLength={6}
+            minLength={8}
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -162,7 +162,7 @@ function translateError(err: unknown): string {
   if (/User already registered/i.test(msg))
     return 'Un compte existe déjà avec cet e-mail. Connectez-vous.';
   if (/Password should be at least/i.test(msg))
-    return 'Le mot de passe doit contenir au moins 6 caractères.';
+    return 'Le mot de passe doit contenir au moins 8 caractères.';
   if (/Unable to validate email address|email_address_invalid/i.test(msg))
     return 'Adresse e-mail invalide.';
   if (/Email not confirmed/i.test(msg))

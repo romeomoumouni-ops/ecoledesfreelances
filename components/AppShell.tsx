@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { ensureRealtimeAuth } from '@/lib/realtime';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
+import DeviceGuard from './DeviceGuard';
 
 export type ShellProfile = {
   id: string;
@@ -66,6 +67,7 @@ export default function AppShell({
 
   return (
     <div className="min-h-screen bg-surface">
+      <DeviceGuard />
       <Sidebar
         open={menuOpen}
         onClose={() => setMenuOpen(false)}

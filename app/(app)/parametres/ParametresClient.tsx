@@ -85,7 +85,7 @@ export default function ParametresClient({ profile }: { profile: P }) {
     e.preventDefault();
     const form = e.currentTarget;
     const pwd = (form.elements.namedItem('newpwd') as HTMLInputElement).value;
-    if (pwd.length < 6) return flash(false, 'Mot de passe : 6 caractères minimum.');
+    if (pwd.length < 8) return flash(false, 'Mot de passe : 8 caractères minimum.');
     setBusy('pwd');
     try {
       const supabase = createClient();
@@ -187,7 +187,7 @@ export default function ParametresClient({ profile }: { profile: P }) {
               <h2 className="text-lg font-bold text-ink">Sécurité</h2>
               <div className="max-w-md">
                 <label className="label">Nouveau mot de passe</label>
-                <input name="newpwd" type="password" minLength={6} className="input" placeholder="6 caractères minimum" />
+                <input name="newpwd" type="password" minLength={8} className="input" placeholder="8 caractères minimum" />
               </div>
               <div className="flex justify-end border-t border-line pt-5">
                 <button type="submit" disabled={busy === 'pwd'} className="btn-primary disabled:opacity-60">
