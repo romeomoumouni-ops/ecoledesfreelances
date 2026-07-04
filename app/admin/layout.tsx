@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import Logo from '@/components/Logo';
 import AdminNav from '@/components/AdminNav';
+import { IconArrowRight } from '@/components/Icons';
 import { getCurrentProfile } from '@/lib/user';
 import { createClient } from '@/lib/supabase/server';
 
@@ -56,7 +57,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Link href="/admin">
               <Logo />
             </Link>
-            <span className="chip bg-black/[0.05] text-muted">Administration</span>
+            {/* Ordinateur : badge (le lien « Retour à l'app » est dans la barre) */}
+            <span className="chip hidden bg-black/[0.05] text-muted sm:inline-flex">Administration</span>
+            {/* Mobile : lien direct pour revenir à l'application */}
+            <Link
+              href="/tableau-de-bord"
+              className="flex items-center gap-1.5 rounded-lg border border-line bg-white px-3 py-1.5 text-sm font-semibold text-ink transition hover:bg-black/[0.03] sm:hidden"
+            >
+              Retour à l&apos;app
+              <IconArrowRight width={15} height={15} />
+            </Link>
           </div>
           <AdminNav messagesUnread={messagesUnread} suiviUnread={suiviUnread} superAdmin={!!profile.is_super_admin} />
         </div>
