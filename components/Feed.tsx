@@ -11,7 +11,7 @@ import { uploadResumable } from '@/lib/uploadResumable';
 import Avatar from '@/components/Avatar';
 import RichText from '@/components/RichText';
 import RichTextArea from '@/components/RichTextArea';
-import { IconHeart, IconChat, IconX, IconCamera } from '@/components/Icons';
+import { IconHeart, IconChat, IconX, IconCamera, IconFile } from '@/components/Icons';
 
 const supabase = createClient();
 
@@ -230,14 +230,20 @@ function Composer({
   const fileRef = useRef<HTMLInputElement>(null);
   const [body, setBody] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<{ url: string; type: string } | null>(null);
+  const [preview, setPreview] = useState<{ url: string; type: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
+
+  function mediaKind(f: File): 'video' | 'image' | 'pdf' {
+    if (f.type.startsWith('video')) return 'video';
+    if (f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')) return 'pdf';
+    return 'image';
+  }
 
   function pick(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0] ?? null;
     setFile(f);
-    setPreview(f ? { url: URL.createObjectURL(f), type: f.type.startsWith('video') ? 'video' : 'image' } : null);
+    setPreview(f ? { url: URL.createObjectURL(f), type: mediaKind(f), name: f.name } : null);
   }
 
   async function publish() {
@@ -252,7 +258,7 @@ function Composer({
         setProgress(0);
         await uploadResumable('community-media', path, file, setProgress);
         media_url = supabase.storage.from('community-media').getPublicUrl(path).data.publicUrl;
-        media_type = file.type.startsWith('video') ? 'video' : 'image';
+        media_type = mediaKind(file);
       }
       const { data, error } = await supabase
         .from('community_posts')
@@ -295,6 +301,16 @@ function Composer({
             <div className="relative mt-3 overflow-hidden rounded-lg border border-line">
               {preview.type === 'video' ? (
                 <video src={preview.url} controls className="max-h-72 w-full bg-ink" />
+              ) : preview.type === 'pdf' ? (
+                <div className="flex items-center gap-3 bg-black/[0.02] p-4">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-red-50 text-red-600">
+                    <IconFile width={20} height={20} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-ink">{preview.name}</span>
+                    <span className="block text-xs text-muted">Document PDF</span>
+                  </span>
+                </div>
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={preview.url} alt="" className="max-h-72 w-full object-cover" />
@@ -324,9 +340,9 @@ function Composer({
           )}
           <div className="mt-3 flex items-center justify-between">
             <button type="button" onClick={() => fileRef.current?.click()} className="btn-outline" disabled={busy}>
-              <IconCamera width={18} height={18} /> Photo / Vidéo
+              <IconCamera width={18} height={18} /> Photo, vidéo ou PDF
             </button>
-            <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={pick} />
+            <input ref={fileRef} type="file" accept="image/*,video/*,application/pdf" className="hidden" onChange={pick} />
             <button onClick={publish} disabled={busy || (!body.trim() && !file)} className="btn-primary disabled:opacity-60">
               {busy ? 'Publication…' : 'Publier'}
             </button>
@@ -381,6 +397,21 @@ function PostCard({
         <div className="mt-3 overflow-hidden rounded-lg border border-line">
           {post.media_type === 'video' ? (
             <video src={post.media_url} controls className="max-h-[70vh] w-full bg-ink" />
+          ) : post.media_type === 'pdf' ? (
+            <a
+              href={post.media_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 bg-black/[0.02] p-4 transition hover:bg-black/[0.04]"
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-red-50 text-red-600">
+                <IconFile width={20} height={20} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-ink">Document PDF</span>
+                <span className="block text-xs text-muted">Appuie pour ouvrir ou télécharger</span>
+              </span>
+            </a>
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={post.media_url} alt="" className="w-full object-cover" />

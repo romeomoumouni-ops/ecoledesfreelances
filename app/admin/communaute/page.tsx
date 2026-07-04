@@ -11,6 +11,8 @@ const CHANNEL_LABEL: Record<string, string> = {
   annonces: 'Annonces',
   membres: 'Publications des membres',
   victoires: 'Vos victoires du jour',
+  challenge: 'Challenge',
+  ressources: 'Ressources',
   temoignages: 'Résultats et témoignages',
 };
 

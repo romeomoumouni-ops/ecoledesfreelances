@@ -9,7 +9,15 @@ const CHANNELS = [
   { key: 'annonces', label: 'Annonces', adminOnly: true },
   { key: 'membres', label: 'Publications des membres' },
   { key: 'victoires', label: 'Vos victoires du jour' },
+  { key: 'challenge', label: 'Challenge' },
+  { key: 'ressources', label: 'Ressources' },
 ];
+
+const PLACEHOLDERS: Record<string, string> = {
+  victoires: 'Partage ta victoire du jour…',
+  challenge: 'Partage ton avancée sur le challenge…',
+  ressources: 'Partage une ressource utile (PDF, lien, conseil)…',
+};
 
 export default function CommunityClient({ me }: { me: FeedUser }) {
   const [channel, setChannel] = useState('membres');
@@ -49,7 +57,7 @@ export default function CommunityClient({ me }: { me: FeedUser }) {
         me={me}
         channel={channel}
         canPost={canPost}
-        placeholder={channel === 'victoires' ? 'Partage ta victoire du jour…' : 'Quoi de neuf ?'}
+        placeholder={PLACEHOLDERS[channel] ?? 'Quoi de neuf ?'}
       />
     </>
   );
