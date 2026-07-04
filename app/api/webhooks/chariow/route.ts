@@ -23,7 +23,9 @@ const ACCESS_PRODUCTS = new Set(['prd_97u01b', 'prd_ocqbu9', 'prd_mq2c4np5']);
 // prd_v19rl2tn = produit « service » (lien boutique) ; CHARIOW_CREDIT_PRODUCT =
 // produit « licence » acheté via l'API checkout (paiement direct).
 function coachProducts(): Set<string> {
-  const s = new Set(['prd_v19rl2tn']);
+  // prd_v19rl2tn = ancien produit « service » (lien boutique, conservé en secours)
+  // prd_8k589bq5 = produit « licence » (paiement direct via l'API checkout)
+  const s = new Set(['prd_v19rl2tn', 'prd_8k589bq5']);
   if (process.env.CHARIOW_CREDIT_PRODUCT) s.add(process.env.CHARIOW_CREDIT_PRODUCT);
   return s;
 }

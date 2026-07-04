@@ -39,7 +39,8 @@ export async function POST(req: NextRequest) {
   const phone = (body.phone ?? '').replace(/\D/g, '');
   const country = (body.country ?? 'BJ').toUpperCase().slice(0, 2);
 
-  const product = process.env.CHARIOW_CREDIT_PRODUCT;
+  // Produit « Crédit IA super coach » (type licence — requis par l'API checkout)
+  const product = process.env.CHARIOW_CREDIT_PRODUCT || 'prd_8k589bq5';
   // Le produit licence peut vivre sur l'une ou l'autre boutique : on essaie
   // chaque clé API configurée (une par boutique).
   const apiKeys = [process.env.CHARIOW_API_KEY, process.env.CHARIOW_API_KEY_2].filter(
