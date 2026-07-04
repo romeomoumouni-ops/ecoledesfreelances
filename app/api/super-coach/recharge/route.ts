@@ -90,7 +90,18 @@ export async function POST(req: NextRequest) {
       const url = json?.data?.payment?.checkout_url;
 
       if (res.ok && step === 'payment' && url) {
-        return NextResponse.json({ url });
+        // Moneroo présélectionne le pays d'après l'IP du serveur (US sur Vercel) :
+        // on force le pays et le numéro choisis par l'élève dans l'URL de paiement.
+        let payUrl = url as string;
+        try {
+          const u = new URL(payUrl);
+          u.searchParams.set('country', country);
+          u.searchParams.set('phone', phone);
+          payUrl = u.toString();
+        } catch {
+          // URL inattendue : on la renvoie telle quelle
+        }
+        return NextResponse.json({ url: payUrl });
       }
       // Produit introuvable sur cette boutique -> on essaie la clé suivante
       if (res.status === 404) continue;
