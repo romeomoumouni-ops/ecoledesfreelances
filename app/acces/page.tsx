@@ -27,7 +27,7 @@ export default async function AccesPage() {
   if (a.active) redirect('/tableau-de-bord');
 
   const state: AccessState = {
-    reason: a.reason === 'expired' ? 'expired' : 'no_purchase',
+    reason: a.reason === 'banned' ? 'banned' : a.reason === 'expired' ? 'expired' : 'no_purchase',
     plan: a.plan,
     payments_count: a.payments_count,
     total_payments: a.total_payments,

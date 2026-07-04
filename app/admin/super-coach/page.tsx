@@ -29,21 +29,33 @@ export type CoachRevenue = {
   list: { email: string; amount: number; created_at: string }[];
 };
 
+export type CoachConversation = {
+  user_id: string;
+  name: string;
+  email: string | null;
+  questions: number;
+  total: number;
+  last_at: string;
+  last_content: string;
+};
+
 export default async function AdminSuperCoachPage() {
   const profile = await getCurrentProfile();
   const supabase = createClient();
-  const [{ data: knowledge }, { data: faq }, { data: stats }, { data: revenue }] = await Promise.all([
-    supabase
-      .from('coach_knowledge')
-      .select('id, title, content, created_at')
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('coach_faq')
-      .select('id, question, answer, created_at')
-      .order('created_at', { ascending: false }),
-    supabase.rpc('super_coach_stats'),
-    supabase.rpc('super_coach_revenue'), // renvoie une erreur (ignorée) si non super admin
-  ]);
+  const [{ data: knowledge }, { data: faq }, { data: stats }, { data: revenue }, { data: convs }] =
+    await Promise.all([
+      supabase
+        .from('coach_knowledge')
+        .select('id, title, content, created_at')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('coach_faq')
+        .select('id, question, answer, created_at')
+        .order('created_at', { ascending: false }),
+      supabase.rpc('super_coach_stats'),
+      supabase.rpc('super_coach_revenue'), // renvoie une erreur (ignorée) si non super admin
+      supabase.rpc('admin_coach_conversations'),
+    ]);
 
   // Crédit chargé chez Anthropic (modifiable via la variable Vercel SUPER_COACH_CREDIT_USD)
   const creditUsd = Number(process.env.SUPER_COACH_CREDIT_USD || '20');
@@ -56,6 +68,7 @@ export default async function AdminSuperCoachPage() {
       creditUsd={creditUsd}
       revenue={(revenue ?? null) as CoachRevenue | null}
       isSuperAdmin={!!profile?.is_super_admin}
+      conversations={(convs ?? []) as CoachConversation[]}
     />
   );
 }

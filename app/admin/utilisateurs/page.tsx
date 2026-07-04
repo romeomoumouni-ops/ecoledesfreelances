@@ -9,6 +9,7 @@ export type Membre = {
   full_name: string | null;
   avatar_url: string | null;
   is_admin: boolean;
+  banned: boolean;
 };
 
 export type AccesDonne = {
@@ -34,7 +35,7 @@ export default async function AdminUsersPage() {
 
   const { data: profiles } = await supabase
     .from('profiles')
-    .select('id, email, full_name, avatar_url, is_admin')
+    .select('id, email, full_name, avatar_url, is_admin, banned')
     .order('created_at', { ascending: true });
 
   // Accès donnés (achats Chariow) — pagine au-delà de la limite de 1000 lignes

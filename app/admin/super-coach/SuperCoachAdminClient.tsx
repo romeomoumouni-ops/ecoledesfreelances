@@ -9,8 +9,10 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { ensureRealtimeAuth } from '@/lib/realtime';
-import { IconPlus, IconX, IconSparkle, IconCard } from '@/components/Icons';
-import type { Knowledge, Faq, CoachStats, CoachRevenue } from './page';
+import { IconPlus, IconX, IconSparkle, IconCard, IconChat, IconChevronRight } from '@/components/Icons';
+import Avatar from '@/components/Avatar';
+import RichText from '@/components/RichText';
+import type { Knowledge, Faq, CoachStats, CoachRevenue, CoachConversation } from './page';
 
 const supabase = createClient();
 
@@ -24,6 +26,7 @@ export default function SuperCoachAdminClient({
   creditUsd,
   revenue,
   isSuperAdmin,
+  conversations,
 }: {
   items: Knowledge[];
   faq: Faq[];
@@ -31,9 +34,10 @@ export default function SuperCoachAdminClient({
   creditUsd: number;
   revenue: CoachRevenue | null;
   isSuperAdmin: boolean;
+  conversations: CoachConversation[];
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<'faq' | 'contenus' | 'stats' | 'revenus'>('faq');
+  const [tab, setTab] = useState<'faq' | 'contenus' | 'stats' | 'revenus' | 'comm'>('faq');
   const [err, setErr] = useState<string | null>(null);
 
   return (
@@ -66,6 +70,14 @@ export default function SuperCoachAdminClient({
           Contenus ({items.length})
         </button>
         <button
+          onClick={() => setTab('comm')}
+          className={`chip px-4 py-2.5 text-sm transition ${
+            tab === 'comm' ? 'bg-ink text-white' : 'border border-line bg-white text-muted hover:text-ink'
+          }`}
+        >
+          Communication ({conversations.length})
+        </button>
+        <button
           onClick={() => setTab('stats')}
           className={`chip px-4 py-2.5 text-sm transition ${
             tab === 'stats' ? 'bg-ink text-white' : 'border border-line bg-white text-muted hover:text-ink'
@@ -91,12 +103,204 @@ export default function SuperCoachAdminClient({
         <FaqTab faq={faq} onError={setErr} onChange={() => router.refresh()} />
       ) : tab === 'contenus' ? (
         <ContenusTab items={items} onError={setErr} onChange={() => router.refresh()} />
+      ) : tab === 'comm' ? (
+        <CommunicationTab initial={conversations} />
       ) : tab === 'stats' ? (
         <StatsTab stats={stats} creditUsd={creditUsd} />
       ) : (
         <RevenusTab initial={revenue} />
       )}
     </>
+  );
+}
+
+/* ---------- Onglet Communication (conversations Super Coach, temps réel) ---------- */
+type CoachMsg = { id: string; role: 'user' | 'assistant'; content: string; created_at: string };
+
+function initialsOf(name: string | null) {
+  return (name || 'M').split(/\s+/).map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+}
+function timeAgo(iso: string) {
+  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return "à l'instant";
+  if (s < 3600) return `il y a ${Math.floor(s / 60)} min`;
+  if (s < 86400) return `il y a ${Math.floor(s / 3600)} h`;
+  return `il y a ${Math.floor(s / 86400)} j`;
+}
+
+function CommunicationTab({ initial }: { initial: CoachConversation[] }) {
+  const [convs, setConvs] = useState<CoachConversation[]>(initial);
+  const [selected, setSelected] = useState<CoachConversation | null>(null);
+  const [query, setQuery] = useState('');
+
+  // Temps réel : toute nouvelle question/réponse remonte la conversation en tête
+  useEffect(() => {
+    void ensureRealtimeAuth();
+    const ch = supabase
+      .channel('admin-coach-comm')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'super_coach_messages' },
+        (payload) => {
+          const m = payload.new as { user_id: string; role: string; content: string; created_at: string };
+          setConvs((prev) => {
+            const i = prev.findIndex((c) => c.user_id === m.user_id);
+            if (i === -1) {
+              // Nouvel élève : on l'ajoute en tête (nom récupéré au prochain rafraîchissement)
+              return [
+                {
+                  user_id: m.user_id,
+                  name: 'Nouvel élève',
+                  email: null,
+                  questions: m.role === 'user' ? 1 : 0,
+                  total: 1,
+                  last_at: m.created_at,
+                  last_content: m.content,
+                },
+                ...prev,
+              ];
+            }
+            const c = { ...prev[i] };
+            c.total += 1;
+            if (m.role === 'user') c.questions += 1;
+            c.last_at = m.created_at;
+            c.last_content = m.content;
+            return [c, ...prev.slice(0, i), ...prev.slice(i + 1)];
+          });
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, []);
+
+  const q = query.trim().toLowerCase();
+  const list = convs.filter(
+    (c) => !q || c.name.toLowerCase().includes(q) || (c.email ?? '').toLowerCase().includes(q)
+  );
+
+  if (selected) {
+    return <CoachThread conv={selected} onBack={() => setSelected(null)} />;
+  }
+
+  return (
+    <>
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        className="input mb-4 max-w-sm"
+        placeholder="Rechercher un élève…"
+      />
+      {list.length ? (
+        <div className="card divide-y divide-line overflow-hidden">
+          {list.map((c) => (
+            <button
+              key={c.user_id}
+              onClick={() => setSelected(c)}
+              className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-black/[0.02]"
+            >
+              <Avatar initials={initialsOf(c.name)} size={40} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-semibold text-ink">{c.name}</span>
+                <span className="block truncate text-xs text-muted">{c.last_content}</span>
+              </span>
+              <span className="shrink-0 text-right">
+                <span className="block text-xs font-semibold text-ink">{c.questions} question(s)</span>
+                <span className="block text-[11px] text-muted">{timeAgo(c.last_at)}</span>
+              </span>
+              <IconChevronRight width={16} height={16} className="shrink-0 text-muted" />
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="card flex flex-col items-center p-10 text-center">
+          <IconChat width={26} height={26} className="text-muted" />
+          <p className="mt-2 text-sm text-muted">Aucune conversation pour l&apos;instant.</p>
+        </div>
+      )}
+    </>
+  );
+}
+
+function CoachThread({ conv, onBack }: { conv: CoachConversation; onBack: () => void }) {
+  const [msgs, setMsgs] = useState<CoachMsg[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    supabase
+      .from('super_coach_messages')
+      .select('id, role, content, created_at')
+      .eq('user_id', conv.user_id)
+      .order('created_at', { ascending: true })
+      .then(({ data }) => {
+        if (active) {
+          setMsgs((data ?? []) as CoachMsg[]);
+          setLoading(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [conv.user_id]);
+
+  // Temps réel : les nouveaux messages de cet élève apparaissent en direct
+  useEffect(() => {
+    void ensureRealtimeAuth();
+    const ch = supabase
+      .channel(`coach-thread-${conv.user_id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'super_coach_messages', filter: `user_id=eq.${conv.user_id}` },
+        (payload) => {
+          const m = payload.new as CoachMsg;
+          setMsgs((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [conv.user_id]);
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="flex items-center gap-3 border-b border-line p-4">
+        <button onClick={onBack} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-black/[0.04]" aria-label="Retour">
+          <IconChevronRight width={16} height={16} className="rotate-180" />
+        </button>
+        <Avatar initials={initialsOf(conv.name)} size={38} />
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-ink">{conv.name}</p>
+          <p className="truncate text-xs text-muted">{conv.email ?? conv.user_id}</p>
+        </div>
+      </div>
+      <div className="max-h-[60vh] space-y-3 overflow-y-auto p-4">
+        {loading ? (
+          <p className="py-6 text-center text-sm text-muted">Chargement…</p>
+        ) : msgs.length ? (
+          msgs.map((m) => (
+            <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div
+                className={`max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                  m.role === 'user' ? 'bg-ink text-white' : 'bg-black/[0.05] text-ink'
+                }`}
+              >
+                <p className="mb-0.5 text-[11px] font-semibold opacity-60">
+                  {m.role === 'user' ? conv.name : 'Super Coach IA'}
+                </p>
+                <p className="whitespace-pre-line">
+                  <RichText text={m.content} onDark={m.role === 'user'} />
+                </p>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="py-6 text-center text-sm text-muted">Aucun message.</p>
+        )}
+      </div>
+    </div>
   );
 }
 

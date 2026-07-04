@@ -15,7 +15,7 @@ const PAY_LINKS: Record<string, string> = {
 };
 
 export type AccessState = {
-  reason: 'expired' | 'no_purchase';
+  reason: 'expired' | 'no_purchase' | 'banned';
   plan?: string;
   payments_count?: number;
   total_payments?: number;
@@ -24,6 +24,7 @@ export type AccessState = {
 export default function AccessBlocked({ email, state }: { email: string; state: AccessState }) {
   const router = useRouter();
   const expired = state.reason === 'expired';
+  const banned = state.reason === 'banned';
   const plan = state.plan && PAY_LINKS[state.plan] ? state.plan : null;
   const nextNumber = (state.payments_count ?? 0) + 1;
 
@@ -32,6 +33,32 @@ export default function AccessBlocked({ email, state }: { email: string; state: 
     await supabase.auth.signOut();
     router.replace('/connexion');
     router.refresh();
+  }
+
+  // Compte banni : écran de suspension, sans option de paiement
+  if (banned) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f7f7f5] px-4 py-10">
+        <div className="w-full max-w-md">
+          <div className="mb-6 flex justify-center">
+            <Logo />
+          </div>
+          <div className="card p-6 text-center sm:p-8">
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-red-50 text-red-600">
+              <IconShield width={22} height={22} />
+            </span>
+            <h1 className="mt-4 text-xl font-bold text-ink">Compte suspendu</h1>
+            <p className="mt-2 text-sm leading-relaxed text-muted">
+              L&apos;accès de ce compte a été suspendu. Si tu penses qu&apos;il s&apos;agit d&apos;une erreur,
+              contacte l&apos;équipe de L&apos;École des Freelances.
+            </p>
+            <button onClick={logout} className="btn-outline mx-auto mt-6">
+              <IconLogout width={16} height={16} /> Se déconnecter
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

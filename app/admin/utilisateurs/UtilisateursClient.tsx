@@ -5,13 +5,14 @@
 // « Accès donnés » = e-mails autorisés par un paiement Chariow : recherche,
 // correction d'un e-mail mal saisi à l'achat, révocation d'accès.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { setUserAdmin } from '@/lib/admin-actions';
 import Avatar from '@/components/Avatar';
 import { Badge } from '@/components/UI';
-import { IconPen, IconX, IconCheck, IconPlus } from '@/components/Icons';
+import { IconPen, IconX, IconCheck, IconPlus, IconChevronRight, IconSparkle } from '@/components/Icons';
+import RichText from '@/components/RichText';
 import type { Membre, AccesDonne, AccesManuel } from './page';
 
 const supabase = createClient();
@@ -124,7 +125,7 @@ export default function UtilisateursClient({
       />
 
       {tab === 'membres' ? (
-        <MembresList meId={meId} list={membresFiltres} />
+        <MembresList meId={meId} list={membresFiltres} onError={fail} onChange={() => router.refresh()} />
       ) : tab === 'acces' ? (
         <AccesList list={accesFiltres} onError={fail} onChange={() => router.refresh()} />
       ) : (
@@ -140,35 +141,228 @@ export default function UtilisateursClient({
 }
 
 /* ---------- Onglet Membres ---------- */
-function MembresList({ meId, list }: { meId: string; list: Membre[] }) {
+function MembresList({
+  meId,
+  list,
+  onError,
+  onChange,
+}: {
+  meId: string;
+  list: Membre[];
+  onError: (e: unknown) => void;
+  onChange: () => void;
+}) {
+  const [detail, setDetail] = useState<Membre | null>(null);
+
+  async function toggleBan(u: Membre) {
+    const next = !u.banned;
+    if (next && !confirm(`Bannir ${u.full_name || u.email} ?\n\nLa personne sera immédiatement bloquée : elle ne pourra plus accéder à la plateforme (son compte et son historique sont conservés). Tu pourras la débannir à tout moment.`)) return;
+    const { error } = await supabase.from('profiles').update({ banned: next }).eq('id', u.id);
+    if (error) return onError(new Error(error.message));
+    onChange();
+  }
+
   if (!list.length)
     return <div className="card p-10 text-center text-sm text-muted">Aucun membre ne correspond.</div>;
+
   return (
-    <div className="card divide-y divide-line overflow-hidden">
-      {list.map((u) => {
-        const isSelf = u.id === meId;
-        return (
-          <div key={u.id} className="flex items-center gap-3 p-4">
-            <Avatar initials={initials(u.full_name, u.email)} src={u.avatar_url} size={40} />
-            <div className="min-w-0 flex-1">
-              <p className="flex items-center gap-2 truncate font-semibold text-ink">
-                {u.full_name || u.email}
-                {u.is_admin && <Badge>Admin</Badge>}
-              </p>
-              <p className="truncate text-xs text-muted">{u.email}</p>
+    <>
+      <div className="card divide-y divide-line overflow-hidden">
+        {list.map((u) => {
+          const isSelf = u.id === meId;
+          return (
+            <div key={u.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 p-4">
+              <button onClick={() => setDetail(u)} className="flex min-w-0 flex-1 items-center gap-3 text-left" title="Voir l'historique">
+                <Avatar initials={initials(u.full_name, u.email)} src={u.avatar_url} size={40} />
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2 truncate font-semibold text-ink">
+                    {u.full_name || u.email}
+                    {u.is_admin && <Badge>Admin</Badge>}
+                    {u.banned && (
+                      <span className="chip bg-red-50 text-red-600">Banni</span>
+                    )}
+                  </span>
+                  <span className="block truncate text-xs text-muted">{u.email}</span>
+                </span>
+                <IconChevronRight width={16} height={16} className="shrink-0 text-muted" />
+              </button>
+              {isSelf ? (
+                <span className="text-xs text-muted">Vous</span>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <form action={setUserAdmin.bind(null, u.id, !u.is_admin)}>
+                    <button className="btn-outline text-xs">{u.is_admin ? 'Retirer admin' : 'Rendre admin'}</button>
+                  </form>
+                  <button
+                    onClick={() => toggleBan(u)}
+                    className={
+                      u.banned
+                        ? 'rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:bg-black/[0.03]'
+                        : 'rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-100'
+                    }
+                  >
+                    {u.banned ? 'Débannir' : 'Bannir'}
+                  </button>
+                </div>
+              )}
             </div>
-            {isSelf ? (
-              <span className="text-xs text-muted">Vous</span>
+          );
+        })}
+      </div>
+
+      {detail && <UserDetailModal membre={detail} onClose={() => setDetail(null)} />}
+    </>
+  );
+}
+
+/* ---------- Fiche utilisateur : infos + historique d'action ---------- */
+type UserProfile = {
+  info: {
+    created_at: string | null;
+    last_sign_in_at: string | null;
+    access: { active?: boolean; reason?: string; plan?: string; access_until?: string | null } | null;
+    counts: Record<string, number>;
+  };
+  activity: { typ: string; label: string; detail: string | null; at: string }[];
+};
+
+const ACT_ICON: Record<string, string> = {
+  super_coach: '✦',
+  comment: '💬',
+  post: '📣',
+  coach: '📨',
+  suivi: '🗓️',
+  task: '✅',
+  video: '▶️',
+};
+
+function fmtDateTime(iso: string | null) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function UserDetailModal({ membre, onClose }: { membre: Membre; onClose: () => void }) {
+  const [data, setData] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    supabase.rpc('admin_user_profile', { p_user: membre.id }).then(({ data }) => {
+      if (active) {
+        setData((data ?? null) as UserProfile | null);
+        setLoading(false);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [membre.id]);
+
+  const counts = data?.info.counts ?? {};
+  const acc = data?.info.access;
+  const accLabel = !acc?.active
+    ? acc?.reason === 'expired'
+      ? 'Expiré'
+      : acc?.reason === 'banned'
+      ? 'Banni'
+      : 'Aucun accès'
+    : acc.reason === 'admin'
+    ? 'Admin'
+    : acc.reason === 'manual'
+    ? 'Accès manuel'
+    : acc.plan
+    ? `Payé (${acc.plan})`
+    : 'Actif';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-0 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
+      <div
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white sm:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sticky top-0 flex items-center gap-3 border-b border-line bg-white p-4">
+          <Avatar initials={initials(membre.full_name, membre.email)} src={membre.avatar_url} size={40} />
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-2 truncate font-bold text-ink">
+              {membre.full_name || membre.email}
+              {membre.banned && <span className="chip bg-red-50 text-red-600">Banni</span>}
+            </p>
+            <p className="truncate text-xs text-muted">{membre.email}</p>
+          </div>
+          <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-black/[0.05]" aria-label="Fermer">
+            <IconX width={18} height={18} />
+          </button>
+        </div>
+
+        {loading ? (
+          <p className="p-8 text-center text-sm text-muted">Chargement…</p>
+        ) : (
+          <div className="p-4">
+            {/* Infos */}
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="rounded-lg bg-black/[0.03] p-3">
+                <p className="text-xs text-muted">Accès</p>
+                <p className="font-semibold text-ink">{accLabel}</p>
+              </div>
+              <div className="rounded-lg bg-black/[0.03] p-3">
+                <p className="text-xs text-muted">Dernière connexion</p>
+                <p className="font-semibold text-ink">{fmtDateTime(data?.info.last_sign_in_at ?? null)}</p>
+              </div>
+              <div className="rounded-lg bg-black/[0.03] p-3 col-span-2">
+                <p className="text-xs text-muted">Inscrit le</p>
+                <p className="font-semibold text-ink">{fmtDateTime(data?.info.created_at ?? null)}</p>
+              </div>
+            </div>
+
+            {/* Compteurs d'activité */}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[
+                ['super_coach', 'questions Super Coach', <IconSparkle key="s" width={13} height={13} />],
+                ['videos', 'vidéos vues'],
+                ['tasks', 'tâches objectif'],
+                ['comments', 'commentaires'],
+                ['posts', 'publications'],
+                ['coach_msgs', 'msgs coachs'],
+                ['suivi_msgs', 'msgs suivi'],
+              ].map(([key, label, icon]) => (
+                <span key={key as string} className="chip border border-line bg-white text-muted">
+                  {icon as React.ReactNode}
+                  <b className="text-ink">{counts[key as string] ?? 0}</b> {label as string}
+                </span>
+              ))}
+            </div>
+
+            {/* Historique */}
+            <p className="mb-2 mt-5 text-sm font-bold text-ink">Historique d&apos;action</p>
+            {data?.activity.length ? (
+              <div className="space-y-1.5">
+                {data.activity.map((a, i) => (
+                  <div key={i} className="flex items-start gap-2.5 rounded-lg bg-black/[0.02] px-3 py-2">
+                    <span className="mt-0.5 shrink-0 text-sm">{ACT_ICON[a.typ] ?? '•'}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-ink">{a.label}</p>
+                      {a.detail && (
+                        <p className="truncate text-xs text-muted">
+                          <RichText text={a.detail} />
+                        </p>
+                      )}
+                    </div>
+                    <span className="shrink-0 text-[11px] text-muted">{fmtDateTime(a.at)}</span>
+                  </div>
+                ))}
+              </div>
             ) : (
-              <form action={setUserAdmin.bind(null, u.id, !u.is_admin)}>
-                <button className={u.is_admin ? 'btn-outline' : 'btn-primary'}>
-                  {u.is_admin ? 'Retirer admin' : 'Rendre admin'}
-                </button>
-              </form>
+              <p className="py-4 text-center text-sm text-muted">Aucune action enregistrée.</p>
             )}
           </div>
-        );
-      })}
+        )}
+      </div>
     </div>
   );
 }
