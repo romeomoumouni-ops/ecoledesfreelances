@@ -40,14 +40,6 @@ export const IconFile = (p: IconProps) => (
   </svg>
 );
 
-export const IconTrophy = (p: IconProps) => (
-  <svg {...base(p)}>
-    <path d="M8 4h8v4a4 4 0 0 1-8 0V4Z" />
-    <path d="M8 5H5v1a3 3 0 0 0 3 3M16 5h3v1a3 3 0 0 1-3 3" />
-    <path d="M12 12v4M9 20h6M10 20v-2h4v2" />
-  </svg>
-);
-
 export const IconLink = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07l-1.41 1.41" />
