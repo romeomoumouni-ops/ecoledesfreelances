@@ -39,11 +39,15 @@ export default function TwoFactorAdmin() {
       for (const f of list?.totp ?? []) {
         if (f.status !== 'verified') await supabase.auth.mfa.unenroll({ factorId: f.id });
       }
-      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: 'totp',
+        friendlyName: `Authenticator ${Date.now()}`,
+        issuer: "L'École des Freelances",
+      });
       if (error) throw error;
       setEnroll({ factorId: data.id, qr: data.totp.qr_code, secret: data.totp.secret });
-    } catch {
-      setErr("Impossible de démarrer l'activation. Réessaie.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Impossible de démarrer l'activation. Réessaie.");
     } finally {
       setBusy(false);
     }
@@ -53,28 +57,20 @@ export default function TwoFactorAdmin() {
     if (!enroll) return;
     setErr(null);
     setBusy(true);
-    try {
-      const { data: ch, error: chErr } = await supabase.auth.mfa.challenge({ factorId: enroll.factorId });
-      if (chErr) throw chErr;
-      const { error: vErr } = await supabase.auth.mfa.verify({
-        factorId: enroll.factorId,
-        challengeId: ch.id,
-        code: code.trim(),
-      });
-      if (vErr) {
-        setErr('Code incorrect. Vérifie le code affiché dans ton application.');
-        setBusy(false);
-        return;
-      }
-      setEnroll(null);
-      setCode('');
-      setStatus('on');
-    } catch {
-      setErr('Échec de la vérification. Réessaie.');
-      setBusy(false);
-    } finally {
-      setBusy(false);
+    const { error: vErr } = await supabase.auth.mfa.challengeAndVerify({
+      factorId: enroll.factorId,
+      code: code.trim(),
+    });
+    setBusy(false);
+    if (vErr) {
+      setErr(
+        'Code refusé. Vérifie que tu tapes le code EN COURS dans ton application, et que l’heure de ton téléphone est réglée sur « automatique ».'
+      );
+      return;
     }
+    setEnroll(null);
+    setCode('');
+    setStatus('on');
   }
 
   async function disable() {
