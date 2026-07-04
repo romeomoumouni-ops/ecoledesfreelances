@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/UI';
 import Avatar from '@/components/Avatar';
 import { IconUsers, IconLock, IconBell, IconCamera } from '@/components/Icons';
+import TwoFactorAdmin from './TwoFactorAdmin';
 
 type P = { id: string; fullName: string; email: string; avatarUrl: string | null; isAdmin: boolean };
 const sections = [
@@ -194,6 +195,7 @@ export default function ParametresClient({ profile }: { profile: P }) {
                   {busy === 'pwd' ? 'Mise à jour…' : 'Mettre à jour le mot de passe'}
                 </button>
               </div>
+              {profile.isAdmin && <TwoFactorAdmin />}
             </form>
           )}
 

@@ -33,6 +33,13 @@ export const IconCard = (p: IconProps) => (
   </svg>
 );
 
+export const IconEyeOff = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M10.7 6.2A9.6 9.6 0 0 1 12 6c6.5 0 10 6 10 6a17 17 0 0 1-3 3.6M6.3 6.4A17 17 0 0 0 2 12s3.5 7 10 7a9.5 9.5 0 0 0 5-1.3" />
+    <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18" />
+  </svg>
+);
+
 export const IconFile = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
