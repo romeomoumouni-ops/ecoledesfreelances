@@ -10,15 +10,108 @@ import { IconSparkle, IconArrowRight } from '@/components/Icons';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 
-// Recharge de questions IA : 1 500 FCFA = +15 questions (crédit automatique)
-const RECHARGE_LINK = 'https://romeomoumouni.mychariow.shop/prd_v19rl2tn/checkout';
-
 const SUGGESTIONS = [
   'Comment trouver mes premiers clients ?',
   'Par quel cours je devrais commencer ?',
   'Comment bien démarrer sur Comeup ?',
   'Donne-moi un plan pour contacter 100 prospects',
 ];
+
+// Pays Mobile Money proposés pour le paiement direct
+const PAYS = [
+  { code: 'BJ', label: 'Bénin' },
+  { code: 'CI', label: "Côte d'Ivoire" },
+  { code: 'SN', label: 'Sénégal' },
+  { code: 'TG', label: 'Togo' },
+  { code: 'CM', label: 'Cameroun' },
+  { code: 'BF', label: 'Burkina Faso' },
+  { code: 'ML', label: 'Mali' },
+  { code: 'NE', label: 'Niger' },
+  { code: 'GN', label: 'Guinée' },
+  { code: 'CD', label: 'RD Congo' },
+  { code: 'GA', label: 'Gabon' },
+  { code: 'FR', label: 'France / carte' },
+];
+
+function RechargePanel({ email }: { email: string }) {
+  const [phone, setPhone] = useState('');
+  const [country, setCountry] = useState('BJ');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function pay() {
+    const num = phone.replace(/\D/g, '');
+    if (num.length < 6) return setErr('Entre ton numéro de téléphone (Mobile Money).');
+    setErr(null);
+    setBusy(true);
+    try {
+      const res = await fetch('/api/super-coach/recharge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: num, country }),
+      });
+      const j = await res.json().catch(() => null);
+      if (j?.url) {
+        // Redirection directe vers la page de PAIEMENT (pas la boutique)
+        window.location.href = j.url;
+        return;
+      }
+      if (j?.fallback) {
+        window.location.href = j.fallback;
+        return;
+      }
+      setErr(j?.error ?? 'Impossible de préparer le paiement, réessaie.');
+      setBusy(false);
+    } catch {
+      setErr('Impossible de préparer le paiement, réessaie.');
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card mt-4 p-5">
+      <p className="text-center font-bold text-ink">Tu as utilisé toutes tes questions IA 🔋</p>
+      <p className="mx-auto mt-1 max-w-sm text-center text-sm leading-relaxed text-muted">
+        Recharge <b className="text-ink">15 questions pour 1 500 FCFA</b> — paiement direct
+        (Mobile Money ou carte), tes questions s&apos;ajoutent automatiquement sur{' '}
+        <b className="text-ink">{email}</b>.
+      </p>
+
+      <div className="mx-auto mt-4 flex max-w-sm flex-col gap-2 sm:flex-row">
+        <select
+          value={country}
+          onChange={(e) => setCountry(e.target.value)}
+          className="input sm:w-40"
+          disabled={busy}
+        >
+          {PAYS.map((p) => (
+            <option key={p.code} value={p.code}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+        <input
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          className="input flex-1"
+          placeholder="Numéro de téléphone"
+          disabled={busy}
+        />
+      </div>
+
+      {err && <p className="mt-2 text-center text-sm text-red-600">{err}</p>}
+
+      <button onClick={pay} disabled={busy} className="btn-primary mx-auto mt-3 w-full max-w-sm disabled:opacity-60">
+        {busy ? 'Préparation du paiement…' : 'Payer 1 500 FCFA — recharger 15 questions'}
+        {!busy && <IconArrowRight width={17} height={17} />}
+      </button>
+      <button onClick={() => window.location.reload()} className="btn-outline mx-auto mt-2 flex w-full max-w-sm justify-center">
+        J&apos;ai payé — actualiser
+      </button>
+    </div>
+  );
+}
 
 function CoachFace({ src, size }: { src: string | null; size: number }) {
   if (src) {
@@ -194,35 +287,8 @@ export default function SuperCoachClient({
 
       {err && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
 
-      {/* Quota épuisé : panneau de recharge */}
-      {quotaOut && (
-        <div className="card mt-4 p-5 text-center">
-          <p className="font-bold text-ink">Tu as utilisé toutes tes questions IA 🔋</p>
-          <p className="mx-auto mt-1 max-w-sm text-sm leading-relaxed text-muted">
-            Recharge <b className="text-ink">15 questions supplémentaires pour 1 500 FCFA</b>. Paye avec
-            l&apos;adresse e-mail de ton compte (<b className="text-ink">{me.email}</b>) : tes questions
-            s&apos;ajoutent automatiquement en ~1 minute.
-          </p>
-          <a
-            href={RECHARGE_LINK}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-primary mx-auto mt-4"
-          >
-            Recharger 15 questions — 1 500 FCFA
-            <IconArrowRight width={17} height={17} />
-          </a>
-          <button
-            onClick={() => {
-              setQuotaOut(false);
-              window.location.reload();
-            }}
-            className="btn-outline mx-auto mt-2"
-          >
-            J&apos;ai payé — actualiser
-          </button>
-        </div>
-      )}
+      {/* Quota épuisé : panneau de recharge (paiement direct) */}
+      {quotaOut && <RechargePanel email={me.email} />}
 
       {/* Composer (collant en bas) */}
       <div className="sticky bottom-0 mt-4 border-t border-line bg-surface pb-2 pt-3">

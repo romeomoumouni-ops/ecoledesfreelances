@@ -19,9 +19,17 @@ const CHARIOW_API = 'https://api.chariow.com/v1';
 
 // Produits d'accès à la plateforme (1x / 3x / 6x)
 const ACCESS_PRODUCTS = new Set(['prd_97u01b', 'prd_ocqbu9', 'prd_mq2c4np5']);
-// Recharge de questions du Super Coach (1500 FCFA = +15 questions)
-const COACH_QUESTIONS_PRODUCT = 'prd_v19rl2tn';
-const PRODUCTS = new Set([...ACCESS_PRODUCTS, COACH_QUESTIONS_PRODUCT]);
+// Recharges de questions du Super Coach (1500 FCFA = +15 questions) :
+// prd_v19rl2tn = produit « service » (lien boutique) ; CHARIOW_CREDIT_PRODUCT =
+// produit « licence » acheté via l'API checkout (paiement direct).
+function coachProducts(): Set<string> {
+  const s = new Set(['prd_v19rl2tn']);
+  if (process.env.CHARIOW_CREDIT_PRODUCT) s.add(process.env.CHARIOW_CREDIT_PRODUCT);
+  return s;
+}
+function allProducts(): Set<string> {
+  return new Set([...ACCESS_PRODUCTS, ...coachProducts()]);
+}
 
 function apiKeys(): string[] {
   return [process.env.CHARIOW_API_KEY, process.env.CHARIOW_API_KEY_2].filter(
@@ -96,7 +104,7 @@ export async function POST(req: NextRequest) {
   if (!['completed', 'settled'].includes(verified.status)) {
     return NextResponse.json({ ok: true, ignored: `status_${verified.status}` });
   }
-  if (!PRODUCTS.has(verified.productId)) {
+  if (!allProducts().has(verified.productId)) {
     return NextResponse.json({ ok: true, ignored: `product_${verified.productId}` });
   }
 
@@ -108,12 +116,13 @@ export async function POST(req: NextRequest) {
   );
   // Routage selon le produit : accès à la plateforme ou recharge de questions
   const { data, error } =
-    verified.productId === COACH_QUESTIONS_PRODUCT
+    coachProducts().has(verified.productId)
       ? await supabase.rpc('chariow_add_coach_questions', {
           p_secret: process.env.CHARIOW_GRANT_SECRET,
           p_email: verified.email,
           p_sale_id: saleId,
           p_amount: verified.amount,
+          p_product: verified.productId,
         })
       : await supabase.rpc('chariow_grant_access', {
           p_secret: process.env.CHARIOW_GRANT_SECRET,
