@@ -1,5 +1,12 @@
+'use client';
+
 import React from 'react';
 
+// Composant CLIENT : le lien rendu porte un onClick (stopPropagation), interdit
+// dans un composant serveur. Sans 'use client', toute page serveur qui rend
+// RichText (ex. /admin/communaute) plantait avec « Event handlers cannot be
+// passed to Client Component props ».
+//
 // Rendu de texte sûr : liens cliquables + gras / italique / code (sous-ensemble
 // markdown). Aucune injection HTML (pas de dangerouslySetInnerHTML) → pas de XSS.
 // Détecte : liens markdown [txt](url), URLs https://…, www.…, domaines nus
