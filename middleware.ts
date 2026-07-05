@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 const AUTH_PATHS = ['/connexion', '/inscription'];
+// Pages publiques accessibles SANS compte (page de vente).
+const PUBLIC_PATHS = ['/paiement'];
 
 export async function middleware(request: NextRequest) {
   // Les routes API (webhooks…) gèrent leur propre authentification (token) :
@@ -37,6 +39,12 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isAuthPage = AUTH_PATHS.some((p) => path.startsWith(p));
+  const isPublic = isAuthPage || PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + '/'));
+
+  // Page publique (page de vente) : accessible sans compte, aucune vérif d'accès.
+  if (isPublic && !isAuthPage) {
+    return response;
+  }
 
   // Non connecté → tout renvoie vers la connexion (sauf les pages d'auth)
   if (!user && !isAuthPage) {

@@ -23,3 +23,21 @@ export function parseGhostUserId(email: string | null | undefined): string | nul
   const m = GHOST_RE.exec(email.trim());
   return m ? m[1].toLowerCase() : null;
 }
+
+// Adresse fantôme pour un achat depuis la page de vente (prospect sans compte) :
+// le token renvoie au vrai e-mail stocké dans pending_checkouts.
+export function joinGhostEmail(token: string): string {
+  return `join-${token}@${GHOST_DOMAIN}`;
+}
+
+const JOIN_RE = new RegExp(
+  `^join-([a-z0-9]{16,})@${GHOST_DOMAIN.replace(/\./g, '\\.')}$`,
+  'i'
+);
+
+/** Extrait le token d'inscription d'une adresse fantôme, ou null. */
+export function parseJoinToken(email: string | null | undefined): string | null {
+  if (!email) return null;
+  const m = JOIN_RE.exec(email.trim());
+  return m ? m[1].toLowerCase() : null;
+}

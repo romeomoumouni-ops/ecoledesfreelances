@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { sendWelcomeEmail, sendCoachRechargeEmail, sendPostMakerEmail } from '@/lib/email';
-import { parseGhostUserId } from '@/lib/ghost-email';
+import { parseGhostUserId, parseJoinToken } from '@/lib/ghost-email';
 
 export const dynamic = 'force-dynamic';
 
@@ -145,11 +145,19 @@ export async function POST(req: NextRequest) {
   // Adresse fantôme -> vraie adresse du compte (pour créditer le bon compte
   // et lui envoyer NOTRE e-mail à la place de celui de Chariow).
   const ghostUid = parseGhostUserId(verified.email);
+  const joinToken = parseJoinToken(verified.email);
   let effectiveEmail = verified.email;
   if (ghostUid) {
     const { data: real } = await supabase.rpc('resolve_user_email', {
       p_secret: process.env.CHARIOW_GRANT_SECRET,
       p_user_id: ghostUid,
+    });
+    if (typeof real === 'string' && real) effectiveEmail = real;
+  } else if (joinToken) {
+    // Achat depuis la page de vente : le token renvoie au vrai e-mail du prospect.
+    const { data: real } = await supabase.rpc('resolve_pending_email', {
+      p_secret: process.env.CHARIOW_GRANT_SECRET,
+      p_token: joinToken,
     });
     if (typeof real === 'string' && real) effectiveEmail = real;
   }
