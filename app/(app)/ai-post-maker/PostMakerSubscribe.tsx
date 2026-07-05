@@ -1,22 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-
-const COUNTRIES: { code: string; label: string }[] = [
-  { code: 'BJ', label: 'Bénin' },
-  { code: 'CI', label: 'Côte d’Ivoire' },
-  { code: 'SN', label: 'Sénégal' },
-  { code: 'TG', label: 'Togo' },
-  { code: 'CM', label: 'Cameroun' },
-  { code: 'BF', label: 'Burkina Faso' },
-  { code: 'ML', label: 'Mali' },
-  { code: 'GN', label: 'Guinée' },
-  { code: 'NE', label: 'Niger' },
-  { code: 'CD', label: 'RD Congo' },
-  { code: 'CG', label: 'Congo' },
-  { code: 'GA', label: 'Gabon' },
-  { code: 'TD', label: 'Tchad' },
-];
+import { COUNTRIES } from '@/lib/countries';
 
 export default function PostMakerSubscribe({ fallbackUrl }: { fallbackUrl: string }) {
   const [phone, setPhone] = useState('');
@@ -69,8 +54,8 @@ export default function PostMakerSubscribe({ fallbackUrl }: { fallbackUrl: strin
           onChange={(e) => setCountry(e.target.value)}
           className="w-full rounded-xl border border-orange-200 bg-white px-3 py-3 text-sm outline-none focus:border-orange-400 focus:ring-4 focus:ring-orange-100"
         >
-          {COUNTRIES.map((c) => (
-            <option key={c.code} value={c.code}>{c.label}</option>
+          {COUNTRIES.map(([code, label]) => (
+            <option key={code} value={code}>{label}</option>
           ))}
         </select>
       </div>

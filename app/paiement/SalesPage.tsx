@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { COUNTRIES } from '@/lib/countries';
 
 const SHAKE_CSS = `
 @keyframes ctaShake {
@@ -15,12 +16,6 @@ const SHAKE_CSS = `
 }
 .cta-shake { animation: ctaShake 1s infinite; }
 `;
-
-const COUNTRIES = [
-  ['BJ', 'Bénin'], ['CI', 'Côte d’Ivoire'], ['SN', 'Sénégal'], ['TG', 'Togo'], ['CM', 'Cameroun'],
-  ['BF', 'Burkina Faso'], ['ML', 'Mali'], ['GN', 'Guinée'], ['NE', 'Niger'], ['CD', 'RD Congo'],
-  ['CG', 'Congo'], ['GA', 'Gabon'], ['TD', 'Tchad'], ['FR', 'France'],
-] as const;
 
 const VIMEO = (id: string, h: string) => `https://player.vimeo.com/video/${id}?h=${h}&title=0&byline=0&portrait=0`;
 const VIDEOS = {
