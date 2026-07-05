@@ -71,6 +71,18 @@ export async function POST(req: NextRequest) {
       const json = await res.json().catch(() => null);
       const step = json?.data?.step;
       const url = json?.data?.payment?.checkout_url;
+
+      // Diagnostic : on journalise la réponse exacte de l'API Chariow.
+      await supabase.rpc('log_webhook_event', {
+        p_event: 'join_checkout',
+        p_sale_id: null,
+        p_email: email,
+        p_product: product,
+        p_status: String(res.status),
+        p_outcome: `step=${step ?? '-'} | msg=${String(json?.message ?? '').slice(0, 160)} | errors=${JSON.stringify(json?.errors ?? '').slice(0, 200)}`,
+        p_raw: json ?? {},
+      });
+
       if (res.ok && step === 'payment' && url) {
         let payUrl = url as string;
         try {
