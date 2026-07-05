@@ -172,9 +172,17 @@ export default function AuthForm() {
   return (
     <div className="w-full">
       <h1 className="text-2xl font-bold tracking-tight text-ink">Content de vous voir</h1>
-      <p className="mt-1.5 text-sm text-muted">
-        Connectez-vous, ou créez votre compte si vous venez de vous inscrire.
-      </p>
+
+      {/* Alerte impossible à manquer : utiliser le mail d'achat */}
+      <div className="mt-4 flex items-start gap-3 rounded-xl border-2 border-amber-400 bg-amber-50 px-4 py-3.5">
+        <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-amber-400 text-sm font-black text-white">
+          !
+        </span>
+        <p className="text-sm leading-relaxed text-amber-900">
+          <b className="font-extrabold uppercase tracking-wide">Important</b> — créez votre compte
+          ou connectez-vous avec <b>le mail que vous avez utilisé pour acheter le programme</b>.
+        </p>
+      </div>
 
       <form onSubmit={handleLogin} className="mt-6 space-y-4">
         <div>
