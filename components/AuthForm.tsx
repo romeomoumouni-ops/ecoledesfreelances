@@ -231,10 +231,21 @@ export default function AuthForm() {
           type="button"
           onClick={handleSignup}
           disabled={loading !== false}
-          className="btn-accent w-full disabled:opacity-60"
+          className="btn-accent w-full flex-col gap-0.5 py-3 leading-tight disabled:opacity-60"
         >
-          {loading === 'signup' ? 'Création…' : 'Créer mon compte'}
-          {loading !== 'signup' && <IconArrowRight width={18} height={18} />}
+          {loading === 'signup' ? (
+            'Création…'
+          ) : (
+            <>
+              <span className="inline-flex items-center gap-2">
+                Créer mon compte
+                <IconArrowRight width={18} height={18} />
+              </span>
+              <span className="text-[11px] font-normal opacity-80">
+                (cliquez ici si vous venez de payer ou que vous êtes nouveau)
+              </span>
+            </>
+          )}
         </button>
 
         {/* Bouton ME CONNECTER (noir), juste en dessous — pour ceux qui ont déjà un compte */}
