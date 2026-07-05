@@ -49,8 +49,8 @@ export default function AdminNav({
     href === '/admin/messages' ? messagesUnread : href === '/admin/suivi' ? suiviUnread : 0;
 
   return (
-    <div className="flex items-center gap-2 overflow-x-auto">
-      <nav className="scrollbar-hide flex gap-1 overflow-x-auto">
+    <div className="flex flex-wrap items-center gap-2">
+      <nav className="flex flex-wrap gap-1">
         {[...items, ...(superAdmin ? [superAdminItem] : [])].map((it) => {
           const on = active(it.href, it.exact);
           const badge = badgeFor(it.href);
