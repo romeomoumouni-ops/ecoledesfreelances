@@ -103,26 +103,36 @@ export async function POST(req: NextRequest) {
   const saleId = sale?.id;
   if (!saleId) return NextResponse.json({ ok: false, error: 'missing_sale_id' }, { status: 400 });
 
-  // Re-vérification auprès de l'API Chariow (source de vérité)
-  const verified = await verifySale(saleId);
-  if (!verified) {
-    // Vente introuvable avec nos clés : soit fausse requête, soit indispo réseau.
-    // 500 => Chariow réessaie plus tard (1 min, 5 min, 30 min, 2 h, 24 h).
-    return NextResponse.json({ ok: false, error: 'sale_not_verified' }, { status: 500 });
-  }
-  if (!['completed', 'settled'].includes(verified.status)) {
-    return NextResponse.json({ ok: true, ignored: `status_${verified.status}` });
-  }
-  if (!allProducts().has(verified.productId)) {
-    return NextResponse.json({ ok: true, ignored: `product_${verified.productId}` });
-  }
-
-  // Attribution de l'accès (idempotente)
+  // Client Supabase (journalisation de diagnostic + attribution de l'accès)
   const supabase = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     { auth: { persistSession: false } }
   );
+  const log = (outcome: string, extra?: { product?: string; email?: string; status?: string }) =>
+    supabase.rpc('log_webhook_event', {
+      p_event: event, p_sale_id: saleId, p_email: extra?.email ?? null,
+      p_product: extra?.product ?? null, p_status: extra?.status ?? null,
+      p_outcome: outcome, p_raw: body,
+    });
+
+  // Re-vérification auprès de l'API Chariow (source de vérité)
+  const verified = await verifySale(saleId);
+  if (!verified) {
+    // Vente introuvable avec nos clés : soit fausse requête, soit indispo réseau.
+    // 500 => Chariow réessaie plus tard (1 min, 5 min, 30 min, 2 h, 24 h).
+    await log('not_verified');
+    return NextResponse.json({ ok: false, error: 'sale_not_verified' }, { status: 500 });
+  }
+  if (!['completed', 'settled'].includes(verified.status)) {
+    await log('status_ignored', { product: verified.productId, email: verified.email, status: verified.status });
+    return NextResponse.json({ ok: true, ignored: `status_${verified.status}` });
+  }
+  if (!allProducts().has(verified.productId)) {
+    await log('product_ignored', { product: verified.productId, email: verified.email, status: verified.status });
+    return NextResponse.json({ ok: true, ignored: `product_${verified.productId}` });
+  }
+
   // Routage selon le produit : abonnement AI Post Maker, recharge de questions, ou accès plateforme
   const { data, error } =
     postMakerProducts().has(verified.productId)
@@ -147,6 +157,10 @@ export async function POST(req: NextRequest) {
           p_sale_id: saleId,
           p_amount: verified.amount,
         });
+
+  await log(error ? `rpc_error:${error.message.slice(0, 120)}` : `ok:${JSON.stringify(data).slice(0, 150)}`, {
+    product: verified.productId, email: verified.email, status: verified.status,
+  });
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
