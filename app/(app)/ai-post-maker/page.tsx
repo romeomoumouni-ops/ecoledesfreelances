@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentProfile } from '@/lib/user';
 import { createClient } from '@/lib/supabase/server';
 import PostMakerClient from './PostMakerClient';
+import PostMakerSubscribe from './PostMakerSubscribe';
 import { IconSparkle, IconCheck } from '@/components/Icons';
 
 export const dynamic = 'force-dynamic';
@@ -48,17 +49,7 @@ function Paywall({ checkoutUrl }: { checkoutUrl: string }) {
             ))}
           </ul>
 
-          <a
-            href={checkoutUrl || '#'}
-            target={checkoutUrl ? '_blank' : undefined}
-            rel="noopener noreferrer"
-            className={`mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-3.5 text-sm font-bold text-white transition hover:bg-orange-600 active:scale-[0.99] ${checkoutUrl ? '' : 'pointer-events-none opacity-60'}`}
-          >
-            S’abonner à AI Post Maker
-          </a>
-          <p className="mt-3 text-center text-xs text-muted">
-            Déjà payé (Western Union, Mobile Money…) ? Écris à l’équipe via « Contacter les coachs » et on active ton accès.
-          </p>
+          <PostMakerSubscribe fallbackUrl={checkoutUrl} />
         </div>
       </div>
     </div>
