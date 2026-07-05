@@ -241,9 +241,18 @@ export default function AuthForm() {
         <button
           type="submit"
           disabled={loading !== false}
-          className="btn-primary w-full disabled:opacity-60"
+          className="btn-primary w-full flex-col gap-0.5 py-3 leading-tight disabled:opacity-60"
         >
-          {loading === 'login' ? 'Connexion…' : 'Me connecter'}
+          {loading === 'login' ? (
+            'Connexion…'
+          ) : (
+            <>
+              <span>Me connecter</span>
+              <span className="text-[11px] font-normal opacity-80">
+                (cliquez ici si vous avez déjà un compte)
+              </span>
+            </>
+          )}
         </button>
 
         <p className="text-center text-xs leading-relaxed text-muted">
