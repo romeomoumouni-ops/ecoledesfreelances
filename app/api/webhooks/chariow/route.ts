@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { sendWelcomeEmail } from '@/lib/email';
+import { sendWelcomeEmail, sendCoachRechargeEmail, sendPostMakerEmail } from '@/lib/email';
+import { parseGhostUserId } from '@/lib/ghost-email';
 
 export const dynamic = 'force-dynamic';
 
@@ -141,26 +142,38 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, ignored: `product_${verified.productId}` });
   }
 
+  // Adresse fantôme -> vraie adresse du compte (pour créditer le bon compte
+  // et lui envoyer NOTRE e-mail à la place de celui de Chariow).
+  const ghostUid = parseGhostUserId(verified.email);
+  let effectiveEmail = verified.email;
+  if (ghostUid) {
+    const { data: real } = await supabase.rpc('resolve_user_email', {
+      p_secret: process.env.CHARIOW_GRANT_SECRET,
+      p_user_id: ghostUid,
+    });
+    if (typeof real === 'string' && real) effectiveEmail = real;
+  }
+
   // Routage selon le produit : abonnement AI Post Maker, recharge de questions, ou accès plateforme
   const { data, error } =
     postMakerProducts().has(verified.productId)
       ? await supabase.rpc('chariow_grant_post_maker', {
           p_secret: process.env.CHARIOW_GRANT_SECRET,
-          p_email: verified.email,
+          p_email: effectiveEmail,
           p_sale_id: saleId,
           p_amount: verified.amount,
         })
       : coachProducts().has(verified.productId)
       ? await supabase.rpc('chariow_add_coach_questions', {
           p_secret: process.env.CHARIOW_GRANT_SECRET,
-          p_email: verified.email,
+          p_email: effectiveEmail,
           p_sale_id: saleId,
           p_amount: verified.amount,
           p_product: verified.productId,
         })
       : await supabase.rpc('chariow_grant_access', {
           p_secret: process.env.CHARIOW_GRANT_SECRET,
-          p_email: verified.email,
+          p_email: effectiveEmail,
           p_product: verified.productId,
           p_sale_id: saleId,
           p_amount: verified.amount,
@@ -174,15 +187,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  // E-mail de bienvenue : uniquement pour un accès à la plateforme, et seulement
-  // à la 1re activation (pas les échéances suivantes 3x/6x, pas les recharges IA).
-  const r = data as { status?: string; payments_count?: number } | null;
-  if (
-    ACCESS_PRODUCTS.has(verified.productId) &&
-    r?.status === 'granted' &&
-    r?.payments_count === 1
-  ) {
-    await sendWelcomeEmail(verified.email);
+  // Nos e-mails de confirmation (Chariow n'envoie plus les siens grâce à l'adresse fantôme).
+  const r = data as { status?: string; payments_count?: number; valid_until?: string; allowance?: number } | null;
+  if (r?.status === 'granted') {
+    if (postMakerProducts().has(verified.productId)) {
+      await sendPostMakerEmail(effectiveEmail, r.valid_until ?? null);
+    } else if (coachProducts().has(verified.productId)) {
+      await sendCoachRechargeEmail(effectiveEmail, r.allowance ?? 15);
+    } else if (ACCESS_PRODUCTS.has(verified.productId) && r.payments_count === 1) {
+      // Accès plateforme : e-mail de bienvenue à la 1re activation seulement.
+      await sendWelcomeEmail(effectiveEmail);
+    }
   }
 
   return NextResponse.json({ ok: true, result: data });

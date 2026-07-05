@@ -59,3 +59,43 @@ export async function sendWelcomeEmail(to: string): Promise<boolean> {
   </div>`;
   return send(to, subject, html);
 }
+
+/** Gabarit commun aux e-mails de confirmation de paiement (marque École). */
+function confirmTemplate(title: string, body: string, ctaLabel: string, ctaHref: string): string {
+  return `
+  <div style="margin:0;padding:24px;background:#f7f7f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1d1d1f;">
+    <div style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #ececeb;border-radius:16px;overflow:hidden;">
+      <div style="padding:28px 28px 8px;"><div style="font-size:17px;font-weight:700;">L'École des Freelances</div></div>
+      <div style="padding:8px 28px 28px;">
+        <h1 style="font-size:20px;font-weight:700;margin:12px 0 8px;">${title}</h1>
+        <p style="font-size:14px;line-height:1.6;color:#4a4a4a;margin:0 0 14px;">${body}</p>
+        <div style="text-align:center;margin:26px 0 10px;">
+          <a href="${ctaHref}" style="display:inline-block;background:#1d1d1f;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 28px;border-radius:12px;">${ctaLabel}</a>
+        </div>
+      </div>
+    </div>
+    <p style="max-width:520px;margin:14px auto 0;font-size:11px;color:#a0a0a0;text-align:center;">L'École des Freelances — confirmation de paiement.</p>
+  </div>`;
+}
+
+/** Confirmation d'une recharge de questions Super Coach (paiement 1 500 FCFA). */
+export async function sendCoachRechargeEmail(to: string, remaining: number): Promise<boolean> {
+  const subject = 'Ton paiement est confirmé — +15 questions Super Coach ✅';
+  const body =
+    `Ton paiement a bien été reçu. <b>15 questions</b> ont été ajoutées à ton Super Coach Roméo. ` +
+    `Il te reste maintenant <b>${remaining} question${remaining > 1 ? 's' : ''}</b>. Fonce, pose tes questions et avance dans ton projet 💪`;
+  return send(to, subject, confirmTemplate('Recharge confirmée 🎉', body, 'Ouvrir le Super Coach →', `${SITE_URL}/super-coach`));
+}
+
+/** Confirmation de l'abonnement AI Post Maker (paiement 15 000 FCFA / mois). */
+export async function sendPostMakerEmail(to: string, validUntil: string | null): Promise<boolean> {
+  const until = validUntil
+    ? new Date(validUntil).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null;
+  const subject = 'Ton abonnement AI Post Maker est activé ✅';
+  const body =
+    `Ton paiement a bien été reçu et ton accès à <b>AI Post Maker</b> est activé` +
+    `${until ? ` <b>jusqu'au ${until}</b>` : ''}. ` +
+    `Génère des posts et des messages de prospection à volonté, directement depuis ton espace 🚀`;
+  return send(to, subject, confirmTemplate('Abonnement activé 🎉', body, 'Ouvrir AI Post Maker →', `${SITE_URL}/ai-post-maker`));
+}

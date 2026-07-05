@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { ghostEmail } from '@/lib/ghost-email';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,13 +58,15 @@ export async function POST(req: NextRequest) {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          // Adresse fantôme : Chariow n'envoie pas ses e-mails au client ; c'est
+          // NOUS qui confirmons (le webhook décode l'user_id depuis cette adresse).
           product_id: product,
-          email,
+          email: ghostEmail(user.id),
           first_name: firstName,
           last_name: lastName,
           phone: { number: phone, country_code: country },
           redirect_url: 'https://www.lecoledesfreelances.com/ai-post-maker',
-          custom_metadata: { source: 'post-maker', user_id: user.id },
+          custom_metadata: { source: 'post-maker', user_id: user.id, real_email: email },
         }),
         cache: 'no-store',
       });
