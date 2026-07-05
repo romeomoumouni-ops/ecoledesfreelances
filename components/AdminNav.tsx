@@ -12,6 +12,7 @@ import {
   IconCalendar,
   IconCard,
   IconSparkle,
+  IconWand,
   IconArrowRight,
 } from './Icons';
 
@@ -22,6 +23,7 @@ const items = [
   { href: '/admin/messages', label: 'Messages', Icon: IconMail },
   { href: '/admin/suivi', label: 'Suivi', Icon: IconCalendar },
   { href: '/admin/super-coach', label: 'Super Coach', Icon: IconSparkle },
+  { href: '/admin/post-maker', label: 'AI Post Maker', Icon: IconWand },
   { href: '/admin/communaute', label: 'Communauté', Icon: IconChat },
   { href: '/admin/utilisateurs', label: 'Utilisateurs', Icon: IconUsers },
 ];

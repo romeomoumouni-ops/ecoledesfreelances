@@ -16,11 +16,14 @@ import {
   IconHelp,
   IconShield,
   IconSparkle,
+  IconWand,
   IconX,
   IconLogout,
 } from './Icons';
 
-const mainMenu = [
+type MenuItem = { href: string; label: string; Icon: typeof IconBook; accent?: boolean };
+
+const mainMenu: MenuItem[] = [
   { href: '/tableau-de-bord', label: 'Tableau de bord', Icon: IconDashboard },
   { href: '/mes-formations', label: 'Mes cours à suivre', Icon: IconBook },
   { href: '/live', label: 'Live', Icon: IconLive },
@@ -28,6 +31,7 @@ const mainMenu = [
   // { href: '/catalogue', label: 'Catalogue', Icon: IconCompass }, // masqué temporairement — à réactiver plus tard
   { href: '/suivi', label: 'Suivi hebdomadaire', Icon: IconCalendar },
   { href: '/super-coach', label: 'Super Coach Roméo', Icon: IconSparkle },
+  { href: '/ai-post-maker', label: 'AI Post Maker', Icon: IconWand, accent: true },
   { href: '/temoignages', label: 'Résultats et témoignages', Icon: IconTrend },
   { href: '/communaute', label: 'Communauté', Icon: IconUsers },
 ];
@@ -63,7 +67,7 @@ export default function Sidebar({
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + '/');
 
-  const Item = ({ href, label, Icon }: { href: string; label: string; Icon: typeof IconBook }) => {
+  const Item = ({ href, label, Icon, accent }: MenuItem) => {
     const active = isActive(href);
     const badge = href === '/suivi' ? suiviUnread : 0;
     return (
@@ -71,15 +75,22 @@ export default function Sidebar({
         href={href}
         onClick={onClose}
         className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-          active
+          accent && active
+            ? 'bg-orange-50 text-orange-700'
+            : active
             ? 'bg-black/[0.06] text-ink'
             : 'text-muted hover:bg-black/[0.04] hover:text-ink'
         }`}
       >
-        <span className={active ? 'text-ink' : 'text-muted group-hover:text-ink'}>
+        <span className={accent ? 'text-orange-500' : active ? 'text-ink' : 'text-muted group-hover:text-ink'}>
           <Icon width={19} height={19} />
         </span>
         <span className="flex-1">{label}</span>
+        {accent && (
+          <span className="rounded-full bg-orange-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-orange-700">
+            IA
+          </span>
+        )}
         {badge > 0 && (
           <span className="grid h-4 min-w-[16px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
             {badge > 9 ? '9+' : badge}

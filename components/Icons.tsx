@@ -14,6 +14,13 @@ const base = (props: IconProps) => ({
   ...props,
 });
 
+export const IconWand = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M15 4V2M15 22v-2M8.5 8.5H6.5M23.5 8.5h-2M6.4 6.4 5 5M24.6 5 23.2 6.4" />
+    <path d="M14 6.5 4 16.5a2 2 0 0 0 0 2.8l.7.7a2 2 0 0 0 2.8 0l10-10-3.5-3.5Z" />
+  </svg>
+);
+
 export const IconGrip = (p: IconProps) => (
   <svg {...base(p)} fill="currentColor" stroke="none">
     <circle cx="9" cy="6" r="1.5" />
