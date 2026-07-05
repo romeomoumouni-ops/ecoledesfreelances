@@ -24,17 +24,18 @@ export default function IntroVideo() {
         <video
           ref={ref}
           src={VIDEO_URL}
+          poster="/presentation-poster.jpg"
           preload="metadata"
           playsInline
           controls={started}
           onPlay={() => setStarted(true)}
-          className="h-full w-full bg-ink object-contain"
+          className="h-full w-full bg-ink object-cover"
         />
 
         {!started && (
           <button
             onClick={play}
-            className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-gradient-to-t from-black/70 via-black/25 to-black/40 text-white transition hover:from-black/75"
+            className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-gradient-to-t from-black/45 via-black/10 to-black/25 text-white transition hover:from-black/55"
             aria-label="Lire la vidéo de présentation"
           >
             <span className="grid h-16 w-16 place-items-center rounded-full bg-white text-ink shadow-lg transition group-hover:scale-105 sm:h-20 sm:w-20">
