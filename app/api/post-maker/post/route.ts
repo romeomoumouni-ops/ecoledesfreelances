@@ -17,6 +17,7 @@ Règles de rédaction :
 - Termine par un appel à l'action ou une question pour l'engagement.
 - Ajoute quelques hashtags pertinents à la fin (3 à 6 max), seulement si utile.
 - Respecte STRICTEMENT le type de post, le ton et les mots-clés demandés.
+- N'utilise JAMAIS d'astérisque (*) ni de markdown : pas de **gras**, pas de puces en «* ». Texte brut uniquement (utilise des emojis ou des tirets « - » si besoin de listes).
 - Rends UNIQUEMENT le post final, prêt à publier. Pas de préambule, pas d'explication.`;
 
 export async function POST(req: NextRequest) {

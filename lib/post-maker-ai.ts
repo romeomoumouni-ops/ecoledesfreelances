@@ -49,8 +49,10 @@ export function claudeStreamResponse(opts: {
         });
         for await (const event of claudeStream) {
           if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-            full += event.delta.text;
-            controller.enqueue(encoder.encode(event.delta.text));
+            // On retire tout astérisque (pas de markdown/gras dans le rendu final).
+            const piece = event.delta.text.replace(/\*/g, '');
+            full += piece;
+            controller.enqueue(encoder.encode(piece));
           }
         }
         const finalMsg = await claudeStream.finalMessage();

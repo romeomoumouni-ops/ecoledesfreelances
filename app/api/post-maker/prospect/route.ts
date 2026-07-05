@@ -17,6 +17,7 @@ Principes :
   jamais mendiants, avec un appel à l'action léger (ouvrir la conversation).
 - En cours de discussion : réponds aux objections, crée de la valeur, fais avancer
   vers la vente (proposer un appel, un devis, closer) sans être insistant ni désespéré.
+- N'utilise JAMAIS d'astérisque (*) ni de markdown (pas de **gras**, pas de puces «* »). Texte brut uniquement.
 - Rends UNIQUEMENT le message à envoyer, prêt à copier. Pas de commentaire, pas de guillemets,
   pas d'explication autour. Si un choix est nécessaire, propose une seule meilleure version.`;
 
