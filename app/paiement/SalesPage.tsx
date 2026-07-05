@@ -79,12 +79,18 @@ function VideoEmbed({ src, title }: { src: string; title: string }) {
   );
 }
 
-export default function SalesPage() {
+export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: string }) {
+  const detectedKnown = /^[A-Z]{2}$/.test(detectedCountry);
+  // Liste finale : si le pays détecté n'est pas déjà listé, on l'ajoute en tête.
+  const countryOptions: [string, string][] = detectedKnown && !COUNTRIES.some(([c]) => c === detectedCountry)
+    ? [[detectedCountry, `${detectedCountry} (ton pays)`], ...COUNTRIES]
+    : COUNTRIES;
+
   const [modal, setModal] = useState<null | '1x' | '3x'>(null);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [country, setCountry] = useState('BJ');
+  const [country, setCountry] = useState(detectedKnown ? detectedCountry : 'BJ');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
@@ -316,7 +322,7 @@ export default function SalesPage() {
               <div className="grid grid-cols-[1fr_130px] gap-2">
                 <input className="w-full rounded-xl border border-line px-3.5 py-2.5 text-sm outline-none focus:border-[#2f7bdc] focus:ring-4 focus:ring-[#2f7bdc]/15" type="tel" inputMode="numeric" placeholder="Numéro Mobile Money" value={phone} onChange={(e) => setPhone(e.target.value)} />
                 <select className="w-full rounded-xl border border-line px-2 py-2.5 text-sm outline-none focus:border-[#2f7bdc]" value={country} onChange={(e) => setCountry(e.target.value)}>
-                  {COUNTRIES.map(([c, l]) => <option key={c} value={c}>{l}</option>)}
+                  {countryOptions.map(([c, l]) => <option key={c} value={c}>{l}</option>)}
                 </select>
               </div>
             </div>

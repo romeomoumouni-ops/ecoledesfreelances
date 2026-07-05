@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import SalesPage from './SalesPage';
 
 export const metadata: Metadata = {
@@ -10,5 +11,7 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default function PaiementPage() {
-  return <SalesPage />;
+  // Pays de l'acheteur détecté via son adresse IP (Vercel) → pré-sélection automatique.
+  const detected = (headers().get('x-vercel-ip-country') || '').toUpperCase();
+  return <SalesPage detectedCountry={detected} />;
 }
