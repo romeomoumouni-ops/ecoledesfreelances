@@ -74,7 +74,9 @@ export default async function AiPostMakerPage() {
   const a = (access ?? {}) as { active?: boolean; valid_until?: string | null };
 
   if (a.active !== true) {
-    return <Paywall checkoutUrl={process.env.POST_MAKER_CHECKOUT_URL || ''} />;
+    const checkoutUrl =
+      process.env.POST_MAKER_CHECKOUT_URL || 'https://romeomoumouni.mychariow.shop/prd_n52m1d5e/checkout';
+    return <Paywall checkoutUrl={checkoutUrl} />;
   }
 
   return <PostMakerClient name={profile.full_name} validUntil={a.valid_until ?? null} />;

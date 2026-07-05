@@ -30,8 +30,14 @@ function coachProducts(): Set<string> {
   if (process.env.CHARIOW_CREDIT_PRODUCT) s.add(process.env.CHARIOW_CREDIT_PRODUCT);
   return s;
 }
+// Abonnement AI Post Maker (produit « licence », payable chaque mois pour +30 jours).
+function postMakerProducts(): Set<string> {
+  const s = new Set(['prd_n52m1d5e']);
+  if (process.env.POST_MAKER_PRODUCT) s.add(process.env.POST_MAKER_PRODUCT);
+  return s;
+}
 function allProducts(): Set<string> {
-  return new Set([...ACCESS_PRODUCTS, ...coachProducts()]);
+  return new Set([...ACCESS_PRODUCTS, ...coachProducts(), ...postMakerProducts()]);
 }
 
 function apiKeys(): string[] {
@@ -117,9 +123,16 @@ export async function POST(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     { auth: { persistSession: false } }
   );
-  // Routage selon le produit : accès à la plateforme ou recharge de questions
+  // Routage selon le produit : abonnement AI Post Maker, recharge de questions, ou accès plateforme
   const { data, error } =
-    coachProducts().has(verified.productId)
+    postMakerProducts().has(verified.productId)
+      ? await supabase.rpc('chariow_grant_post_maker', {
+          p_secret: process.env.CHARIOW_GRANT_SECRET,
+          p_email: verified.email,
+          p_sale_id: saleId,
+          p_amount: verified.amount,
+        })
+      : coachProducts().has(verified.productId)
       ? await supabase.rpc('chariow_add_coach_questions', {
           p_secret: process.env.CHARIOW_GRANT_SECRET,
           p_email: verified.email,
