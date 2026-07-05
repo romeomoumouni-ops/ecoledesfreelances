@@ -84,26 +84,21 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!checkToken(req)) return NextResponse.json({ ok: false }, { status: 401 });
+  const tokenOk = checkToken(req);
 
-  let body: Record<string, unknown>;
+  let body: Record<string, unknown> = {};
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 });
+    /* on garde body = {} et on journalise quand même */
   }
 
   const event = String(body?.event ?? '');
-  // Seules les ventes réussies nous intéressent (on accuse réception du reste)
-  if (event !== 'successful.sale' && event !== 'successful_sale') {
-    return NextResponse.json({ ok: true, ignored: event });
-  }
-
   const sale = body?.sale as { id?: string } | undefined;
-  const saleId = sale?.id;
-  if (!saleId) return NextResponse.json({ ok: false, error: 'missing_sale_id' }, { status: 400 });
+  const saleId = sale?.id ?? null;
 
-  // Client Supabase (journalisation de diagnostic + attribution de l'accès)
+  // Client Supabase + journalisation. On log TOUT appel entrant (même token invalide
+  // ou événement non-vente) pour diagnostiquer ce que Chariow envoie réellement.
   const supabase = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -115,6 +110,19 @@ export async function POST(req: NextRequest) {
       p_product: extra?.product ?? null, p_status: extra?.status ?? null,
       p_outcome: outcome, p_raw: body,
     });
+
+  await log(tokenOk ? 'received' : 'bad_token');
+
+  if (!tokenOk) return NextResponse.json({ ok: false }, { status: 401 });
+  // Seules les ventes réussies nous intéressent (on accuse réception du reste)
+  if (event !== 'successful.sale' && event !== 'successful_sale') {
+    await log('event_ignored');
+    return NextResponse.json({ ok: true, ignored: event });
+  }
+  if (!saleId) {
+    await log('missing_sale_id');
+    return NextResponse.json({ ok: false, error: 'missing_sale_id' }, { status: 400 });
+  }
 
   // Re-vérification auprès de l'API Chariow (source de vérité)
   const verified = await verifySale(saleId);
