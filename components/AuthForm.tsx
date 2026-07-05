@@ -226,35 +226,31 @@ export default function AuthForm() {
           <p className="rounded-lg bg-black/[0.04] px-3 py-2 text-sm text-ink">{message}</p>
         )}
 
-        {/* Bouton principal : CRÉER MON COMPTE (premier réflexe après l'achat) */}
+        {/* Bouton principal : CRÉER MON COMPTE (bleu — premier réflexe après l'achat) */}
         <button
           type="button"
           onClick={handleSignup}
           disabled={loading !== false}
-          className="btn-primary w-full disabled:opacity-60"
+          className="btn-accent w-full disabled:opacity-60"
         >
           {loading === 'signup' ? 'Création…' : 'Créer mon compte'}
           {loading !== 'signup' && <IconArrowRight width={18} height={18} />}
         </button>
-        <p className="text-center text-xs leading-relaxed text-muted">
-          Créez votre compte avec l’e-mail utilisé lors de votre achat.
-          <br />
-          <b className="text-ink">Notez et conservez bien votre mot de passe.</b>
-        </p>
 
-        {/* Déjà un compte ? Se connecter */}
-        <div className="flex items-center gap-3 pt-1">
-          <span className="h-px flex-1 bg-line" />
-          <span className="text-xs text-muted">Vous avez déjà un compte ?</span>
-          <span className="h-px flex-1 bg-line" />
-        </div>
+        {/* Bouton ME CONNECTER (noir), juste en dessous — pour ceux qui ont déjà un compte */}
         <button
           type="submit"
           disabled={loading !== false}
-          className="btn-outline w-full disabled:opacity-60"
+          className="btn-primary w-full disabled:opacity-60"
         >
-          {loading === 'login' ? 'Connexion…' : 'Se connecter'}
+          {loading === 'login' ? 'Connexion…' : 'Me connecter'}
         </button>
+
+        <p className="text-center text-xs leading-relaxed text-muted">
+          Nouveau&nbsp;? Créez votre compte avec l’e-mail utilisé lors de votre achat.
+          <br />
+          <b className="text-ink">Notez et conservez bien votre mot de passe.</b>
+        </p>
       </form>
     </div>
   );
