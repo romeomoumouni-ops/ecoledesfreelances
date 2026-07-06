@@ -27,10 +27,10 @@ export async function broadcastPlatform(
   return { ok: true };
 }
 
-/** Récupère tous les élèves (non-admin, non-bannis) : id + e-mail. */
-async function students(): Promise<{ id: string; email: string | null }[]> {
+/** Récupère tous les comptes non-bannis : id + e-mail + is_admin. */
+async function recipients(): Promise<{ id: string; email: string | null; is_admin: boolean }[]> {
   const supabase = createClient();
-  const list: { id: string; email: string | null }[] = [];
+  const list: { id: string; email: string | null; is_admin: boolean }[] = [];
   const PAGE = 1000;
   for (let from = 0; ; from += PAGE) {
     const { data } = await supabase
@@ -39,11 +39,20 @@ async function students(): Promise<{ id: string; email: string | null }[]> {
       .range(from, from + PAGE - 1);
     const rows = data ?? [];
     for (const r of rows) {
-      if (!r.is_admin && !r.banned) list.push({ id: r.id as string, email: (r.email as string) ?? null });
+      if (!r.banned) {
+        list.push({ id: r.id as string, email: (r.email as string) ?? null, is_admin: !!r.is_admin });
+      }
     }
     if (rows.length < PAGE) break;
   }
   return list;
+}
+
+/** E-mails de TOUS les destinataires (élèves + admins), dédupliqués. */
+function emailsOf(list: { email: string | null }[]): string[] {
+  return Array.from(
+    new Set(list.map((s) => s.email).filter((e): e is string => !!e).map((e) => e.toLowerCase()))
+  );
 }
 
 /**
@@ -63,14 +72,15 @@ export async function broadcastEmail(
     return { ok: false, error: "L'envoi d'e-mails n'est pas configuré (RESEND_API_KEY manquante)." };
   }
 
-  const list = await students();
-  if (!list.length) return { ok: false, error: 'Aucun destinataire trouvé.' };
+  const all = await recipients();
+  if (!all.length) return { ok: false, error: 'Aucun destinataire trouvé.' };
+  const studentsList = all.filter((r) => !r.is_admin); // messagerie : élèves seulement
 
   const supabase = createClient();
 
   // 1) Message dans la messagerie plateforme (fil « Mariane »), même contenu que le mail
   const inboxBody = `${sub}\n\n${msg}`;
-  const rows = list.map((s) => ({
+  const rows = studentsList.map((s) => ({
     recipient: 'marianne',
     student_id: s.id,
     sender_id: profile.id,
@@ -88,10 +98,8 @@ export async function broadcastEmail(
     if (!error) inbox += count ?? slice.length;
   }
 
-  // 2) E-mail (via Resend, API batch) aux élèves qui ont une adresse
-  const emails = Array.from(
-    new Set(list.map((s) => s.email).filter((e): e is string => !!e).map((e) => e.toLowerCase()))
-  );
+  // 2) E-mail (via Resend, API batch) à TOUS : élèves + admins (pour contrôle)
+  const emails = emailsOf(all);
   const { sent, failed, error } = await sendBroadcastBatch(emails, sub, msg);
 
   return {
@@ -142,10 +150,7 @@ export async function resendLastBroadcastEmail(): Promise<{
   const subject = sep > 0 ? body.slice(0, sep).trim() : "L'École des Freelances";
   const message = sep > 0 ? body.slice(sep + 2).trim() : body;
 
-  const list = await students();
-  const emails = Array.from(
-    new Set(list.map((s) => s.email).filter((e): e is string => !!e).map((e) => e.toLowerCase()))
-  );
+  const emails = emailsOf(await recipients()); // élèves + admins (pour contrôle)
   if (!emails.length) return { ok: false, error: 'Aucun destinataire trouvé.' };
 
   const { sent, failed, error } = await sendBroadcastBatch(emails, subject, message);

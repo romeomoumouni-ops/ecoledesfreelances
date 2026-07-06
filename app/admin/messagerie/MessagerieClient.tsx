@@ -221,8 +221,9 @@ export default function MessagerieClient({
         <div className="card p-5">
           <p className="mb-4 text-sm text-muted">
             Un e-mail sera envoyé à l&apos;adresse de <b>{studentCount}</b> élève(s) via L&apos;École des
-            Freelances. <b>Le même message apparaîtra aussi dans leur messagerie</b>, comme s&apos;il venait
-            de <b>Mariane</b> (assistante de M. Roméo).
+            Freelances — <b>et aussi aux administrateurs</b>, pour que vous puissiez vérifier que l&apos;envoi
+            part bien. <b>Le même message apparaîtra aussi dans la messagerie des élèves</b>, comme s&apos;il
+            venait de <b>Mariane</b> (assistante de M. Roméo).
           </p>
           <label className="label">Sujet</label>
           <input
@@ -289,8 +290,8 @@ export default function MessagerieClient({
             <p className="text-sm font-semibold text-ink">Rattrapage d&apos;un envoi</p>
             <p className="mt-1 text-xs leading-relaxed text-muted">
               Un précédent e-mail n&apos;a pas atteint tout le monde ? Renvoie <b>le dernier e-mail</b> à tous
-              les élèves — <b>e-mail uniquement</b>, sans recréer de message dans la messagerie. Ceux qui
-              l&apos;ont déjà reçu auront un doublon.
+              les élèves (et aux admins) — <b>e-mail uniquement</b>, sans recréer de message dans la
+              messagerie. Ceux qui l&apos;ont déjà reçu auront un doublon.
             </p>
             <button
               onClick={resendLast}
