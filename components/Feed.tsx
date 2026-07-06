@@ -434,33 +434,104 @@ function PostCard({
 }
 
 /* ---------- Commentaires d'une publication ---------- */
-type PostComment = { id: string; author_name: string | null; body: string; user_id: string; created_at: string };
+type PostComment = {
+  id: string;
+  parent_id: string | null;
+  author_name: string | null;
+  body: string;
+  user_id: string;
+  created_at: string;
+  likeCount: number;
+  likedByMe: boolean;
+};
+
+// Champ de saisie réutilisable (commentaire racine ou réponse)
+function CommentInput({
+  me,
+  placeholder,
+  autoFocus = false,
+  small = false,
+  onSubmit,
+}: {
+  me: FeedUser;
+  placeholder: string;
+  autoFocus?: boolean;
+  small?: boolean;
+  onSubmit: (text: string) => Promise<void>;
+}) {
+  const [body, setBody] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function send() {
+    const text = body.trim();
+    if (!text || busy) return;
+    setBusy(true);
+    await onSubmit(text);
+    setBody('');
+    setBusy(false);
+  }
+
+  return (
+    <div className="flex items-start gap-2">
+      <Avatar initials={initialsOf(me.name)} src={me.avatarUrl} size={small ? 26 : 32} />
+      <div className="flex-1">
+        <input
+          value={body}
+          autoFocus={autoFocus}
+          onChange={(e) => setBody(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && send()}
+          className="input"
+          placeholder={placeholder}
+        />
+      </div>
+      <button onClick={send} disabled={busy || !body.trim()} className="btn-primary disabled:opacity-60">
+        Envoyer
+      </button>
+    </div>
+  );
+}
 
 function PostComments({ postId, me }: { postId: string; me: FeedUser }) {
   const [comments, setComments] = useState<PostComment[]>([]);
-  const [body, setBody] = useState('');
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const [replyTo, setReplyTo] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    supabase
-      .from('community_comments')
-      .select('id, author_name, body, user_id, created_at')
-      .eq('post_id', postId)
-      .order('created_at', { ascending: true })
-      .then(({ data }) => {
-        if (active) {
-          setComments(data ?? []);
-          setLoading(false);
-        }
-      });
+    (async () => {
+      const { data } = await supabase
+        .from('community_comments')
+        .select('id, parent_id, author_name, body, user_id, created_at, community_comment_likes(count)')
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true });
+      const rows = data ?? [];
+      let liked = new Set<string>();
+      const ids = rows.map((r: { id: string }) => r.id);
+      if (ids.length) {
+        const { data: myl } = await supabase
+          .from('community_comment_likes')
+          .select('comment_id')
+          .eq('user_id', me.id)
+          .in('comment_id', ids);
+        liked = new Set((myl ?? []).map((r: { comment_id: string }) => r.comment_id));
+      }
+      if (active) {
+        setComments(
+          rows.map((c: Record<string, unknown> & { id: string }) => ({
+            ...(c as unknown as PostComment),
+            likeCount: (c.community_comment_likes as { count: number }[])?.[0]?.count ?? 0,
+            likedByMe: liked.has(c.id),
+          }))
+        );
+        setLoading(false);
+      }
+    })();
     return () => {
       active = false;
     };
-  }, [postId]);
+  }, [postId, me.id]);
 
-  // Temps réel : commentaires des autres membres
+  // Temps réel : commentaires, réponses et likes des autres membres
   useEffect(() => {
     void ensureRealtimeAuth();
     const ch = supabase
@@ -470,7 +541,9 @@ function PostComments({ postId, me }: { postId: string; me: FeedUser }) {
         { event: 'INSERT', schema: 'public', table: 'community_comments', filter: `post_id=eq.${postId}` },
         (payload) => {
           const c = payload.new as PostComment;
-          setComments((prev) => (prev.some((x) => x.id === c.id) ? prev : [...prev, c]));
+          setComments((prev) =>
+            prev.some((x) => x.id === c.id) ? prev : [...prev, { ...c, likeCount: 0, likedByMe: false }]
+          );
         }
       )
       .on(
@@ -478,76 +551,183 @@ function PostComments({ postId, me }: { postId: string; me: FeedUser }) {
         { event: 'DELETE', schema: 'public', table: 'community_comments' },
         (payload) => {
           const id = (payload.old as { id: string }).id;
-          setComments((prev) => prev.filter((c) => c.id !== id));
+          setComments((prev) => prev.filter((c) => c.id !== id && c.parent_id !== id));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'community_comment_likes' },
+        (payload) => {
+          const l = payload.new as { comment_id: string; user_id: string };
+          if (l.user_id === me.id) return;
+          setComments((prev) =>
+            prev.map((c) => (c.id === l.comment_id ? { ...c, likeCount: c.likeCount + 1 } : c))
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'community_comment_likes' },
+        (payload) => {
+          const l = payload.old as { comment_id: string; user_id: string };
+          if (l.user_id === me.id) return;
+          setComments((prev) =>
+            prev.map((c) =>
+              c.id === l.comment_id ? { ...c, likeCount: Math.max(0, c.likeCount - 1) } : c
+            )
+          );
         }
       )
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [postId]);
+  }, [postId, me.id]);
 
-  async function add() {
-    const text = body.trim();
-    if (!text) return;
-    setBusy(true);
+  async function add(text: string, parentId: string | null) {
     const { data, error } = await supabase
       .from('community_comments')
-      .insert({ post_id: postId, user_id: me.id, author_name: me.name, body: text })
-      .select('id, author_name, body, user_id, created_at')
+      .insert({ post_id: postId, user_id: me.id, author_name: me.name, body: text, parent_id: parentId })
+      .select('id, parent_id, author_name, body, user_id, created_at')
       .single();
     if (!error && data) {
-      setComments((c) => (c.some((x) => x.id === data.id) ? c : [...c, data]));
-      setBody('');
+      setComments((c) =>
+        c.some((x) => x.id === data.id) ? c : [...c, { ...(data as PostComment), likeCount: 0, likedByMe: false }]
+      );
+      setReplyTo(null);
     }
-    setBusy(false);
   }
 
   async function del(id: string) {
-    setComments((c) => c.filter((x) => x.id !== id));
+    // On retire le commentaire et ses réponses (cascade en base)
+    setComments((c) => c.filter((x) => x.id !== id && x.parent_id !== id));
     await supabase.from('community_comments').delete().eq('id', id);
   }
 
+  async function toggleLike(c: PostComment) {
+    const liked = c.likedByMe;
+    setComments((list) =>
+      list.map((x) =>
+        x.id === c.id ? { ...x, likedByMe: !liked, likeCount: x.likeCount + (liked ? -1 : 1) } : x
+      )
+    );
+    if (liked) {
+      await supabase
+        .from('community_comment_likes')
+        .delete()
+        .eq('comment_id', c.id)
+        .eq('user_id', me.id);
+    } else {
+      await supabase.from('community_comment_likes').insert({ comment_id: c.id, user_id: me.id });
+    }
+  }
+
+  const roots = comments.filter((c) => !c.parent_id);
+  const repliesOf = (id: string) =>
+    comments
+      .filter((c) => c.parent_id === id)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at));
+
   return (
     <div className="mt-4 border-t border-line pt-4">
-      <div className="flex items-start gap-2">
-        <Avatar initials={initialsOf(me.name)} src={me.avatarUrl} size={32} />
-        <div className="flex-1">
-          <input
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && add()}
-            className="input"
-            placeholder="Écrire un commentaire…"
-          />
-        </div>
-        <button onClick={add} disabled={busy || !body.trim()} className="btn-primary disabled:opacity-60">
-          Envoyer
-        </button>
-      </div>
+      <CommentInput me={me} placeholder="Écrire un commentaire…" onSubmit={(t) => add(t, null)} />
 
-      <div className="mt-3 space-y-3">
+      <div className="mt-4 space-y-4">
         {loading ? (
           <p className="text-xs text-muted">Chargement…</p>
         ) : (
-          comments.map((c) => (
-            <div key={c.id} className="flex items-start gap-2">
-              <Avatar initials={initialsOf(c.author_name)} size={30} />
-              <div className="flex-1 rounded-lg bg-black/[0.03] px-3 py-2">
-                <p className="text-xs font-semibold text-ink">{c.author_name || 'Membre'}</p>
-                <p className="whitespace-pre-line text-sm text-ink">
-                  <RichText text={c.body} />
-                </p>
-              </div>
-              {(c.user_id === me.id || me.isAdmin) && (
-                <button onClick={() => del(c.id)} className="mt-1 text-muted hover:text-red-600" aria-label="Supprimer">
-                  <IconX width={14} height={14} />
-                </button>
+          roots.map((c) => (
+            <div key={c.id}>
+              <CommentRow
+                c={c}
+                me={me}
+                isReplying={replyTo === c.id}
+                onLike={() => toggleLike(c)}
+                onReply={() => setReplyTo((v) => (v === c.id ? null : c.id))}
+                onDelete={() => del(c.id)}
+              />
+
+              {/* Réponses */}
+              {(repliesOf(c.id).length > 0 || replyTo === c.id) && (
+                <div className="ml-5 mt-3 space-y-3 border-l-2 border-line pl-3 sm:ml-8 sm:pl-4">
+                  {repliesOf(c.id).map((r) => (
+                    <CommentRow
+                      key={r.id}
+                      c={r}
+                      me={me}
+                      small
+                      onLike={() => toggleLike(r)}
+                      onDelete={() => del(r.id)}
+                    />
+                  ))}
+                  {replyTo === c.id && (
+                    <CommentInput
+                      me={me}
+                      small
+                      autoFocus
+                      placeholder={`Répondre à ${c.author_name || 'ce membre'}…`}
+                      onSubmit={(t) => add(t, c.id)}
+                    />
+                  )}
+                </div>
               )}
             </div>
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+/* ---------- Une ligne de commentaire (racine ou réponse) ---------- */
+function CommentRow({
+  c,
+  me,
+  small = false,
+  isReplying = false,
+  onLike,
+  onReply,
+  onDelete,
+}: {
+  c: PostComment;
+  me: FeedUser;
+  small?: boolean;
+  isReplying?: boolean;
+  onLike: () => void;
+  onReply?: () => void;
+  onDelete: () => void;
+}) {
+  const canDelete = c.user_id === me.id || me.isAdmin;
+  return (
+    <div className="flex items-start gap-2">
+      <Avatar initials={initialsOf(c.author_name)} size={small ? 26 : 30} />
+      <div className="min-w-0 flex-1">
+        <div className="rounded-lg bg-black/[0.03] px-3 py-2">
+          <p className="text-xs font-semibold text-ink">{c.author_name || 'Membre'}</p>
+          <p className="whitespace-pre-line text-sm text-ink">
+            <RichText text={c.body} />
+          </p>
+        </div>
+        {/* Actions : like + répondre */}
+        <div className="mt-1 flex items-center gap-4 pl-1 text-xs font-semibold text-muted">
+          <button
+            onClick={onLike}
+            className={`flex items-center gap-1 transition hover:text-ink ${c.likedByMe ? 'text-ink' : ''}`}
+          >
+            <IconHeart width={14} height={14} /> {c.likeCount > 0 ? c.likeCount : "J'aime"}
+          </button>
+          {onReply && (
+            <button onClick={onReply} className={`transition hover:text-ink ${isReplying ? 'text-ink' : ''}`}>
+              Répondre
+            </button>
+          )}
+        </div>
+      </div>
+      {canDelete && (
+        <button onClick={onDelete} className="mt-1 text-muted hover:text-red-600" aria-label="Supprimer">
+          <IconX width={14} height={14} />
+        </button>
+      )}
     </div>
   );
 }
