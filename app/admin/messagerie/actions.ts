@@ -208,6 +208,50 @@ export async function sendTestEmail(to: string): Promise<{ ok: boolean; info: st
 }
 
 /**
+ * Diagnostic : envoie un test via l'API "batch" (même chemin que la diffusion)
+ * et renvoie la réponse BRUTE + l'id, pour comparer avec l'envoi simple.
+ */
+export async function sendTestBatch(to: string): Promise<{ ok: boolean; info: string; id?: string }> {
+  const profile = await getCurrentProfile();
+  if (!profile?.is_admin) return { ok: false, info: 'Non autorisé.' };
+  const key = process.env.RESEND_API_KEY;
+  const from = process.env.RESEND_FROM || "L'École des Freelances <onboarding@resend.dev>";
+  if (!key) return { ok: false, info: 'RESEND_API_KEY manquante côté serveur.' };
+  const addr = to.trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr)) return { ok: false, info: 'Adresse e-mail invalide.' };
+
+  try {
+    const res = await fetch('https://api.resend.com/emails/batch', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify([
+        {
+          from,
+          to: addr,
+          subject: "Test BATCH — L'École des Freelances",
+          html: "<p>Ceci est un test d'envoi GROUPÉ (batch). Si tu le reçois, l'envoi groupé fonctionne ✅</p>",
+        },
+      ]),
+    });
+    const text = await res.text();
+    let id: string | undefined;
+    try {
+      const j = JSON.parse(text) as { data?: { id?: string }[] };
+      id = j?.data?.[0]?.id;
+    } catch {
+      /* non JSON */
+    }
+    return {
+      ok: res.ok,
+      id,
+      info: `Statut Resend (batch) : ${res.status}\nRéponse : ${text.slice(0, 500)}`,
+    };
+  } catch (e) {
+    return { ok: false, info: e instanceof Error ? e.message : 'Erreur réseau.' };
+  }
+}
+
+/**
  * Diagnostic : interroge Resend sur le statut de livraison d'un e-mail (via son id).
  * Renvoie l'événement de livraison (delivered, bounced, complained, delivery_delayed…).
  */

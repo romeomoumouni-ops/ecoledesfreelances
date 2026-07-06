@@ -10,6 +10,7 @@ import {
   deleteAnnouncement,
   resendLastBroadcastEmail,
   sendTestEmail,
+  sendTestBatch,
   checkEmailStatus,
 } from './actions';
 
@@ -53,6 +54,17 @@ export default function MessagerieClient({
     setTestOut(null);
     setTestId(null);
     const res = await sendTestEmail(testTo);
+    setTestOut({ ok: res.ok, info: res.info });
+    setTestId(res.id ?? null);
+    setBusy(false);
+  }
+
+  async function runTestBatch() {
+    if (!testTo.trim() || busy) return;
+    setBusy(true);
+    setTestOut(null);
+    setTestId(null);
+    const res = await sendTestBatch(testTo);
     setTestOut({ ok: res.ok, info: res.info });
     setTestId(res.id ?? null);
     setBusy(false);
@@ -250,7 +262,10 @@ export default function MessagerieClient({
                 className="input"
               />
               <button onClick={runTest} disabled={busy || !testTo.trim()} className="btn-outline shrink-0 disabled:opacity-60">
-                {busy ? 'Test…' : "Envoyer un test"}
+                {busy ? 'Test…' : 'Test simple'}
+              </button>
+              <button onClick={runTestBatch} disabled={busy || !testTo.trim()} className="btn-outline shrink-0 disabled:opacity-60">
+                {busy ? 'Test…' : 'Test groupé (batch)'}
               </button>
             </div>
             {testOut && (
