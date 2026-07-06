@@ -30,14 +30,68 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
+/** Construit le HTML d'un e-mail de diffusion (message libre écrit par l'admin). */
+function broadcastHtml(subject: string, message: string): string {
+  const safeBody = escapeHtml(message).replace(/\n/g, '<br/>');
+  return confirmTemplate(escapeHtml(subject), safeBody, 'Se connecter sur la plateforme →', SITE_URL);
+}
+
 /**
  * Diffusion e-mail à un élève (message libre écrit par l'admin).
  * Le corps est du texte simple : on échappe le HTML et on garde les sauts de ligne.
  */
 export async function sendBroadcastEmail(to: string, subject: string, message: string): Promise<boolean> {
-  const safeBody = escapeHtml(message).replace(/\n/g, '<br/>');
-  const html = confirmTemplate(escapeHtml(subject), safeBody, 'Se connecter sur la plateforme →', SITE_URL);
-  return send(to, subject, html);
+  return send(to, subject, broadcastHtml(subject, message));
+}
+
+/**
+ * Diffusion e-mail à TOUS les élèves via l'API "batch" de Resend
+ * (jusqu'à 100 destinataires par requête) → rapide et sans dépasser la limite
+ * de débit (2 req/s). Renvoie le nombre envoyés / échoués + la 1re erreur utile.
+ */
+export async function sendBroadcastBatch(
+  recipients: string[],
+  subject: string,
+  message: string
+): Promise<{ sent: number; failed: number; error?: string }> {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return { sent: 0, failed: recipients.length, error: 'RESEND_API_KEY manquante' };
+
+  const html = broadcastHtml(subject, message);
+  const from = fromAddress();
+  let sent = 0;
+  let failed = 0;
+  let firstError: string | undefined;
+  const CHUNK = 100; // limite de l'API batch Resend
+
+  for (let i = 0; i < recipients.length; i += CHUNK) {
+    const slice = recipients.slice(i, i + CHUNK);
+    try {
+      const res = await fetch('https://api.resend.com/emails/batch', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(slice.map((to) => ({ from, to, subject, html }))),
+      });
+      if (res.ok) {
+        const json = (await res.json().catch(() => null)) as { data?: unknown[] } | null;
+        const n = Array.isArray(json?.data) ? json!.data!.length : slice.length;
+        sent += n;
+        failed += slice.length - n;
+      } else {
+        failed += slice.length;
+        if (!firstError) {
+          const j = (await res.json().catch(() => null)) as { message?: string; name?: string } | null;
+          firstError = `${res.status} ${j?.message ?? j?.name ?? ''}`.trim();
+        }
+      }
+    } catch (e) {
+      failed += slice.length;
+      if (!firstError) firstError = e instanceof Error ? e.message : 'erreur réseau';
+    }
+    // Petit répit entre deux lots pour rester sous la limite de débit
+    if (i + CHUNK < recipients.length) await new Promise((r) => setTimeout(r, 600));
+  }
+  return { sent, failed, error: firstError };
 }
 
 /** E-mail de confirmation d'inscription + bouton « Rejoindre la plateforme ». */

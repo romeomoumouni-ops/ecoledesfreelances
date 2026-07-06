@@ -61,8 +61,10 @@ export default function MessagerieClient({
     setBusy(false);
     if (res.ok) {
       setFeedback({
-        ok: true,
-        text: `E-mail envoyé à ${res.sent}/${res.total} élève(s) ✅ — et déposé dans la messagerie de ${res.inbox} élève(s) au nom de Mariane.`,
+        ok: !res.warning,
+        text:
+          `E-mail envoyé à ${res.sent}/${res.total} élève(s) ✅ — et déposé dans la messagerie de ${res.inbox} élève(s) au nom de Mariane.` +
+          (res.warning ? `\n\n⚠️ ${res.warning}` : ''),
       });
       setMSubject('');
       setMBody('');
@@ -107,8 +109,8 @@ export default function MessagerieClient({
 
       {feedback && (
         <p
-          className={`mb-4 rounded-lg px-3 py-2 text-sm font-medium ${
-            feedback.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'
+          className={`mb-4 whitespace-pre-line rounded-lg px-3 py-2 text-sm font-medium ${
+            feedback.ok ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'
           }`}
         >
           {feedback.text}

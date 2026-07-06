@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getCurrentProfile } from '@/lib/user';
 import { createClient } from '@/lib/supabase/server';
-import { sendBroadcastEmail } from '@/lib/email';
+import { sendBroadcastBatch } from '@/lib/email';
 
 /** Diffuser un message dans la boîte de réception plateforme de TOUS les élèves. */
 export async function broadcastPlatform(
@@ -53,7 +53,7 @@ async function students(): Promise<{ id: string; email: string | null }[]> {
 export async function broadcastEmail(
   subject: string,
   message: string
-): Promise<{ ok: boolean; sent?: number; total?: number; inbox?: number; error?: string }> {
+): Promise<{ ok: boolean; sent?: number; total?: number; inbox?: number; warning?: string; error?: string }> {
   const profile = await getCurrentProfile();
   if (!profile?.is_admin) return { ok: false, error: 'Non autorisé.' };
   const sub = subject.trim();
@@ -88,19 +88,23 @@ export async function broadcastEmail(
     if (!error) inbox += count ?? slice.length;
   }
 
-  // 2) E-mail (via Resend) aux élèves qui ont une adresse, par petits lots
+  // 2) E-mail (via Resend, API batch) aux élèves qui ont une adresse
   const emails = Array.from(
     new Set(list.map((s) => s.email).filter((e): e is string => !!e).map((e) => e.toLowerCase()))
   );
-  let sent = 0;
-  const BATCH = 10;
-  for (let i = 0; i < emails.length; i += BATCH) {
-    const slice = emails.slice(i, i + BATCH);
-    const results = await Promise.all(slice.map((to) => sendBroadcastEmail(to, sub, msg)));
-    sent += results.filter(Boolean).length;
-  }
+  const { sent, failed, error } = await sendBroadcastBatch(emails, sub, msg);
 
-  return { ok: true, sent, total: emails.length, inbox };
+  return {
+    ok: true,
+    sent,
+    total: emails.length,
+    inbox,
+    warning:
+      failed > 0
+        ? `${failed} e-mail(s) non envoyé(s)${error ? ` — Resend: ${error}` : ''}. ` +
+          `Vérifie ton quota / plan Resend (le message est bien arrivé dans la messagerie de tous les élèves).`
+        : undefined,
+  };
 }
 
 /** Supprimer une annonce plateforme. */
