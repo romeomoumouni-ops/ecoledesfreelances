@@ -22,6 +22,24 @@ async function send(to: string, subject: string, html: string): Promise<boolean>
   }
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Diffusion e-mail à un élève (message libre écrit par l'admin).
+ * Le corps est du texte simple : on échappe le HTML et on garde les sauts de ligne.
+ */
+export async function sendBroadcastEmail(to: string, subject: string, message: string): Promise<boolean> {
+  const safeBody = escapeHtml(message).replace(/\n/g, '<br/>');
+  const html = confirmTemplate(escapeHtml(subject), safeBody, 'Ouvrir la plateforme →', SITE_URL);
+  return send(to, subject, html);
+}
+
 /** E-mail de confirmation d'inscription + bouton « Rejoindre la plateforme ». */
 export async function sendWelcomeEmail(to: string): Promise<boolean> {
   const subject = "Votre inscription à L'École des Freelances est confirmée ✅";

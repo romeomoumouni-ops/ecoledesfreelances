@@ -22,22 +22,31 @@ export default function AppShell({
   profile,
   contactUnread = 0,
   suiviUnread = 0,
+  notifUnread = 0,
 }: {
   children: React.ReactNode;
   profile: ShellProfile;
   contactUnread?: number;
   suiviUnread?: number;
+  notifUnread?: number;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [unread, setUnread] = useState(contactUnread);
   const [suivi, setSuivi] = useState(suiviUnread);
+  const [notif, setNotif] = useState(notifUnread);
   const pathname = usePathname();
 
   // Resynchronise avec le serveur à chaque navigation / refresh
   useEffect(() => setUnread(contactUnread), [contactUnread]);
   useEffect(() => setSuivi(suiviUnread), [suiviUnread]);
+  useEffect(() => setNotif(notifUnread), [notifUnread]);
 
-  // Temps réel : nouvelle réponse coach ou chargé de suivi → pastille immédiate
+  // Sur la page notifications, la pastille retombe à zéro (lecture en cours)
+  useEffect(() => {
+    if (pathname === '/notifications') setNotif(0);
+  }, [pathname]);
+
+  // Temps réel : nouvelle réponse coach, suivi ou notification → pastille immédiate
   useEffect(() => {
     const supabase = createClient();
     void ensureRealtimeAuth();
@@ -59,6 +68,13 @@ export default function AppShell({
           if (m.from_admin && pathname !== '/suivi') setSuivi((u) => u + 1);
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'announcements' },
+        () => {
+          if (pathname !== '/notifications') setNotif((n) => n + 1);
+        }
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -76,7 +92,7 @@ export default function AppShell({
         suiviUnread={suivi}
       />
       <div className="lg:pl-[264px]">
-        <Topbar onMenu={() => setMenuOpen(true)} profile={profile} contactUnread={unread} />
+        <Topbar onMenu={() => setMenuOpen(true)} profile={profile} contactUnread={unread} notifUnread={notif} />
         <main className="mx-auto max-w-content px-4 py-6 sm:px-8 sm:py-10">{children}</main>
       </div>
     </div>

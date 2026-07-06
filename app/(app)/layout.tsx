@@ -52,9 +52,11 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
     }
   }
 
-  const [contactUnread, suiviUnread] = await Promise.all([
+  const supabaseNotif = createClient();
+  const [contactUnread, suiviUnread, { data: notifUnread }] = await Promise.all([
     getContactUnread(profile.id),
     getSuiviUnread(profile.id),
+    supabaseNotif.rpc('my_unread_announcements'),
   ]);
 
   return (
@@ -69,6 +71,7 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
       }}
       contactUnread={contactUnread}
       suiviUnread={suiviUnread}
+      notifUnread={(notifUnread as number | null) ?? 0}
     >
       {children}
     </AppShell>
