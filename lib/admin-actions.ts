@@ -3,6 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentProfile } from '@/lib/user';
+import { sendBroadcastBatch } from '@/lib/email';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 async function requireAdmin() {
   const supabase = createClient();
@@ -68,21 +71,121 @@ export async function deleteCourse(id: string) {
 }
 
 /* ---------------- LIVE ---------------- */
+
+/** Tous les comptes non bannis : id + e-mail + is_admin (paginé). */
+async function allRecipients(
+  supabase: SupabaseClient
+): Promise<{ id: string; email: string | null; is_admin: boolean }[]> {
+  const list: { id: string; email: string | null; is_admin: boolean }[] = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, email, is_admin, banned')
+      .range(from, from + PAGE - 1);
+    const rows = data ?? [];
+    for (const r of rows) {
+      if (!r.banned) list.push({ id: r.id as string, email: (r.email as string) ?? null, is_admin: !!r.is_admin });
+    }
+    if (rows.length < PAGE) break;
+  }
+  return list;
+}
+
+/**
+ * Prévient TOUT LE MONDE qu'un live vient d'être programmé, sur 3 canaux :
+ *  1. notification plateforme (announcements → cloche + pastille de tous)
+ *  2. message automatique de Mariane dans la messagerie de chaque élève
+ *  3. e-mail à tous les élèves (Resend)
+ * Les échecs d'e-mail ne bloquent pas la création du live.
+ */
+async function notifyNewLive(
+  supabase: SupabaseClient,
+  adminId: string,
+  adminName: string,
+  live: { coach: string; theme: string; dateLabel: string; timeLabel: string }
+) {
+  const coach = live.coach || 'un coach';
+  const when = [live.dateLabel, live.timeLabel].filter(Boolean).join(' à ');
+  const subject = `📅 Nouveau live : ${live.theme}`;
+  const message =
+    `Un nouveau live vient d'être programmé par ${coach} :\n\n` +
+    `« ${live.theme} »${when ? `\n🗓️ ${when}` : ''}\n\n` +
+    `Rendez-vous dans l'onglet « Live » de la plateforme pour le rejoindre. À très vite !`;
+
+  // 1) Notification plateforme (cloche) pour tout le monde
+  await supabase.from('announcements').insert({
+    title: subject,
+    body: message,
+    author_name: adminName || "L'équipe",
+    created_by: adminId,
+  });
+
+  // Destinataires
+  const all = await allRecipients(supabase);
+  const students = all.filter((r) => !r.is_admin);
+
+  // 2) Message automatique de Mariane dans la messagerie de chaque élève
+  const inboxBody = `${subject}\n\n${message}`;
+  const rows = students.map((s) => ({
+    recipient: 'marianne',
+    student_id: s.id,
+    sender_id: adminId,
+    sender_name: 'Mariane',
+    from_admin: true,
+    body: inboxBody,
+  }));
+  const CHUNK = 500;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    await supabase.from('support_messages').insert(rows.slice(i, i + CHUNK));
+  }
+
+  // 3) E-mail à tous (non bloquant)
+  if (process.env.RESEND_API_KEY) {
+    const emails = Array.from(
+      new Set(all.map((s) => s.email).filter((e): e is string => !!e).map((e) => e.toLowerCase()))
+    );
+    if (emails.length) {
+      try {
+        await sendBroadcastBatch(emails, subject, message);
+      } catch {
+        /* l'e-mail a échoué : la notif + le message Mariane sont déjà partis */
+      }
+    }
+  }
+}
+
 export async function createLive(formData: FormData) {
   const supabase = await requireAdmin();
   const theme = String(formData.get('theme') || '').trim();
   if (!theme) throw new Error('Thème requis');
 
+  const coach = String(formData.get('coach') || '');
+  const dateLabel = String(formData.get('date_label') || '');
+  const timeLabel = String(formData.get('time_label') || '');
+
   const { error } = await supabase.from('live_sessions').insert({
-    date_label: String(formData.get('date_label') || ''),
-    time_label: String(formData.get('time_label') || ''),
-    coach: String(formData.get('coach') || ''),
+    date_label: dateLabel,
+    time_label: timeLabel,
+    coach,
     theme,
     is_live: formData.get('is_live') === 'on',
     meeting_url: String(formData.get('meeting_url') || '').trim() || null,
     sort: Date.now() % 100000,
   });
   if (error) throw new Error(error.message);
+
+  // Prévenir tout le monde (notif + message Mariane + e-mail). Non bloquant :
+  // si ça échoue, le live est quand même bien créé.
+  try {
+    const profile = await getCurrentProfile();
+    if (profile) {
+      await notifyNewLive(supabase, profile.id, profile.full_name, { coach, theme, dateLabel, timeLabel });
+    }
+  } catch {
+    /* la notification a échoué mais le live est créé */
+  }
+
   revalidatePath('/admin/live');
 }
 
