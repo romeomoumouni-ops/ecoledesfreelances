@@ -3,6 +3,7 @@ import { getCurrentProfile } from '@/lib/user';
 import { createClient } from '@/lib/supabase/server';
 import PostMakerClient from './PostMakerClient';
 import PostMakerSubscribe from './PostMakerSubscribe';
+import PostMakerVideo from './PostMakerVideo';
 import { IconSparkle, IconCheck } from '@/components/Icons';
 
 export const dynamic = 'force-dynamic';
@@ -26,6 +27,9 @@ function Paywall({ checkoutUrl }: { checkoutUrl: string }) {
           <p className="text-sm text-muted">Ton assistant IA pour créer du contenu et signer des clients.</p>
         </div>
       </div>
+
+      {/* Vidéo de présentation (entre le titre et l'offre) */}
+      <PostMakerVideo />
 
       <div className="overflow-hidden rounded-3xl border border-orange-200 bg-white">
         <div className="bg-gradient-to-br from-orange-50 to-white px-6 py-7 sm:px-8">
