@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentProfile } from '@/lib/user';
 import { PageHeader } from '@/components/UI';
 import Feed from '@/components/Feed';
+import MarkScopeRead from '@/components/MarkScopeRead';
 import { IconTrend } from '@/components/Icons';
 
 export default async function TemoignagesPage() {
@@ -12,6 +13,7 @@ export default async function TemoignagesPage() {
 
   return (
     <div className="mx-auto max-w-2xl">
+      <MarkScopeRead userId={profile.id} scope="temoignages" />
       <PageHeader
         title="Résultats et témoignages"
         subtitle="Les preuves que ça marche, par ceux qui le vivent."

@@ -132,6 +132,17 @@ export async function deletePostComment(id: string) {
   revalidatePath('/admin/communaute');
 }
 
+/** Rétablit une publication auto-signalée : elle réapparaît dans le fil. */
+export async function unflagPost(id: string) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase
+    .from('community_posts')
+    .update({ flagged: false, flag_reason: null })
+    .eq('id', id);
+  if (error) throw new Error(error.message);
+  revalidatePath('/admin/communaute');
+}
+
 /* ---------------- UTILISATEURS ---------------- */
 export async function setUserAdmin(userId: string, makeAdmin: boolean) {
   const supabase = await requireAdmin();

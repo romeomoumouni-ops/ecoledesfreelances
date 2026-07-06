@@ -38,6 +38,29 @@ async function getSuiviUnread(userId: string): Promise<number> {
   return (msgs ?? []).filter((m) => new Date(m.created_at).getTime() > seen).length;
 }
 
+// Canaux regroupés sous l'onglet « Communauté » (le reste = « Témoignages »).
+const COMMUNAUTE_CHANNELS = ['annonces', 'membres', 'victoires', 'challenge', 'ressources'];
+
+/** Nombre de nouveaux posts non lus (hors les siens, hors signalés) sur un scope. */
+async function getPostsUnread(userId: string, scope: string, channels: string[]): Promise<number> {
+  const supabase = createClient();
+  const { data: mark } = await supabase
+    .from('read_marks')
+    .select('last_read_at')
+    .eq('user_id', userId)
+    .eq('scope', scope)
+    .maybeSingle();
+  const since = mark?.last_read_at ?? '1970-01-01T00:00:00Z';
+  const { count } = await supabase
+    .from('community_posts')
+    .select('id', { count: 'exact', head: true })
+    .in('channel', channels)
+    .eq('flagged', false)
+    .neq('user_id', userId)
+    .gt('created_at', since);
+  return count ?? 0;
+}
+
 export default async function AppGroupLayout({ children }: { children: React.ReactNode }) {
   const profile = await getCurrentProfile();
   if (!profile) redirect('/connexion');
@@ -53,11 +76,14 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
   }
 
   const supabaseNotif = createClient();
-  const [contactUnread, suiviUnread, { data: notifUnread }] = await Promise.all([
-    getContactUnread(profile.id),
-    getSuiviUnread(profile.id),
-    supabaseNotif.rpc('my_unread_announcements'),
-  ]);
+  const [contactUnread, suiviUnread, { data: notifUnread }, communauteUnread, temoignagesUnread] =
+    await Promise.all([
+      getContactUnread(profile.id),
+      getSuiviUnread(profile.id),
+      supabaseNotif.rpc('my_unread_announcements'),
+      getPostsUnread(profile.id, 'communaute', COMMUNAUTE_CHANNELS),
+      getPostsUnread(profile.id, 'temoignages', ['temoignages']),
+    ]);
 
   return (
     <AppShell
@@ -72,6 +98,8 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
       contactUnread={contactUnread}
       suiviUnread={suiviUnread}
       notifUnread={(notifUnread as number | null) ?? 0}
+      communauteUnread={communauteUnread}
+      temoignagesUnread={temoignagesUnread}
     >
       {children}
     </AppShell>

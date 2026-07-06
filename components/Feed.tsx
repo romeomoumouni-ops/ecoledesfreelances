@@ -11,6 +11,7 @@ import { uploadResumable } from '@/lib/uploadResumable';
 import UploadLeaveGuard from '@/components/UploadLeaveGuard';
 import Avatar from '@/components/Avatar';
 import RichText from '@/components/RichText';
+import ExpandableRichText from '@/components/ExpandableRichText';
 import RichTextArea from '@/components/RichTextArea';
 import { IconHeart, IconChat, IconX, IconCamera, IconFile } from '@/components/Icons';
 
@@ -111,6 +112,7 @@ export default function Feed({
       .from('community_posts')
       .select('*, community_likes(count), community_comments(count)')
       .eq('channel', channel)
+      .eq('flagged', false) // les posts signalés (remboursement/révolte) sont masqués
       .order('created_at', { ascending: false });
     const rows = data ?? [];
     let liked = new Set<string>();
@@ -148,7 +150,8 @@ export default function Feed({
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'community_posts', filter: `channel=eq.${channel}` },
         (payload) => {
-          const p = payload.new as Post;
+          const p = payload.new as Post & { flagged?: boolean };
+          if (p.flagged) return; // post signalé → ne pas afficher dans le fil
           setPosts((prev) =>
             prev.some((x) => x.id === p.id)
               ? prev
@@ -277,6 +280,7 @@ function Composer({
   const [preview, setPreview] = useState<{ url: string; type: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   function mediaKind(f: File): 'video' | 'image' | 'pdf' {
     if (f.type.startsWith('video')) return 'video';
@@ -318,10 +322,19 @@ function Composer({
         .select('*')
         .single();
       if (error) throw new Error(error.message);
-      onPosted({ ...(data as Post), likeCount: 0, commentCount: 0, likedByMe: false });
+      const row = data as Post & { flagged?: boolean };
       setBody('');
       setFile(null);
       setPreview(null);
+      if (row.flagged) {
+        // Post auto-signalé (remboursement / mécontentement) : masqué du fil,
+        // en attente de vérification par l'équipe. On ne l'ajoute pas au fil.
+        setNotice(
+          "Ta publication a bien été envoyée. Elle sera vérifiée par l'équipe avant d'apparaître dans le fil.",
+        );
+        return;
+      }
+      onPosted({ ...(row as Post), likeCount: 0, commentCount: 0, likedByMe: false });
     } catch (e) {
       onError(e instanceof Error ? e.message : 'Échec de la publication.');
     } finally {
@@ -333,12 +346,18 @@ function Composer({
   return (
     <div className="card mb-5 p-4">
       <UploadLeaveGuard active={progress !== null} title="Envoi du fichier en cours" message="Ta pièce jointe n'a pas fini de se charger. Si tu quittes maintenant, ta publication ne sera pas envoyée." />
+      {notice && (
+        <div className="mb-3 rounded-lg bg-black/[0.04] px-3 py-2 text-sm text-ink">{notice}</div>
+      )}
       <div className="flex items-start gap-3">
         <Avatar initials={initialsOf(me.name)} src={me.avatarUrl} size={40} />
         <div className="flex-1">
           <RichTextArea
             value={body}
-            onChange={setBody}
+            onChange={(v) => {
+              setBody(v);
+              if (notice) setNotice(null);
+            }}
             placeholder={placeholder}
             minHeightClass="min-h-[70px]"
           />
@@ -433,9 +452,7 @@ function PostCard({
       </div>
 
       {post.body && (
-        <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-ink">
-          <RichText text={post.body} />
-        </p>
+        <ExpandableRichText text={post.body} className="mt-3 text-sm leading-relaxed text-ink" />
       )}
 
       {post.media_url && (

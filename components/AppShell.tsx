@@ -23,27 +23,37 @@ export default function AppShell({
   contactUnread = 0,
   suiviUnread = 0,
   notifUnread = 0,
+  communauteUnread = 0,
+  temoignagesUnread = 0,
 }: {
   children: React.ReactNode;
   profile: ShellProfile;
   contactUnread?: number;
   suiviUnread?: number;
   notifUnread?: number;
+  communauteUnread?: number;
+  temoignagesUnread?: number;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [unread, setUnread] = useState(contactUnread);
   const [suivi, setSuivi] = useState(suiviUnread);
   const [notif, setNotif] = useState(notifUnread);
+  const [commu, setCommu] = useState(communauteUnread);
+  const [temoi, setTemoi] = useState(temoignagesUnread);
   const pathname = usePathname();
 
   // Resynchronise avec le serveur à chaque navigation / refresh
   useEffect(() => setUnread(contactUnread), [contactUnread]);
   useEffect(() => setSuivi(suiviUnread), [suiviUnread]);
   useEffect(() => setNotif(notifUnread), [notifUnread]);
+  useEffect(() => setCommu(communauteUnread), [communauteUnread]);
+  useEffect(() => setTemoi(temoignagesUnread), [temoignagesUnread]);
 
   // Sur la page notifications, la pastille retombe à zéro (lecture en cours)
   useEffect(() => {
     if (pathname === '/notifications') setNotif(0);
+    if (pathname.startsWith('/communaute')) setCommu(0);
+    if (pathname.startsWith('/temoignages')) setTemoi(0);
   }, [pathname]);
 
   // Temps réel : nouvelle réponse coach, suivi ou notification → pastille immédiate
@@ -75,6 +85,19 @@ export default function AppShell({
           if (pathname !== '/notifications') setNotif((n) => n + 1);
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'community_posts' },
+        (payload) => {
+          const p = payload.new as { channel: string; user_id: string; flagged?: boolean };
+          if (p.flagged || p.user_id === profile.id) return; // signalé ou mon propre post
+          if (p.channel === 'temoignages') {
+            if (!pathname.startsWith('/temoignages')) setTemoi((n) => n + 1);
+          } else if (!pathname.startsWith('/communaute')) {
+            setCommu((n) => n + 1);
+          }
+        }
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -90,6 +113,8 @@ export default function AppShell({
         isAdmin={profile.isAdmin}
         contactUnread={unread}
         suiviUnread={suivi}
+        communauteUnread={commu}
+        temoignagesUnread={temoi}
       />
       <div className="lg:pl-[264px]">
         <Topbar onMenu={() => setMenuOpen(true)} profile={profile} contactUnread={unread} notifUnread={notif} />
