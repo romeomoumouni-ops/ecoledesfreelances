@@ -160,6 +160,46 @@ export async function resendLastBroadcastEmail(): Promise<{
   };
 }
 
+/**
+ * Diagnostic : envoie UN e-mail de test à l'adresse donnée et renvoie la
+ * réponse BRUTE de Resend (statut + corps) ainsi que l'adresse "from" réelle
+ * utilisée en production. Aucun secret n'est exposé (jamais la clé API).
+ */
+export async function sendTestEmail(to: string): Promise<{ ok: boolean; info: string }> {
+  const profile = await getCurrentProfile();
+  if (!profile?.is_admin) return { ok: false, info: 'Non autorisé.' };
+
+  const key = process.env.RESEND_API_KEY;
+  const from = process.env.RESEND_FROM || "L'École des Freelances <onboarding@resend.dev>";
+  if (!key) return { ok: false, info: 'RESEND_API_KEY manquante côté serveur.' };
+
+  const addr = to.trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr)) return { ok: false, info: 'Adresse e-mail invalide.' };
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from,
+        to: addr,
+        subject: "Test d'envoi — L'École des Freelances",
+        html: "<p>Ceci est un e-mail de test envoyé depuis la messagerie admin. Si tu le reçois, l'envoi fonctionne ✅</p>",
+      }),
+    });
+    const text = await res.text();
+    return {
+      ok: res.ok,
+      info:
+        `Expéditeur (from) utilisé : ${from}\n` +
+        `Statut Resend : ${res.status}\n` +
+        `Réponse : ${text.slice(0, 500)}`,
+    };
+  } catch (e) {
+    return { ok: false, info: e instanceof Error ? e.message : 'Erreur réseau.' };
+  }
+}
+
 /** Supprimer une annonce plateforme. */
 export async function deleteAnnouncement(id: string): Promise<{ ok: boolean; error?: string }> {
   const profile = await getCurrentProfile();

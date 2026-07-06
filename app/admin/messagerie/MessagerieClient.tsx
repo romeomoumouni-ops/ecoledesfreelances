@@ -4,7 +4,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/UI';
 import { IconMegaphone, IconMail, IconX } from '@/components/Icons';
-import { broadcastPlatform, broadcastEmail, deleteAnnouncement, resendLastBroadcastEmail } from './actions';
+import {
+  broadcastPlatform,
+  broadcastEmail,
+  deleteAnnouncement,
+  resendLastBroadcastEmail,
+  sendTestEmail,
+} from './actions';
 
 export type SentAnnouncement = {
   id: string;
@@ -34,6 +40,19 @@ export default function MessagerieClient({
 
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+
+  // Diagnostic e-mail
+  const [testTo, setTestTo] = useState('');
+  const [testOut, setTestOut] = useState<{ ok: boolean; info: string } | null>(null);
+
+  async function runTest() {
+    if (!testTo.trim() || busy) return;
+    setBusy(true);
+    setTestOut(null);
+    const res = await sendTestEmail(testTo);
+    setTestOut(res);
+    setBusy(false);
+  }
 
   async function sendPlatform() {
     if (!pBody.trim() || busy) return;
@@ -202,6 +221,36 @@ export default function MessagerieClient({
           >
             {busy ? 'Envoi en cours…' : 'Envoyer par e-mail à tous'}
           </button>
+
+          {/* Diagnostic : test d'envoi à une adresse + réponse brute de Resend */}
+          <div className="mt-6 rounded-xl border border-line bg-black/[0.02] p-4">
+            <p className="text-sm font-semibold text-ink">Tester l&apos;envoi</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted">
+              Envoie un e-mail de test à une adresse (la tienne) pour vérifier que la livraison
+              fonctionne. Le résultat affiche la réponse exacte de Resend.
+            </p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <input
+                type="email"
+                value={testTo}
+                onChange={(e) => setTestTo(e.target.value)}
+                placeholder="ton@email.com"
+                className="input"
+              />
+              <button onClick={runTest} disabled={busy || !testTo.trim()} className="btn-outline shrink-0 disabled:opacity-60">
+                {busy ? 'Test…' : "Envoyer un test"}
+              </button>
+            </div>
+            {testOut && (
+              <pre
+                className={`mt-3 overflow-x-auto whitespace-pre-wrap rounded-lg p-3 text-xs ${
+                  testOut.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'
+                }`}
+              >
+                {testOut.info}
+              </pre>
+            )}
+          </div>
 
           {/* Rattrapage : renvoyer le dernier e-mail (sans re-poster dans la messagerie) */}
           <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
