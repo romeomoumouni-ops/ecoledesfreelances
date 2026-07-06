@@ -107,6 +107,59 @@ export async function broadcastEmail(
   };
 }
 
+/**
+ * Renvoyer le DERNIER e-mail de diffusion à tous les élèves — e-mail SEUL,
+ * sans recréer de message dans la messagerie (les élèves l'ont déjà reçu).
+ * Sert à rattraper les envois qui avaient échoué (limite de débit Resend).
+ */
+export async function resendLastBroadcastEmail(): Promise<{
+  ok: boolean;
+  sent?: number;
+  total?: number;
+  warning?: string;
+  error?: string;
+}> {
+  const profile = await getCurrentProfile();
+  if (!profile?.is_admin) return { ok: false, error: 'Non autorisé.' };
+  if (!process.env.RESEND_API_KEY) {
+    return { ok: false, error: "L'envoi d'e-mails n'est pas configuré (RESEND_API_KEY manquante)." };
+  }
+
+  const supabase = createClient();
+  const { data: last } = await supabase
+    .from('support_messages')
+    .select('body, created_at')
+    .eq('recipient', 'marianne')
+    .eq('from_admin', true)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!last?.body) return { ok: false, error: 'Aucun message précédent à renvoyer.' };
+
+  // Le corps stocké = "sujet\n\nmessage" (format de la diffusion e-mail)
+  const body = last.body as string;
+  const sep = body.indexOf('\n\n');
+  const subject = sep > 0 ? body.slice(0, sep).trim() : "L'École des Freelances";
+  const message = sep > 0 ? body.slice(sep + 2).trim() : body;
+
+  const list = await students();
+  const emails = Array.from(
+    new Set(list.map((s) => s.email).filter((e): e is string => !!e).map((e) => e.toLowerCase()))
+  );
+  if (!emails.length) return { ok: false, error: 'Aucun destinataire trouvé.' };
+
+  const { sent, failed, error } = await sendBroadcastBatch(emails, subject, message);
+  return {
+    ok: true,
+    sent,
+    total: emails.length,
+    warning:
+      failed > 0
+        ? `${failed} e-mail(s) non envoyé(s)${error ? ` — Resend: ${error}` : ''}.`
+        : undefined,
+  };
+}
+
 /** Supprimer une annonce plateforme. */
 export async function deleteAnnouncement(id: string): Promise<{ ok: boolean; error?: string }> {
   const profile = await getCurrentProfile();

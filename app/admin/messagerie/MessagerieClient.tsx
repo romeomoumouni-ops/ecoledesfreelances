@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/UI';
 import { IconMegaphone, IconMail, IconX } from '@/components/Icons';
-import { broadcastPlatform, broadcastEmail, deleteAnnouncement } from './actions';
+import { broadcastPlatform, broadcastEmail, deleteAnnouncement, resendLastBroadcastEmail } from './actions';
 
 export type SentAnnouncement = {
   id: string;
@@ -70,6 +70,31 @@ export default function MessagerieClient({
       setMBody('');
     } else {
       setFeedback({ ok: false, text: res.error || "Échec de l'envoi." });
+    }
+  }
+
+  async function resendLast() {
+    if (busy) return;
+    if (
+      !confirm(
+        `Renvoyer le DERNIER e-mail à tous les élèves (${studentCount}) — e-mail uniquement, sans re-poster dans la messagerie ?\n\n` +
+          `Sert à rattraper les envois qui avaient échoué. Ceux qui l'ont déjà reçu auront un doublon.`
+      )
+    )
+      return;
+    setBusy(true);
+    setFeedback(null);
+    const res = await resendLastBroadcastEmail();
+    setBusy(false);
+    if (res.ok) {
+      setFeedback({
+        ok: !res.warning,
+        text:
+          `Renvoi terminé : e-mail envoyé à ${res.sent}/${res.total} élève(s) ✅ (aucun nouveau message dans la messagerie).` +
+          (res.warning ? `\n\n⚠️ ${res.warning}` : ''),
+      });
+    } else {
+      setFeedback({ ok: false, text: res.error || 'Échec du renvoi.' });
     }
   }
 
@@ -177,6 +202,23 @@ export default function MessagerieClient({
           >
             {busy ? 'Envoi en cours…' : 'Envoyer par e-mail à tous'}
           </button>
+
+          {/* Rattrapage : renvoyer le dernier e-mail (sans re-poster dans la messagerie) */}
+          <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+            <p className="text-sm font-semibold text-ink">Rattrapage d&apos;un envoi</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted">
+              Un précédent e-mail n&apos;a pas atteint tout le monde ? Renvoie <b>le dernier e-mail</b> à tous
+              les élèves — <b>e-mail uniquement</b>, sans recréer de message dans la messagerie. Ceux qui
+              l&apos;ont déjà reçu auront un doublon.
+            </p>
+            <button
+              onClick={resendLast}
+              disabled={busy}
+              className="btn-outline mt-3 disabled:opacity-60"
+            >
+              {busy ? 'Renvoi en cours…' : 'Renvoyer le dernier e-mail à tous'}
+            </button>
+          </div>
         </div>
       )}
 
