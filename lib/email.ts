@@ -36,7 +36,7 @@ function escapeHtml(s: string): string {
  */
 export async function sendBroadcastEmail(to: string, subject: string, message: string): Promise<boolean> {
   const safeBody = escapeHtml(message).replace(/\n/g, '<br/>');
-  const html = confirmTemplate(escapeHtml(subject), safeBody, 'Ouvrir la plateforme →', SITE_URL);
+  const html = confirmTemplate(escapeHtml(subject), safeBody, 'Se connecter sur la plateforme →', SITE_URL);
   return send(to, subject, html);
 }
 
