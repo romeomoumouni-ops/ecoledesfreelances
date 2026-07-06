@@ -161,7 +161,7 @@ export default function Sidebar({
 
         {/* Carte coach / aide */}
         <div className="mx-3 mb-2 rounded-xl border border-line bg-white p-3.5">
-          <p className="text-sm font-semibold text-ink">Besoin d&apos;aide ?</p>
+          <p className="text-sm font-semibold text-ink">Besoin d&apos;aide sur un sujet en particulier ?</p>
           <p className="mt-1 text-xs leading-relaxed text-muted">
             Écrivez directement à vos coachs, ils vous répondent.
           </p>
