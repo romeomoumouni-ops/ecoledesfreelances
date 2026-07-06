@@ -189,6 +189,63 @@ export async function createLive(formData: FormData) {
   revalidatePath('/admin/live');
 }
 
+/**
+ * MODE TEST : envoie un exemple de notification de live À L'ADMIN SEUL
+ * (message Mariane dans sa messagerie + e-mail à sa propre adresse), sans créer
+ * de live ni notifier les étudiants. Sert à vérifier que l'envoi fonctionne.
+ */
+export async function testLiveNotification(): Promise<{ ok: boolean; info: string }> {
+  const supabase = await requireAdmin();
+  const profile = await getCurrentProfile();
+  if (!profile) return { ok: false, info: 'Profil introuvable.' };
+
+  const subject = '📅 [TEST] Nouveau live : Trouver ses premiers clients';
+  const message =
+    'Ceci est un TEST de la notification de live (envoyé à toi seul, pas aux étudiants).\n\n' +
+    'Un nouveau live vient d’être programmé par Coach Roméo :\n\n' +
+    '« Trouver ses premiers clients »\n🗓️ Dimanche à 19h00\n\n' +
+    'Rendez-vous dans l’onglet « Live » de la plateforme pour le rejoindre.';
+
+  // 1) Message de Mariane dans TA propre messagerie (test in-app)
+  const { error: msgErr } = await supabase.from('support_messages').insert({
+    recipient: 'marianne',
+    student_id: profile.id,
+    sender_id: profile.id,
+    sender_name: 'Mariane',
+    from_admin: true,
+    body: `${subject}\n\n${message}`,
+  });
+
+  // 2) E-mail à TON adresse uniquement
+  let emailInfo: string;
+  if (!process.env.RESEND_API_KEY) {
+    emailInfo = 'E-mail non envoyé : RESEND_API_KEY absente côté serveur.';
+  } else if (!profile.email) {
+    emailInfo = 'E-mail non envoyé : aucune adresse sur ton compte.';
+  } else {
+    try {
+      const { failed, error } = await sendBroadcastBatch([profile.email], subject, message);
+      emailInfo =
+        failed > 0
+          ? `E-mail : échec d’envoi${error ? ` (${error})` : ''}.`
+          : `E-mail envoyé à ${profile.email} ✅ (vérifie aussi les spams).`;
+    } catch (e) {
+      emailInfo = `E-mail : erreur (${e instanceof Error ? e.message : 'inconnue'}).`;
+    }
+  }
+
+  return {
+    ok: true,
+    info:
+      `Test envoyé à toi seul.\n` +
+      `• Message Mariane : ${
+        msgErr ? 'échec — ' + msgErr.message : 'déposé dans ta messagerie (bouton « Contacter les coachs » → Mariane)'
+      }\n` +
+      `• ${emailInfo}\n` +
+      `• Cloche : lors d’un VRAI live, une notification apparaît pour tout le monde (même mécanisme, déjà éprouvé).`,
+  };
+}
+
 export async function deleteLive(id: string) {
   const supabase = await requireAdmin();
   const { error } = await supabase.from('live_sessions').delete().eq('id', id);

@@ -1,5 +1,6 @@
 import { getLiveSessions } from '@/lib/db';
 import { createLive, deleteLive } from '@/lib/admin-actions';
+import LiveTestButton from '@/components/admin/LiveTestButton';
 import { IconLive, IconX } from '@/components/Icons';
 
 export const dynamic = 'force-dynamic';
@@ -77,6 +78,8 @@ export default async function AdminLivePage() {
             </label>
             <button className="btn-primary w-full">Programmer</button>
           </form>
+
+          <LiveTestButton />
         </div>
       </div>
     </div>
