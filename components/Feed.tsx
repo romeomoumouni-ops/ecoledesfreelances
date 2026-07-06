@@ -36,6 +36,49 @@ function initialsOf(name: string | null) {
   return (name || 'M').split(/\s+/).map((n) => n[0]).join('').slice(0, 2).toUpperCase();
 }
 
+/* Bouton J'aime : cœur qui se remplit en rouge + battement + petit cœur qui s'envole */
+function LikeButton({
+  liked,
+  count,
+  size = 18,
+  zeroLabel,
+  onToggle,
+}: {
+  liked: boolean;
+  count: number;
+  size?: number;
+  zeroLabel?: string;
+  onToggle: () => void;
+}) {
+  const [burst, setBurst] = useState(0);
+  function click() {
+    if (!liked) setBurst((n) => n + 1); // on ne fait s'envoler le cœur que quand on aime
+    onToggle();
+  }
+  return (
+    <button
+      onClick={click}
+      className={`flex items-center gap-1.5 transition hover:text-red-500 ${liked ? 'text-red-500' : ''}`}
+    >
+      <span className="relative inline-flex">
+        <IconHeart
+          key={liked ? 'on' : 'off'}
+          width={size}
+          height={size}
+          fill={liked ? 'currentColor' : 'none'}
+          className={liked ? 'heart-pop' : ''}
+        />
+        {burst > 0 && (
+          <span key={burst} className="heart-float pointer-events-none absolute left-1/2 top-0 text-red-500">
+            <IconHeart width={size} height={size} fill="currentColor" />
+          </span>
+        )}
+      </span>
+      {count > 0 ? count : zeroLabel ?? 0}
+    </button>
+  );
+}
+
 function timeAgo(iso: string) {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
   if (s < 60) return "à l'instant";
@@ -369,7 +412,7 @@ function PostCard({
   const canDelete = post.user_id === me.id || me.isAdmin;
 
   return (
-    <div className="card p-5">
+    <div className="card p-5 transition-shadow duration-200 hover:shadow-[0_6px_24px_rgba(0,0,0,0.07)]">
       <div className="flex items-center gap-3">
         <Avatar initials={initialsOf(post.author_name)} src={post.author_avatar} size={42} />
         <div className="min-w-0 flex-1">
@@ -420,9 +463,7 @@ function PostCard({
       )}
 
       <div className="mt-4 flex items-center gap-5 border-t border-line pt-3 text-sm font-semibold text-muted">
-        <button onClick={onLike} className={`flex items-center gap-1.5 transition hover:text-ink ${post.likedByMe ? 'text-ink' : ''}`}>
-          <IconHeart width={18} height={18} /> {post.likeCount}
-        </button>
+        <LikeButton liked={post.likedByMe} count={post.likeCount} onToggle={onLike} />
         <button onClick={() => setShowComments((v) => !v)} className="flex items-center gap-1.5 transition hover:text-ink">
           <IconChat width={18} height={18} /> {post.commentCount}
         </button>
@@ -710,12 +751,7 @@ function CommentRow({
         </div>
         {/* Actions : like + répondre */}
         <div className="mt-1 flex items-center gap-4 pl-1 text-xs font-semibold text-muted">
-          <button
-            onClick={onLike}
-            className={`flex items-center gap-1 transition hover:text-ink ${c.likedByMe ? 'text-ink' : ''}`}
-          >
-            <IconHeart width={14} height={14} /> {c.likeCount > 0 ? c.likeCount : "J'aime"}
-          </button>
+          <LikeButton liked={c.likedByMe} count={c.likeCount} size={14} zeroLabel="J'aime" onToggle={onLike} />
           {onReply && (
             <button onClick={onReply} className={`transition hover:text-ink ${isReplying ? 'text-ink' : ''}`}>
               Répondre
