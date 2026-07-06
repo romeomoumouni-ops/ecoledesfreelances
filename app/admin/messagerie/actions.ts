@@ -165,7 +165,7 @@ export async function resendLastBroadcastEmail(): Promise<{
  * réponse BRUTE de Resend (statut + corps) ainsi que l'adresse "from" réelle
  * utilisée en production. Aucun secret n'est exposé (jamais la clé API).
  */
-export async function sendTestEmail(to: string): Promise<{ ok: boolean; info: string }> {
+export async function sendTestEmail(to: string): Promise<{ ok: boolean; info: string; id?: string }> {
   const profile = await getCurrentProfile();
   if (!profile?.is_admin) return { ok: false, info: 'Non autorisé.' };
 
@@ -188,12 +188,53 @@ export async function sendTestEmail(to: string): Promise<{ ok: boolean; info: st
       }),
     });
     const text = await res.text();
+    let id: string | undefined;
+    try {
+      id = (JSON.parse(text) as { id?: string }).id;
+    } catch {
+      /* réponse non JSON */
+    }
     return {
       ok: res.ok,
+      id,
       info:
         `Expéditeur (from) utilisé : ${from}\n` +
         `Statut Resend : ${res.status}\n` +
         `Réponse : ${text.slice(0, 500)}`,
+    };
+  } catch (e) {
+    return { ok: false, info: e instanceof Error ? e.message : 'Erreur réseau.' };
+  }
+}
+
+/**
+ * Diagnostic : interroge Resend sur le statut de livraison d'un e-mail (via son id).
+ * Renvoie l'événement de livraison (delivered, bounced, complained, delivery_delayed…).
+ */
+export async function checkEmailStatus(id: string): Promise<{ ok: boolean; info: string }> {
+  const profile = await getCurrentProfile();
+  if (!profile?.is_admin) return { ok: false, info: 'Non autorisé.' };
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return { ok: false, info: 'RESEND_API_KEY manquante côté serveur.' };
+  const clean = id.trim();
+  if (!clean) return { ok: false, info: 'Aucun identifiant d’e-mail.' };
+
+  try {
+    const res = await fetch(`https://api.resend.com/emails/${encodeURIComponent(clean)}`, {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    const json = (await res.json().catch(() => null)) as
+      | { last_event?: string; to?: string[] | string; from?: string; created_at?: string; message?: string }
+      | null;
+    if (!res.ok) {
+      return { ok: false, info: `Statut ${res.status} : ${json?.message ?? 'introuvable'}` };
+    }
+    return {
+      ok: true,
+      info:
+        `Destinataire : ${Array.isArray(json?.to) ? json?.to.join(', ') : json?.to ?? '-'}\n` +
+        `Dernier événement : ${json?.last_event ?? 'inconnu'}\n` +
+        `Envoyé le : ${json?.created_at ?? '-'}`,
     };
   } catch (e) {
     return { ok: false, info: e instanceof Error ? e.message : 'Erreur réseau.' };

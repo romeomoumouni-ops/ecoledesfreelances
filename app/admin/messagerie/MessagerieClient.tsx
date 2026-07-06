@@ -10,6 +10,7 @@ import {
   deleteAnnouncement,
   resendLastBroadcastEmail,
   sendTestEmail,
+  checkEmailStatus,
 } from './actions';
 
 export type SentAnnouncement = {
@@ -44,12 +45,23 @@ export default function MessagerieClient({
   // Diagnostic e-mail
   const [testTo, setTestTo] = useState('');
   const [testOut, setTestOut] = useState<{ ok: boolean; info: string } | null>(null);
+  const [testId, setTestId] = useState<string | null>(null);
 
   async function runTest() {
     if (!testTo.trim() || busy) return;
     setBusy(true);
     setTestOut(null);
+    setTestId(null);
     const res = await sendTestEmail(testTo);
+    setTestOut({ ok: res.ok, info: res.info });
+    setTestId(res.id ?? null);
+    setBusy(false);
+  }
+
+  async function checkStatus() {
+    if (!testId || busy) return;
+    setBusy(true);
+    const res = await checkEmailStatus(testId);
     setTestOut(res);
     setBusy(false);
   }
@@ -249,6 +261,11 @@ export default function MessagerieClient({
               >
                 {testOut.info}
               </pre>
+            )}
+            {testId && (
+              <button onClick={checkStatus} disabled={busy} className="btn-outline mt-2 text-xs disabled:opacity-60">
+                {busy ? 'Vérification…' : 'Vérifier la livraison (statut Resend)'}
+              </button>
             )}
           </div>
 
