@@ -54,7 +54,7 @@ export default function MessagerieClient({
 
   async function sendMail() {
     if (!mSubject.trim() || !mBody.trim() || busy) return;
-    if (!confirm(`Envoyer cet e-mail à tous les élèves (${studentCount}) ?`)) return;
+    if (!confirm(`Envoyer cet e-mail à tous les élèves (${studentCount}) ET le déposer dans leur messagerie au nom de Mariane ?`)) return;
     setBusy(true);
     setFeedback(null);
     const res = await broadcastEmail(mSubject, mBody);
@@ -62,7 +62,7 @@ export default function MessagerieClient({
     if (res.ok) {
       setFeedback({
         ok: true,
-        text: `E-mail envoyé à ${res.sent}/${res.total} élève(s) ✅`,
+        text: `E-mail envoyé à ${res.sent}/${res.total} élève(s) ✅ — et déposé dans la messagerie de ${res.inbox} élève(s) au nom de Mariane.`,
       });
       setMSubject('');
       setMBody('');
@@ -151,7 +151,8 @@ export default function MessagerieClient({
         <div className="card p-5">
           <p className="mb-4 text-sm text-muted">
             Un e-mail sera envoyé à l&apos;adresse de <b>{studentCount}</b> élève(s) via L&apos;École des
-            Freelances.
+            Freelances. <b>Le même message apparaîtra aussi dans leur messagerie</b>, comme s&apos;il venait
+            de <b>Mariane</b> (assistante de M. Roméo).
           </p>
           <label className="label">Sujet</label>
           <input
