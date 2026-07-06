@@ -24,7 +24,11 @@ import { CSS } from '@dnd-kit/utilities';
 import { createClient } from '@/lib/supabase/client';
 import type { Chapter, Module } from '@/lib/content';
 import RichTextArea from '@/components/RichTextArea';
+import UploadLeaveGuard from '@/components/UploadLeaveGuard';
 import { IconPlus, IconX, IconPlayFill, IconPen, IconGrip, IconBook } from '@/components/Icons';
+
+const VIDEO_UPLOAD_MSG =
+  "La vidéo n'a pas fini de se charger. Si tu quittes maintenant, l'envoi sera interrompu et la vidéo ne sera pas enregistrée.";
 
 const supabase = createClient();
 const BUCKET = 'course-media';
@@ -615,6 +619,7 @@ function ChapterBlock({
 
   return (
     <div className="card overflow-hidden">
+      <UploadLeaveGuard active={progress !== null} title="Envoi de la vidéo en cours" message={VIDEO_UPLOAD_MSG} />
       <div className="flex items-center gap-2 p-3 sm:gap-3 sm:p-4">
         {handle}
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-black/[0.06] text-xs font-bold text-ink">
@@ -758,6 +763,7 @@ function AddChapter({
 
   return (
     <div className="card mt-1 space-y-3 p-4">
+      <UploadLeaveGuard active={progress !== null} title="Envoi de la vidéo en cours" message={VIDEO_UPLOAD_MSG} />
       <p className="font-semibold text-ink">Nouveau chapitre</p>
       <input className="input" placeholder="Titre du chapitre" value={title} onChange={(e) => setTitle(e.target.value)} />
       <RichTextArea value={desc} onChange={setDesc} placeholder="Description (optionnel) — liens, gras, italique" minHeightClass="min-h-[70px]" />

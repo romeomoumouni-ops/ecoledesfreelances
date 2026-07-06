@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { ensureRealtimeAuth } from '@/lib/realtime';
 import { uploadResumable } from '@/lib/uploadResumable';
+import UploadLeaveGuard from '@/components/UploadLeaveGuard';
 import Avatar from '@/components/Avatar';
 import RichText from '@/components/RichText';
 import RichTextArea from '@/components/RichTextArea';
@@ -331,6 +332,7 @@ function Composer({
 
   return (
     <div className="card mb-5 p-4">
+      <UploadLeaveGuard active={progress !== null} title="Envoi du fichier en cours" message="Ta pièce jointe n'a pas fini de se charger. Si tu quittes maintenant, ta publication ne sera pas envoyée." />
       <div className="flex items-start gap-3">
         <Avatar initials={initialsOf(me.name)} src={me.avatarUrl} size={40} />
         <div className="flex-1">

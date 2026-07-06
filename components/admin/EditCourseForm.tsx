@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Course } from '@/lib/data';
 import RichTextArea from '@/components/RichTextArea';
+import UploadLeaveGuard from '@/components/UploadLeaveGuard';
 import { IconCamera } from '@/components/Icons';
 
 const supabase = createClient();
@@ -80,6 +81,7 @@ export default function EditCourseForm({ course }: { course: Course }) {
 
   return (
     <div className="card p-5">
+      <UploadLeaveGuard active={busy} title="Enregistrement en cours" message="La miniature se charge / le cours s'enregistre. Si tu quittes maintenant, la modification pourrait ne pas être prise en compte." />
       <h2 className="mb-4 font-bold text-ink">Infos du cours</h2>
 
       {toast && (

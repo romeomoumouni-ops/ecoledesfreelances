@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/UI';
+import UploadLeaveGuard from '@/components/UploadLeaveGuard';
 import Avatar from '@/components/Avatar';
 import { IconUsers, IconLock, IconBell, IconCamera } from '@/components/Icons';
 import TwoFactorAdmin from './TwoFactorAdmin';
@@ -103,6 +104,7 @@ export default function ParametresClient({ profile }: { profile: P }) {
 
   return (
     <>
+      <UploadLeaveGuard active={busy === 'photo'} title="Photo en cours d'envoi" message="Ta photo de profil n'a pas fini de se charger. Si tu quittes maintenant, elle ne sera pas enregistrée." />
       <PageHeader title="Paramètres" subtitle="Gérez votre compte et vos préférences." />
 
       {toast && (

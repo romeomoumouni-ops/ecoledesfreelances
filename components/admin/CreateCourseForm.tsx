@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import RichTextArea from '@/components/RichTextArea';
+import UploadLeaveGuard from '@/components/UploadLeaveGuard';
 import { IconCamera } from '@/components/Icons';
 
 const supabase = createClient();
@@ -84,6 +85,7 @@ export default function CreateCourseForm() {
 
   return (
     <form onSubmit={submit} className="space-y-3">
+      <UploadLeaveGuard active={busy} message="Ton cours est en cours de publication (l'image se charge). Si tu quittes maintenant, il ne sera pas enregistré." />
       {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
 
       {/* Miniature */}
