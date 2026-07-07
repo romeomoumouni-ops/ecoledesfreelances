@@ -59,6 +59,12 @@ export default function ExpandableRichText({
   let cut = text.slice(0, limit);
   const lastSpace = cut.lastIndexOf(' ');
   if (lastSpace > limit * 0.6) cut = cut.slice(0, lastSpace);
+  // Ne jamais couper au milieu d'un lien markdown [texte](url) : si un « [ »
+  // ouvert n'est pas refermé par « ](…) » avant la coupe, on coupe avant lui.
+  const openBracket = cut.lastIndexOf('[');
+  if (openBracket > 0 && !/\[[^\]]*\]\([^)]*\)/.test(cut.slice(openBracket))) {
+    cut = cut.slice(0, openBracket);
+  }
 
   return (
     <div className={`whitespace-pre-line ${className}`}>

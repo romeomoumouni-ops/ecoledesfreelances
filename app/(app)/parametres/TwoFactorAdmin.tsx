@@ -77,12 +77,19 @@ export default function TwoFactorAdmin() {
     if (!window.confirm('Désactiver la double authentification sur ton compte ?')) return;
     setErr(null);
     setBusy(true);
-    const { data } = await supabase.auth.mfa.listFactors();
-    for (const f of data?.totp ?? []) {
-      await supabase.auth.mfa.unenroll({ factorId: f.id });
+    try {
+      const { data } = await supabase.auth.mfa.listFactors();
+      for (const f of data?.totp ?? []) {
+        const { error } = await supabase.auth.mfa.unenroll({ factorId: f.id });
+        if (error) throw error;
+      }
+    } catch {
+      setErr('La désactivation a échoué (session récente requise). Déconnecte-toi, reconnecte-toi, puis réessaie.');
+    } finally {
+      setBusy(false);
+      // On affiche l'état RÉEL : si un facteur n'a pas pu être retiré, le badge reste « Activée ».
+      await refresh();
     }
-    setBusy(false);
-    setStatus('off');
   }
 
   return (

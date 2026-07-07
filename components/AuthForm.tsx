@@ -286,7 +286,8 @@ export default function AuthForm() {
 
 function translateError(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
-  if (/Invalid login credentials/i.test(msg)) return 'E-mail ou mot de passe incorrect.';
+  if (/Invalid login credentials/i.test(msg))
+    return 'E-mail ou mot de passe incorrect. (Nouveau ici ? Utilisez plutôt le bouton bleu « Créer mon compte ».)';
   if (/User already registered/i.test(msg))
     return 'Un compte existe déjà avec cet e-mail. Connectez-vous.';
   if (/Password should be at least/i.test(msg))

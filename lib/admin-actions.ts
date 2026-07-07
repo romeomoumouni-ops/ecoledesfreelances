@@ -181,9 +181,12 @@ export async function createLive(formData: FormData) {
     const profile = await getCurrentProfile();
     if (profile) {
       await notifyNewLive(supabase, profile.id, profile.full_name, { coach, theme, dateLabel, timeLabel });
+    } else {
+      console.error('createLive: profil admin introuvable — notifications de live non envoyées');
     }
-  } catch {
-    /* la notification a échoué mais le live est créé */
+  } catch (e) {
+    // Le live est créé quand même ; on trace l'échec pour les logs Vercel.
+    console.error('createLive: échec des notifications', e);
   }
 
   revalidatePath('/admin/live');

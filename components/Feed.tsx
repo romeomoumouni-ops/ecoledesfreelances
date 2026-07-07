@@ -189,6 +189,20 @@ export default function Feed({
       )
       .on(
         'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'community_comments' },
+        (payload) => {
+          // payload.old ne contient post_id que si la réplication l'expose
+          const c = payload.old as { post_id?: string };
+          if (!c.post_id) return;
+          setPosts((prev) =>
+            prev.map((p) =>
+              p.id === c.post_id ? { ...p, commentCount: Math.max(0, p.commentCount - 1) } : p
+            )
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'community_likes' },
         (payload) => {
           const l = payload.new as { post_id: string; user_id: string };
@@ -220,8 +234,14 @@ export default function Feed({
 
   async function deletePost(id: string) {
     if (!confirm('Supprimer cette publication ?')) return;
+    const before = posts;
     setPosts((ps) => ps.filter((p) => p.id !== id));
-    await supabase.from('community_posts').delete().eq('id', id);
+    const { error } = await supabase.from('community_posts').delete().eq('id', id);
+    if (error) {
+      // Échec serveur : on remet la publication et on prévient.
+      setPosts(before);
+      setErr('La suppression a échoué. Réessaie.');
+    }
   }
 
   async function toggleLike(post: Post) {
@@ -231,10 +251,16 @@ export default function Feed({
         p.id === post.id ? { ...p, likedByMe: !liked, likeCount: p.likeCount + (liked ? -1 : 1) } : p
       )
     );
-    if (liked) {
-      await supabase.from('community_likes').delete().eq('post_id', post.id).eq('user_id', me.id);
-    } else {
-      await supabase.from('community_likes').insert({ post_id: post.id, user_id: me.id });
+    const { error } = liked
+      ? await supabase.from('community_likes').delete().eq('post_id', post.id).eq('user_id', me.id)
+      : await supabase.from('community_likes').insert({ post_id: post.id, user_id: me.id });
+    if (error) {
+      // Échec serveur : on annule le like optimiste.
+      setPosts((ps) =>
+        ps.map((p) =>
+          p.id === post.id ? { ...p, likedByMe: liked, likeCount: p.likeCount + (liked ? 1 : -1) } : p
+        )
+      );
     }
   }
 
@@ -711,8 +737,10 @@ function PostComments({ postId, me }: { postId: string; me: FeedUser }) {
 
   async function del(id: string) {
     // On retire le commentaire et ses réponses (cascade en base)
+    const before = comments;
     setComments((c) => c.filter((x) => x.id !== id && x.parent_id !== id));
-    await supabase.from('community_comments').delete().eq('id', id);
+    const { error } = await supabase.from('community_comments').delete().eq('id', id);
+    if (error) setComments(before); // échec serveur : on remet le commentaire
   }
 
   async function toggleLike(c: PostComment) {
@@ -722,14 +750,20 @@ function PostComments({ postId, me }: { postId: string; me: FeedUser }) {
         x.id === c.id ? { ...x, likedByMe: !liked, likeCount: x.likeCount + (liked ? -1 : 1) } : x
       )
     );
-    if (liked) {
-      await supabase
-        .from('community_comment_likes')
-        .delete()
-        .eq('comment_id', c.id)
-        .eq('user_id', me.id);
-    } else {
-      await supabase.from('community_comment_likes').insert({ comment_id: c.id, user_id: me.id });
+    const { error } = liked
+      ? await supabase
+          .from('community_comment_likes')
+          .delete()
+          .eq('comment_id', c.id)
+          .eq('user_id', me.id)
+      : await supabase.from('community_comment_likes').insert({ comment_id: c.id, user_id: me.id });
+    if (error) {
+      // Échec serveur : on annule le like optimiste.
+      setComments((list) =>
+        list.map((x) =>
+          x.id === c.id ? { ...x, likedByMe: liked, likeCount: x.likeCount + (liked ? 1 : -1) } : x
+        )
+      );
     }
   }
 

@@ -419,7 +419,9 @@ function ManuelsList({
       const j = await res.json().catch(() => null);
       if (!res.ok) throw new Error(j?.error ?? 'Échec de l’ajout.');
       setInfo(
-        dejaAcheteurs.some((a) => a.email === v)
+        j?.already
+          ? `${v} avait déjà un accès manuel — rien n'a été modifié (aucun e-mail renvoyé).`
+          : dejaAcheteurs.some((a) => a.email === v)
           ? `Accès manuel donné à ${v} (note : cette personne a déjà un accès par paiement). E-mail de bienvenue envoyé.`
           : `Accès donné à ${v}. E-mail de bienvenue envoyé. La personne peut créer son compte avec cet e-mail.`
       );

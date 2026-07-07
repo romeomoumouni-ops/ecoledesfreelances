@@ -148,10 +148,14 @@ export default function SuperCoachClient({
   const [quotaOut, setQuotaOut] = useState(remaining <= 0);
   const [left, setLeft] = useState(remaining);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'nearest' });
   }, [messages]);
+
+  // Si l'élève quitte la page pendant une réponse, on coupe le flux proprement.
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   async function send(text?: string) {
     const q = (text ?? input).trim();
@@ -161,11 +165,14 @@ export default function SuperCoachClient({
     setBusy(true);
     setMessages((m) => [...m, { role: 'user', content: q }, { role: 'assistant', content: '' }]);
 
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     try {
       const res = await fetch('/api/super-coach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: q }),
+        signal: ctrl.signal,
       });
       if (res.status === 402) {
         // Quota de questions IA épuisé -> panneau de recharge
@@ -182,7 +189,8 @@ export default function SuperCoachClient({
       }
       const remHeader = res.headers.get('x-questions-remaining');
       if (remHeader !== null) setLeft(Math.max(0, parseInt(remHeader, 10) || 0));
-      const reader = res.body!.getReader();
+      if (!res.body) throw new Error('Réponse vide du serveur, réessaie.');
+      const reader = res.body.getReader();
       const decoder = new TextDecoder();
       for (;;) {
         const { done, value } = await reader.read();
@@ -198,6 +206,8 @@ export default function SuperCoachClient({
         });
       }
     } catch (e) {
+      // Départ de la page pendant la réponse : abandon volontaire, pas une erreur.
+      if (e instanceof DOMException && e.name === 'AbortError') return;
       setMessages((m) => m.slice(0, -2)); // retire la question + la bulle vide
       setInput(q); // remet la question dans le champ
       setErr(e instanceof Error ? e.message : 'Une erreur est survenue.');
