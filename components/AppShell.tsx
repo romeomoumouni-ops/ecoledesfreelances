@@ -7,6 +7,7 @@ import { ensureRealtimeAuth } from '@/lib/realtime';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import DeviceGuard from './DeviceGuard';
+import TranchePayBanner, { type Installment } from './TranchePayBanner';
 
 export type ShellProfile = {
   id: string;
@@ -17,6 +18,9 @@ export type ShellProfile = {
   isAdmin: boolean;
 };
 
+// Onglets SANS le bouton « Payer ma tranche ».
+const TRANCHE_HIDDEN = ['/super-coach', '/ai-post-maker', '/temoignages'];
+
 export default function AppShell({
   children,
   profile,
@@ -25,6 +29,7 @@ export default function AppShell({
   notifUnread = 0,
   communauteUnread = 0,
   temoignagesUnread = 0,
+  installment = null,
 }: {
   children: React.ReactNode;
   profile: ShellProfile;
@@ -33,6 +38,7 @@ export default function AppShell({
   notifUnread?: number;
   communauteUnread?: number;
   temoignagesUnread?: number;
+  installment?: Installment | null;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [unread, setUnread] = useState(contactUnread);
@@ -125,7 +131,12 @@ export default function AppShell({
       />
       <div className="lg:pl-[264px]">
         <Topbar onMenu={() => setMenuOpen(true)} profile={profile} contactUnread={unread} notifUnread={notif} />
-        <main className="mx-auto max-w-content px-4 py-6 sm:px-8 sm:py-10">{children}</main>
+        <main className="mx-auto max-w-content px-4 py-6 sm:px-8 sm:py-10">
+          {installment && !TRANCHE_HIDDEN.some((p) => pathname.startsWith(p)) && (
+            <TranchePayBanner installment={installment} />
+          )}
+          {children}
+        </main>
       </div>
     </div>
   );

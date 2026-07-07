@@ -67,11 +67,28 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
 
   // Garde-fou paiement (secours — le middleware redirige déjà avant tout
   // rendu) : sans accès actif, direction la page de blocage /acces.
+  // On récupère aussi le plan pour le bouton « Payer ma tranche » (3x/6x).
+  let installment: { plan: string; paymentsCount: number; totalPayments: number } | null = null;
   if (!profile.is_admin) {
     const supabase = createClient();
     const { data: access } = await supabase.rpc('get_my_access');
-    if ((access as { active?: boolean } | null)?.active !== true) {
+    const a = access as {
+      active?: boolean;
+      plan?: string;
+      payments_count?: number;
+      total_payments?: number;
+    } | null;
+    if (a?.active !== true) {
       redirect('/acces');
+    }
+    // Membre en 3x/6x qui n'a pas fini de payer → bouton de règlement de tranche.
+    if (
+      (a.plan === '3x' || a.plan === '6x') &&
+      typeof a.payments_count === 'number' &&
+      typeof a.total_payments === 'number' &&
+      a.payments_count < a.total_payments
+    ) {
+      installment = { plan: a.plan, paymentsCount: a.payments_count, totalPayments: a.total_payments };
     }
   }
 
@@ -109,6 +126,7 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
       notifUnread={notifUnread}
       communauteUnread={communauteUnread}
       temoignagesUnread={temoignagesUnread}
+      installment={installment}
     >
       {children}
     </AppShell>

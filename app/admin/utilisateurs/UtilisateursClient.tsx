@@ -401,31 +401,39 @@ function ManuelsList({
   onChange: () => void;
 }) {
   const [email, setEmail] = useState('');
+  const [plan, setPlan] = useState<'1x' | '3x' | '6x'>('1x');
   const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState<string | null>(null);
+
+  const PLANS: { value: '1x' | '3x' | '6x'; label: string; sub: string }[] = [
+    { value: '1x', label: 'Paiement en 1 fois', sub: 'Accès à vie' },
+    { value: '3x', label: 'Paiement en 3 fois', sub: '45 000 / tranche · expire à 30 j' },
+    { value: '6x', label: 'Paiement en 6 fois', sub: '20 000 / tranche · expire à 30 j' },
+  ];
 
   async function give() {
     const v = email.trim().toLowerCase();
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return onError(new Error('Adresse e-mail invalide.'));
-    if (list.some((m) => m.email.toLowerCase() === v)) return onError(new Error('Cet e-mail a déjà un accès manuel.'));
+    if (dejaAcheteurs.some((a) => a.email === v) || list.some((m) => m.email.toLowerCase() === v))
+      return onError(new Error('Cet e-mail a déjà un accès (paiement ou manuel).'));
     setBusy(true);
-    // Route serveur : ajoute l'accès ET envoie l'e-mail de bienvenue (comme les acheteurs)
+    // Route serveur : crée l'accès (access_grants) selon le plan ET envoie l'e-mail de bienvenue
     try {
       const res = await fetch('/api/admin/manual-access', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: v }),
+        body: JSON.stringify({ email: v, plan }),
       });
       const j = await res.json().catch(() => null);
       if (!res.ok) throw new Error(j?.error ?? 'Échec de l’ajout.');
+      const planLabel =
+        plan === '1x' ? 'à vie (1 fois)' : plan === '3x' ? '3 fois (30 j)' : '6 fois (30 j)';
       setInfo(
         j?.already
-          ? `${v} avait déjà un accès manuel — rien n'a été modifié (aucun e-mail renvoyé).`
-          : dejaAcheteurs.some((a) => a.email === v)
-          ? `Accès manuel donné à ${v} (note : cette personne a déjà un accès par paiement). E-mail de bienvenue envoyé.`
-          : `Accès donné à ${v}. E-mail de bienvenue envoyé. La personne peut créer son compte avec cet e-mail.`
+          ? `${v} a déjà un accès — rien n'a été modifié (aucun e-mail renvoyé).`
+          : `Accès « ${planLabel} » donné à ${v}. E-mail de bienvenue envoyé. La personne peut créer son compte avec cet e-mail.`
       );
-      setTimeout(() => setInfo(null), 8000);
+      setTimeout(() => setInfo(null), 9000);
       setEmail('');
       onChange();
     } catch (e) {
@@ -448,9 +456,26 @@ function ManuelsList({
       <div className="card mb-4 p-4">
         <p className="font-semibold text-ink">Donner un accès</p>
         <p className="mb-3 mt-0.5 text-xs text-muted">
-          La personne pourra créer son compte et accéder à la plateforme avec cet e-mail, sans paiement.
-          L&apos;accès reste valable tant qu&apos;il n&apos;est pas retiré.
+          Choisis le plan : <b>1 fois</b> = accès à vie ; <b>3 fois / 6 fois</b> = accès 30 jours puis
+          expiration (idéal pour les paiements Western Union / Mobile Money). La personne verra alors le
+          bouton « Payer ma tranche » et tu pourras enregistrer ses paiements reçus à la main.
         </p>
+        {/* Sélecteur de plan */}
+        <div className="mb-3 grid gap-2 sm:grid-cols-3">
+          {PLANS.map((p) => (
+            <button
+              key={p.value}
+              type="button"
+              onClick={() => setPlan(p.value)}
+              className={`rounded-xl border p-3 text-left transition ${
+                plan === p.value ? 'border-ink bg-ink/[0.03] ring-1 ring-ink' : 'border-line hover:border-[#dcdcda]'
+              }`}
+            >
+              <p className="text-sm font-bold text-ink">{p.label}</p>
+              <p className="mt-0.5 text-xs text-muted">{p.sub}</p>
+            </button>
+          ))}
+        </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
             type="email"
@@ -561,6 +586,30 @@ function AccesRow({
     onChange();
   }
 
+  // Enregistre une tranche reçue à la main (Western Union / Mobile Money) : +30 jours.
+  async function addTranche() {
+    if (!confirm(`Enregistrer une tranche payée (+30 jours) pour ${a.email} ?`)) return;
+    setBusy(true);
+    const { data, error } = await supabase.rpc('admin_add_tranche', { p_email: a.email });
+    setBusy(false);
+    if (error) return onError(new Error(error.message));
+    const st = (data as { status?: string } | null)?.status;
+    if (st && st !== 'ok') {
+      return onError(
+        new Error(
+          st === 'already_complete'
+            ? 'Toutes les tranches sont déjà réglées.'
+            : st === 'not_installment'
+            ? "Ce membre n'est pas en paiement échelonné (3x/6x)."
+            : 'Aucun accès trouvé pour cet e-mail.'
+        )
+      );
+    }
+    onChange();
+  }
+
+  const canAddTranche = a.plan !== '1x' && a.payments_count < a.total_payments;
+
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 p-4">
       <div className="min-w-0 flex-1">
@@ -590,6 +639,16 @@ function AccesRow({
       <StatutChip a={a} />
       {!editing && (
         <>
+          {canAddTranche && (
+            <button
+              onClick={addTranche}
+              disabled={busy}
+              className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink transition hover:bg-black/[0.03] disabled:opacity-60"
+              title="Enregistrer une tranche reçue à la main (+30 jours)"
+            >
+              +1 tranche
+            </button>
+          )}
           <button
             onClick={() => setEditing(true)}
             className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-black/[0.05] hover:text-ink"

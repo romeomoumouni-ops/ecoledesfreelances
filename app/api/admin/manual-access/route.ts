@@ -5,9 +5,10 @@ import { sendWelcomeEmail } from '@/lib/email';
 export const dynamic = 'force-dynamic';
 
 /**
- * Ajout d'un accès manuel (hors paiement Chariow) par un admin.
- * Insère l'e-mail dans allowed_emails ET envoie le même e-mail de bienvenue
- * que les acheteurs. Réservé aux admins.
+ * Ajout d'un accès manuel (hors paiement Chariow) par un admin, AVEC un plan
+ * (1x / 3x / 6x). Crée un access_grants : 1x = à vie ; 3x/6x = 30 jours puis
+ * expiration (comme Chariow). Envoie le même e-mail de bienvenue que les
+ * acheteurs. Réservé aux admins.
  */
 export async function POST(req: NextRequest) {
   const supabase = createClient();
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
   const { data: prof } = await supabase.from('profiles').select('is_admin').eq('id', user.id).maybeSingle();
   if (!prof?.is_admin) return NextResponse.json({ error: 'Réservé aux administrateurs.' }, { status: 403 });
 
-  let body: { email?: string };
+  let body: { email?: string; plan?: string };
   try {
     body = await req.json();
   } catch {
@@ -29,24 +30,16 @@ export async function POST(req: NextRequest) {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return NextResponse.json({ error: 'Adresse e-mail invalide.' }, { status: 400 });
   }
+  const plan = body.plan === '3x' || body.plan === '6x' ? body.plan : '1x';
 
-  // Déjà présent ? (accès manuel existant)
-  const { data: existing } = await supabase
-    .from('allowed_emails')
-    .select('email')
-    .eq('email', email)
-    .maybeSingle();
-  if (existing) {
+  const { data, error } = await supabase.rpc('admin_manual_grant', { p_email: email, p_plan: plan });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if ((data as { status?: string } | null)?.status === 'already') {
     return NextResponse.json({ ok: true, already: true });
   }
 
-  const { error } = await supabase
-    .from('allowed_emails')
-    .insert({ email, product: 'manuel', source: 'manual' });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  // Même e-mail de bienvenue que les acheteurs (silencieux si non configuré)
+  // Nouvel accès : e-mail de bienvenue (silencieux si non configuré)
   await sendWelcomeEmail(email);
-
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, plan });
 }
