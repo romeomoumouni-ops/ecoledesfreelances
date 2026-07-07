@@ -125,7 +125,7 @@ export default function UtilisateursClient({
       />
 
       {tab === 'membres' ? (
-        <MembresList meId={meId} list={membresFiltres} onError={fail} onChange={() => router.refresh()} />
+        <MembresList meId={meId} list={membresFiltres} acces={acces} onError={fail} onChange={() => router.refresh()} />
       ) : tab === 'acces' ? (
         <AccesList list={accesFiltres} onError={fail} onChange={() => router.refresh()} />
       ) : (
@@ -144,21 +144,45 @@ export default function UtilisateursClient({
 function MembresList({
   meId,
   list,
+  acces,
   onError,
   onChange,
 }: {
   meId: string;
   list: Membre[];
+  acces: AccesDonne[];
   onError: (e: unknown) => void;
   onChange: () => void;
 }) {
   const [detail, setDetail] = useState<Membre | null>(null);
+  const [extendingId, setExtendingId] = useState<string | null>(null);
+
+  // Accès à durée limitée par e-mail (celui qu'on peut prolonger de 30 jours).
+  const finiteByEmail = useMemo(() => {
+    const m = new Map<string, AccesDonne>();
+    for (const a of acces) if (a.access_until) m.set(a.email.toLowerCase(), a);
+    return m;
+  }, [acces]);
 
   async function toggleBan(u: Membre) {
     const next = !u.banned;
     if (next && !confirm(`Bannir ${u.full_name || u.email} ?\n\nLa personne sera immédiatement bloquée : elle ne pourra plus accéder à la plateforme (son compte et son historique sont conservés). Tu pourras la débannir à tout moment.`)) return;
     const { error } = await supabase.from('profiles').update({ banned: next }).eq('id', u.id);
     if (error) return onError(new Error(error.message));
+    onChange();
+  }
+
+  // Prolonge l'accès de 30 jours (paiement Western Union / Mobile Money reçu à la main).
+  async function extend(u: Membre) {
+    if (!u.email) return;
+    if (!confirm(`Prolonger l'accès de ${u.full_name || u.email} de 30 jours ?`)) return;
+    setExtendingId(u.id);
+    const { data, error } = await supabase.rpc('admin_extend_access', { p_email: u.email });
+    setExtendingId(null);
+    if (error) return onError(new Error(error.message));
+    if ((data as { status?: string } | null)?.status !== 'ok') {
+      return onError(new Error("Impossible de prolonger cet accès."));
+    }
     onChange();
   }
 
@@ -189,7 +213,17 @@ function MembresList({
               {isSelf ? (
                 <span className="text-xs text-muted">Vous</span>
               ) : (
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {u.email && finiteByEmail.has(u.email.toLowerCase()) && (
+                    <button
+                      onClick={() => extend(u)}
+                      disabled={extendingId === u.id}
+                      className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-60"
+                      title="Prolonger l'accès de 30 jours (paiement Western Union / Mobile Money reçu à la main)"
+                    >
+                      {extendingId === u.id ? 'Prolongation…' : 'Prolonger 30 j'}
+                    </button>
+                  )}
                   <form action={setUserAdmin.bind(null, u.id, !u.is_admin)}>
                     <button className="btn-outline text-xs">{u.is_admin ? 'Retirer admin' : 'Rendre admin'}</button>
                   </form>
