@@ -76,14 +76,23 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
   }
 
   const supabaseNotif = createClient();
-  const [contactUnread, suiviUnread, { data: notifUnread }, communauteUnread, temoignagesUnread] =
-    await Promise.all([
-      getContactUnread(profile.id),
-      getSuiviUnread(profile.id),
-      supabaseNotif.rpc('my_unread_announcements'),
-      getPostsUnread(profile.id, 'communaute', COMMUNAUTE_CHANNELS),
-      getPostsUnread(profile.id, 'temoignages', ['temoignages']),
-    ]);
+  const [
+    contactUnread,
+    suiviUnread,
+    { data: annUnread },
+    { data: persoUnread },
+    communauteUnread,
+    temoignagesUnread,
+  ] = await Promise.all([
+    getContactUnread(profile.id),
+    getSuiviUnread(profile.id),
+    supabaseNotif.rpc('my_unread_announcements'),
+    supabaseNotif.rpc('my_unread_notifications'),
+    getPostsUnread(profile.id, 'communaute', COMMUNAUTE_CHANNELS),
+    getPostsUnread(profile.id, 'temoignages', ['temoignages']),
+  ]);
+  // Cloche = annonces de l'équipe + interactions personnelles (like/commentaire/réponse)
+  const notifUnread = ((annUnread as number | null) ?? 0) + ((persoUnread as number | null) ?? 0);
 
   return (
     <AppShell
@@ -97,7 +106,7 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
       }}
       contactUnread={contactUnread}
       suiviUnread={suiviUnread}
-      notifUnread={(notifUnread as number | null) ?? 0}
+      notifUnread={notifUnread}
       communauteUnread={communauteUnread}
       temoignagesUnread={temoignagesUnread}
     >

@@ -13,7 +13,7 @@ import Avatar from '@/components/Avatar';
 import RichText from '@/components/RichText';
 import ExpandableRichText from '@/components/ExpandableRichText';
 import RichTextArea from '@/components/RichTextArea';
-import { IconHeart, IconChat, IconX, IconCamera, IconFile } from '@/components/Icons';
+import { IconHeart, IconChat, IconX, IconCamera, IconFile, IconPin } from '@/components/Icons';
 
 const supabase = createClient();
 
@@ -29,10 +29,19 @@ type Post = {
   author_name: string | null;
   author_avatar: string | null;
   created_at: string;
+  pinned?: boolean;
   likeCount: number;
   commentCount: number;
   likedByMe: boolean;
 };
+
+// Tri : les posts épinglés d'abord, puis du plus récent au plus ancien.
+function sortPosts(list: Post[]): Post[] {
+  return [...list].sort((a, b) => {
+    if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+}
 
 function initialsOf(name: string | null) {
   return (name || 'M').split(/\s+/).map((n) => n[0]).join('').slice(0, 2).toUpperCase();
@@ -113,6 +122,7 @@ export default function Feed({
       .select('*, community_likes(count), community_comments(count)')
       .eq('channel', channel)
       .eq('flagged', false) // les posts signalés (remboursement/révolte) sont masqués
+      .order('pinned', { ascending: false }) // épinglés en premier
       .order('created_at', { ascending: false });
     const rows = data ?? [];
     let liked = new Set<string>();
@@ -155,7 +165,7 @@ export default function Feed({
           setPosts((prev) =>
             prev.some((x) => x.id === p.id)
               ? prev
-              : [{ ...p, likeCount: 0, commentCount: 0, likedByMe: false }, ...prev]
+              : sortPosts([{ ...p, likeCount: 0, commentCount: 0, likedByMe: false }, ...prev])
           );
         }
       )
@@ -228,6 +238,17 @@ export default function Feed({
     }
   }
 
+  // Épingler / désépingler (admin) : mise à jour optimiste + reclassement.
+  async function togglePin(post: Post) {
+    const next = !post.pinned;
+    setPosts((ps) => sortPosts(ps.map((p) => (p.id === post.id ? { ...p, pinned: next } : p))));
+    const { error } = await supabase.rpc('set_post_pinned', { p_id: post.id, p_pinned: next });
+    if (error) {
+      setErr("Impossible d'épingler ce post.");
+      setPosts((ps) => sortPosts(ps.map((p) => (p.id === post.id ? { ...p, pinned: post.pinned } : p))));
+    }
+  }
+
   return (
     <>
       {err && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
@@ -237,7 +258,7 @@ export default function Feed({
           me={me}
           channel={channel}
           placeholder={placeholder}
-          onPosted={(p) => setPosts((ps) => (ps.some((x) => x.id === p.id) ? ps : [p, ...ps]))}
+          onPosted={(p) => setPosts((ps) => (ps.some((x) => x.id === p.id) ? ps : sortPosts([p, ...ps])))}
           onError={setErr}
         />
       )}
@@ -247,7 +268,14 @@ export default function Feed({
       ) : posts.length ? (
         <div className="space-y-4">
           {posts.map((p) => (
-            <PostCard key={p.id} post={p} me={me} onLike={() => toggleLike(p)} onDelete={() => deletePost(p.id)} />
+            <PostCard
+              key={p.id}
+              post={p}
+              me={me}
+              onLike={() => toggleLike(p)}
+              onDelete={() => deletePost(p.id)}
+              onTogglePin={() => togglePin(p)}
+            />
           ))}
         </div>
       ) : (
@@ -423,23 +451,46 @@ function PostCard({
   me,
   onLike,
   onDelete,
+  onTogglePin,
 }: {
   post: Post;
   me: FeedUser;
   onLike: () => void;
   onDelete: () => void;
+  onTogglePin: () => void;
 }) {
   const [showComments, setShowComments] = useState(false);
   const canDelete = post.user_id === me.id || me.isAdmin;
 
   return (
-    <div className="card p-5 transition-shadow duration-200 hover:shadow-[0_6px_24px_rgba(0,0,0,0.07)]">
+    <div
+      className={`card p-5 transition-shadow duration-200 hover:shadow-[0_6px_24px_rgba(0,0,0,0.07)] ${
+        post.pinned ? 'ring-1 ring-amber-300' : ''
+      }`}
+    >
+      {post.pinned && (
+        <p className="mb-2 flex items-center gap-1.5 text-xs font-bold text-amber-600">
+          <IconPin width={13} height={13} /> Épinglé
+        </p>
+      )}
       <div className="flex items-center gap-3">
         <Avatar initials={initialsOf(post.author_name)} src={post.author_avatar} size={42} />
         <div className="min-w-0 flex-1">
           <p className="truncate font-bold text-ink">{post.author_name || 'Membre'}</p>
           <p className="text-xs text-muted">{timeAgo(post.created_at)}</p>
         </div>
+        {me.isAdmin && (
+          <button
+            onClick={onTogglePin}
+            className={`grid h-8 w-8 place-items-center rounded-lg transition ${
+              post.pinned ? 'bg-amber-100 text-amber-600' : 'text-muted hover:bg-black/[0.05] hover:text-ink'
+            }`}
+            aria-label={post.pinned ? 'Désépingler' : 'Épingler'}
+            title={post.pinned ? 'Désépingler' : 'Épingler en haut du fil'}
+          >
+            <IconPin width={16} height={16} />
+          </button>
+        )}
         {canDelete && (
           <button
             onClick={onDelete}

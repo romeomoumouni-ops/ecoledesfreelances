@@ -268,6 +268,13 @@ export const IconDownload = (p: IconProps) => (
   </svg>
 );
 
+export const IconPin = (p: IconProps) => (
+  <svg {...base(p)}>
+    <line x1="12" y1="17" x2="12" y2="22" />
+    <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
+  </svg>
+);
+
 export const IconHeart = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M12 20s-7-4.5-9.2-9A4.6 4.6 0 0 1 12 6a4.6 4.6 0 0 1 9.2 5c-2.2 4.5-9.2 9-9.2 9Z" />

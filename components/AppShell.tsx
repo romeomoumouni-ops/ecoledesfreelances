@@ -87,6 +87,13 @@ export default function AppShell({
       )
       .on(
         'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${profile.id}` },
+        () => {
+          if (pathname !== '/notifications') setNotif((n) => n + 1);
+        }
+      )
+      .on(
+        'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'community_posts' },
         (payload) => {
           const p = payload.new as { channel: string; user_id: string; flagged?: boolean };
