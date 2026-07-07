@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { IconPlayFill, IconX } from '@/components/Icons';
+import { IconPlayFill } from '@/components/Icons';
 
 /**
  * Message vocal d'accueil joué à l'arrivée sur la page de connexion, pour guider
@@ -48,15 +48,16 @@ export default function ConnexionGuideAudio({ src = '/guide-connexion.m4a' }: { 
       }
     };
 
+    // Tous les gestes qui « débloquent » l'audio (souris PC incluse).
+    const EVENTS = ['pointerdown', 'mousedown', 'click', 'keydown', 'touchstart'];
+
     const onFirstInteract = () => {
       if (armed) tryPlay();
     };
 
     const disarm = () => {
       armed = false;
-      document.removeEventListener('pointerdown', onFirstInteract);
-      document.removeEventListener('keydown', onFirstInteract);
-      document.removeEventListener('touchstart', onFirstInteract);
+      EVENTS.forEach((e) => document.removeEventListener(e, onFirstInteract, true));
     };
 
     function tryPlay() {
@@ -80,10 +81,8 @@ export default function ConnexionGuideAudio({ src = '/guide-connexion.m4a' }: { 
 
     // 1) tentative directe
     tryPlay();
-    // 2) filet : au tout premier geste sur la page
-    document.addEventListener('pointerdown', onFirstInteract);
-    document.addEventListener('keydown', onFirstInteract);
-    document.addEventListener('touchstart', onFirstInteract);
+    // 2) filet : au tout premier geste sur la page (clic/souris PC, tap, clavier)
+    EVENTS.forEach((e) => document.addEventListener(e, onFirstInteract, true));
 
     return () => {
       disarm();
@@ -141,17 +140,6 @@ export default function ConnexionGuideAudio({ src = '/guide-connexion.m4a' }: { 
             : 'Un message vocal te guide. Appuie sur ▶ pour l’écouter.'}
         </p>
       </div>
-      <button
-        type="button"
-        onClick={() => {
-          audioRef.current?.pause();
-          setHidden(true);
-        }}
-        aria-label="Fermer"
-        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted transition hover:bg-black/[0.05] hover:text-ink"
-      >
-        <IconX width={16} height={16} />
-      </button>
       <audio ref={audioRef} src={src} preload="auto" />
     </div>
   );
