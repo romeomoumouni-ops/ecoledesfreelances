@@ -4,16 +4,18 @@ import { redirect } from 'next/navigation';
 import { getCurrentProfile } from '@/lib/user';
 import { PageHeader } from '@/components/UI';
 import Feed from '@/components/Feed';
-import MarkScopeRead from '@/components/MarkScopeRead';
+import { markScopeRead } from '@/lib/read-marks';
 import { IconTrend } from '@/components/Icons';
 
 export default async function TemoignagesPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect('/connexion');
 
+  // Ouverture = tout lu → la pastille « Résultats et témoignages » retombe.
+  await markScopeRead(profile.id, 'temoignages');
+
   return (
     <div className="mx-auto max-w-2xl">
-      <MarkScopeRead userId={profile.id} scope="temoignages" />
       <PageHeader
         title="Résultats et témoignages"
         subtitle="Les preuves que ça marche, par ceux qui le vivent."
