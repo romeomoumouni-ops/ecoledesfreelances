@@ -5,49 +5,25 @@ import { IconPlayFill } from '@/components/Icons';
 
 /**
  * Message vocal d'accueil joué à l'arrivée sur la page de connexion, pour guider
- * les nouveaux acheteurs.
+ * les nouveaux acheteurs. Le bandeau reste TOUJOURS affiché.
  *
  * Les navigateurs interdisent la lecture audio AVEC son avant toute interaction
- * (surtout sur mobile). On maximise donc les chances :
+ * (surtout sur mobile / PC sans clic). On maximise les chances :
  *  1. tentative de lecture immédiate au chargement ;
  *  2. si bloquée, on rejoue au tout premier geste de l'utilisateur (tap, clic,
  *     touche) — ce qui arrive dès qu'il touche le champ e-mail ;
- *  3. un bandeau « Écouter » reste visible comme dernier recours.
- * On ne le joue qu'une fois par session.
+ *  3. le bandeau « Écouter » reste visible pour lancer/réécouter à la main.
  */
-const PLAYED_KEY = 'guide_connexion_played';
-
 export default function ConnexionGuideAudio({ src = '/guide-connexion.m4a' }: { src?: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [done, setDone] = useState(false);
-  const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    // Déjà écouté dans cette session : on n'insiste pas.
-    let alreadyPlayed = false;
-    try {
-      alreadyPlayed = sessionStorage.getItem(PLAYED_KEY) === '1';
-    } catch {
-      /* sessionStorage indisponible */
-    }
-    if (alreadyPlayed) {
-      setHidden(true);
-      return;
-    }
-
     let armed = true;
-    const markPlayed = () => {
-      try {
-        sessionStorage.setItem(PLAYED_KEY, '1');
-      } catch {
-        /* ignore */
-      }
-    };
-
     // Tous les gestes qui « débloquent » l'audio (souris PC incluse).
     const EVENTS = ['pointerdown', 'mousedown', 'click', 'keydown', 'touchstart'];
 
@@ -65,7 +41,7 @@ export default function ConnexionGuideAudio({ src = '/guide-connexion.m4a' }: { 
         .play()
         .then(() => {
           setPlaying(true);
-          markPlayed();
+          setDone(false);
           disarm();
         })
         .catch(() => {
@@ -97,19 +73,11 @@ export default function ConnexionGuideAudio({ src = '/guide-connexion.m4a' }: { 
       void audio.play();
       setPlaying(true);
       setDone(false);
-      try {
-        sessionStorage.setItem(PLAYED_KEY, '1');
-      } catch {
-        /* ignore */
-      }
     } else {
       audio.pause();
       setPlaying(false);
     }
   }
-
-  // Une fois masqué, on garde juste l'élément audio (au cas où il joue encore).
-  if (hidden) return <audio ref={audioRef} src={src} preload="auto" />;
 
   return (
     <div className="mb-5 flex items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
