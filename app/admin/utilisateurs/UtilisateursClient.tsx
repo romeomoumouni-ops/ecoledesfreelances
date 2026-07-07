@@ -252,6 +252,8 @@ function UserDetailModal({ membre, onClose }: { membre: Membre; onClose: () => v
   const [data, setData] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [devices, setDevices] = useState<number | null>(null);
+  const [extending, setExtending] = useState(false);
+  const [extendMsg, setExtendMsg] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -272,6 +274,28 @@ function UserDetailModal({ membre, onClose }: { membre: Membre; onClose: () => v
     if (!confirm(`Réinitialiser les appareils de ${membre.full_name || membre.email} ?\n\nToutes ses connexions seront oubliées : il pourra se reconnecter sur ses appareils (utile s'il a changé de téléphone).`)) return;
     const { error } = await supabase.rpc('admin_reset_devices', { p_user: membre.id });
     if (!error) setDevices(0);
+  }
+
+  // Prolonge l'accès de 30 jours (paiement Western Union / Mobile Money reçu à la main).
+  async function extend() {
+    if (!membre.email) return;
+    if (!confirm(`Prolonger l'accès de ${membre.full_name || membre.email} de 30 jours ?`)) return;
+    setExtending(true);
+    setExtendMsg(null);
+    const { data: res, error } = await supabase.rpc('admin_extend_access', { p_email: membre.email });
+    setExtending(false);
+    if (error) return setExtendMsg('Erreur : ' + error.message);
+    const st = (res as { status?: string } | null)?.status;
+    if (st === 'ok') {
+      setExtendMsg('Accès prolongé de 30 jours ✅');
+      // Rafraîchit la fiche pour afficher le nouvel état d'accès.
+      const { data: fresh } = await supabase.rpc('admin_user_profile', { p_user: membre.id });
+      if (fresh) setData(fresh as UserProfile);
+    } else if (st === 'already_lifetime') {
+      setExtendMsg('Cet accès est déjà à vie — rien à prolonger.');
+    } else {
+      setExtendMsg("Ce membre n'a pas d'accès à durée limitée à prolonger (utilise « Donner un accès »).");
+    }
   }
 
   const counts = data?.info.counts ?? {};
@@ -340,6 +364,21 @@ function UserDetailModal({ membre, onClose }: { membre: Membre; onClose: () => v
                 </div>
               </div>
             </div>
+
+            {/* Prolonger l'accès (paiement WU / Mobile Money reçu à la main) */}
+            {(acc?.reason === 'purchase' || acc?.reason === 'expired') && membre.email && (
+              <div className="mt-3">
+                <button onClick={extend} disabled={extending} className="btn-outline w-full disabled:opacity-60">
+                  {extending ? 'Prolongation…' : "Prolonger l'accès de 30 jours"}
+                </button>
+                <p className="mt-1 text-center text-[11px] text-muted">
+                  Pour un paiement reçu par Western Union / Mobile Money (hors Chariow).
+                </p>
+                {extendMsg && (
+                  <p className="mt-2 rounded-lg bg-black/[0.04] px-3 py-2 text-xs text-ink">{extendMsg}</p>
+                )}
+              </div>
+            )}
 
             {/* Compteurs d'activité */}
             <div className="mt-3 flex flex-wrap gap-2">
@@ -586,21 +625,19 @@ function AccesRow({
     onChange();
   }
 
-  // Enregistre une tranche reçue à la main (Western Union / Mobile Money) : +30 jours.
-  async function addTranche() {
-    if (!confirm(`Enregistrer une tranche payée (+30 jours) pour ${a.email} ?`)) return;
+  // Prolonge l'accès de 30 jours (paiement Western Union / Mobile Money reçu à la main).
+  async function extend() {
+    if (!confirm(`Prolonger l'accès de ${a.email} de 30 jours ?`)) return;
     setBusy(true);
-    const { data, error } = await supabase.rpc('admin_add_tranche', { p_email: a.email });
+    const { data, error } = await supabase.rpc('admin_extend_access', { p_email: a.email });
     setBusy(false);
     if (error) return onError(new Error(error.message));
     const st = (data as { status?: string } | null)?.status;
     if (st && st !== 'ok') {
       return onError(
         new Error(
-          st === 'already_complete'
-            ? 'Toutes les tranches sont déjà réglées.'
-            : st === 'not_installment'
-            ? "Ce membre n'est pas en paiement échelonné (3x/6x)."
+          st === 'already_lifetime'
+            ? 'Cet accès est déjà à vie — rien à prolonger.'
             : 'Aucun accès trouvé pour cet e-mail.'
         )
       );
@@ -608,7 +645,8 @@ function AccesRow({
     onChange();
   }
 
-  const canAddTranche = a.plan !== '1x' && a.payments_count < a.total_payments;
+  // À vie (access_until null) = rien à prolonger ; sinon on peut prolonger.
+  const canExtend = a.access_until !== null;
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 p-4">
@@ -639,14 +677,14 @@ function AccesRow({
       <StatutChip a={a} />
       {!editing && (
         <>
-          {canAddTranche && (
+          {canExtend && (
             <button
-              onClick={addTranche}
+              onClick={extend}
               disabled={busy}
               className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink transition hover:bg-black/[0.03] disabled:opacity-60"
-              title="Enregistrer une tranche reçue à la main (+30 jours)"
+              title="Prolonger l'accès de 30 jours (paiement reçu à la main)"
             >
-              +1 tranche
+              Prolonger +30 j
             </button>
           )}
           <button
