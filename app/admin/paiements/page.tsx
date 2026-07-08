@@ -12,6 +12,7 @@ export type ClientAcces = {
   total_payments: number;
   access_until: string | null;
   updated_at: string;
+  on_platform: boolean; // a un compte (est réellement inscrit sur la plateforme)
 };
 
 export type Revenue = {
@@ -43,6 +44,16 @@ export default async function AdminPaiementsPage() {
     grants.push(...((data ?? []) as ClientAcces[]));
     if (!data || data.length < PAGE) break;
   }
+
+  // E-mails réellement inscrits (avec un compte) : le suivi des échéances ne
+  // compte que ces étudiants-là (ceux qui sont vraiment sur la plateforme).
+  const inscrits = new Set<string>();
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await supabase.from('profiles').select('email').range(from, from + PAGE - 1);
+    for (const p of data ?? []) if (p.email) inscrits.add((p.email as string).toLowerCase());
+    if (!data || data.length < PAGE) break;
+  }
+  for (const g of grants) g.on_platform = inscrits.has(g.email.toLowerCase());
 
   return <PaiementsClient clients={grants} revenue={(revenue as Revenue) ?? null} />;
 }

@@ -71,6 +71,7 @@ export default function PaiementsClient({
       .channel('super-admin-echeances')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'access_grants' }, () => router.refresh())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chariow_purchases' }, () => router.refresh())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'profiles' }, () => router.refresh())
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
@@ -98,6 +99,7 @@ export default function PaiementsClient({
     };
     for (const c of clients) {
       if (c.plan !== '3x' && c.plan !== '6x') continue;
+      if (!c.on_platform) continue; // seulement les étudiants réellement inscrits
       const price = TRANCHE_PRICE[c.plan];
       const paid = Math.min(c.payments_count, c.total_payments);
       const rem = Math.max(0, c.total_payments - c.payments_count);
@@ -162,6 +164,10 @@ export default function PaiementsClient({
 
       {view === 'echeances' ? (
         <>
+          <p className="mb-3 text-xs text-muted">
+            Calculé uniquement sur les <b className="text-ink">étudiants réellement inscrits</b> (qui ont créé
+            leur compte) — les e-mails ayant payé sans jamais se connecter ne sont pas comptés.
+          </p>
           {/* Grandes cartes de suivi */}
           <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="card overflow-hidden">
