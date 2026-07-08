@@ -164,62 +164,58 @@ export default function PaiementsClient({
 
       {view === 'echeances' ? (
         <>
-          <p className="mb-3 text-xs text-muted">
-            Calculé uniquement sur les <b className="text-ink">étudiants réellement inscrits</b> (qui ont créé
-            leur compte) — les e-mails ayant payé sans jamais se connecter ne sont pas comptés.
+          <p className="mb-4 text-sm text-muted">
+            Suivi des étudiants qui paient <b className="text-ink">en plusieurs fois</b> (3× ou 6×) et qui ont
+            <b className="text-ink"> créé leur compte</b>. Mis à jour en temps réel.
           </p>
-          {/* Grandes cartes de suivi */}
-          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="card overflow-hidden">
-              <div className="bg-red-50 p-5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-red-600/80">
-                  Accès bloqués (échéance expirée)
-                </p>
-                <p className="mt-1 text-3xl font-bold tracking-tight text-red-600">
-                  {ech.blocked.toLocaleString('fr-FR')}
-                </p>
-                <p className="mt-1 text-xs text-red-600/70">étudiant(s) à relancer pour réactiver</p>
-              </div>
-            </div>
 
-            <div className="card overflow-hidden">
-              <div className="bg-emerald-50 p-5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700/80">
-                  Échéances déjà encaissées
+          {/* 1) LES ÉTUDIANTS */}
+          <div className="card mb-4 p-5">
+            <p className="text-sm font-bold text-ink">Étudiants qui paient en plusieurs fois</p>
+            <p className="mt-1 text-4xl font-bold tracking-tight text-ink">
+              {ech.count.toLocaleString('fr-FR')}
+            </p>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-xl bg-emerald-50 p-4">
+                <p className="text-2xl font-bold text-emerald-700">{ech.active.toLocaleString('fr-FR')}</p>
+                <p className="mt-0.5 text-xs font-medium text-emerald-700/80">
+                  à jour — accès actif, ils paient bien
                 </p>
-                <p className="mt-1 text-3xl font-bold tracking-tight text-emerald-700">
-                  {ech.paidCount.toLocaleString('fr-FR')}
-                </p>
-                <p className="mt-1 text-xs text-emerald-700/70">soit {fcfa(ech.paidAmount)}</p>
               </div>
-            </div>
-
-            <div className="card overflow-hidden">
-              <div className="bg-amber-50 p-5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-amber-700/80">
-                  Échéances restant à collecter
+              <div className="rounded-xl bg-red-50 p-4">
+                <p className="text-2xl font-bold text-red-600">{ech.blocked.toLocaleString('fr-FR')}</p>
+                <p className="mt-0.5 text-xs font-medium text-red-600/80">
+                  bloqués — leur mois a expiré, à relancer
                 </p>
-                <p className="mt-1 text-3xl font-bold tracking-tight text-amber-700">
-                  {ech.remCount.toLocaleString('fr-FR')}
+              </div>
+              <div className="rounded-xl bg-black/[0.04] p-4">
+                <p className="text-2xl font-bold text-ink">{ech.soldes.toLocaleString('fr-FR')}</p>
+                <p className="mt-0.5 text-xs font-medium text-muted">
+                  ont fini de payer — accès à vie
                 </p>
-                <p className="mt-1 text-xs text-amber-700/70">soit {fcfa(ech.remAmount)} à venir</p>
               </div>
             </div>
           </div>
 
-          {/* Sous-compteurs */}
-          <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <div className="card p-4">
-              <p className="text-2xl font-bold tracking-tight text-ink">{ech.count.toLocaleString('fr-FR')}</p>
-              <p className="mt-1 text-xs font-medium text-muted">Étudiants en paiement échelonné (3x/6x)</p>
+          {/* 2) L'ARGENT */}
+          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="card p-5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700/80">
+                Déjà encaissé
+              </p>
+              <p className="mt-1 text-3xl font-bold tracking-tight text-emerald-700">{fcfa(ech.paidAmount)}</p>
+              <p className="mt-1 text-xs text-muted">
+                sur {ech.paidCount.toLocaleString('fr-FR')} tranche(s) déjà payée(s) par ces étudiants
+              </p>
             </div>
-            <div className="card p-4">
-              <p className="text-2xl font-bold tracking-tight text-ink">{ech.active.toLocaleString('fr-FR')}</p>
-              <p className="mt-1 text-xs font-medium text-muted">À jour (accès actif)</p>
-            </div>
-            <div className="card p-4">
-              <p className="text-2xl font-bold tracking-tight text-ink">{ech.soldes.toLocaleString('fr-FR')}</p>
-              <p className="mt-1 text-xs font-medium text-muted">Soldés (tout payé → à vie)</p>
+            <div className="card p-5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-amber-700/80">
+                Encore à collecter
+              </p>
+              <p className="mt-1 text-3xl font-bold tracking-tight text-amber-700">{fcfa(ech.remAmount)}</p>
+              <p className="mt-1 text-xs text-muted">
+                sur {ech.remCount.toLocaleString('fr-FR')} tranche(s) qu&apos;il leur reste à payer
+              </p>
             </div>
           </div>
 
