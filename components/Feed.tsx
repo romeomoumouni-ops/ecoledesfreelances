@@ -538,7 +538,7 @@ function PostCard({
       {post.media_url && (
         <div className="mt-3 overflow-hidden rounded-lg border border-line">
           {post.media_type === 'video' ? (
-            <video src={post.media_url} controls className="max-h-[70vh] w-full bg-ink" />
+            <video src={post.media_url} controls className="max-h-[470px] w-full bg-ink" />
           ) : post.media_type === 'pdf' ? (
             <a
               href={post.media_url}
@@ -556,11 +556,14 @@ function PostCard({
             </a>
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={post.media_url}
-              alt={`Image partagée par ${prettyName(post.author_name)}`}
-              className="w-full object-cover"
-            />
+            // Hauteur contenue façon LinkedIn ; clic = image en grand
+            <a href={post.media_url} target="_blank" rel="noopener noreferrer" title="Voir l'image en grand">
+              <img
+                src={post.media_url}
+                alt={`Image partagée par ${prettyName(post.author_name)}`}
+                className="max-h-[470px] w-full object-cover transition hover:opacity-95"
+              />
+            </a>
           )}
         </div>
       )}

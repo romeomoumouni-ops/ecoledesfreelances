@@ -81,10 +81,14 @@ export default function NotificationsClient({
   const [anns, setAnns] = useState<Announcement[]>(initialAnnouncements);
   const [persos, setPersos] = useState<PersoNotif[]>(initialPerso);
 
-  // Tout marquer comme lu dès l'ouverture (annonces + interactions)
+  // Tout marquer comme lu dès l'ouverture (annonces + interactions).
+  // IMPORTANT : il faut attendre la promesse — un builder supabase non attendu
+  // n'envoie JAMAIS la requête (c'était le bug de la pastille qui revenait).
   useEffect(() => {
-    void supabase.rpc('mark_announcements_read');
-    void supabase.rpc('mark_notifications_read');
+    void (async () => {
+      await supabase.rpc('mark_announcements_read');
+      await supabase.rpc('mark_notifications_read');
+    })();
   }, []);
 
   // Temps réel : annonces + interactions personnelles
@@ -98,7 +102,7 @@ export default function NotificationsClient({
         (payload) => {
           const a = payload.new as Announcement;
           setAnns((prev) => (prev.some((x) => x.id === a.id) ? prev : [a, ...prev]));
-          void supabase.rpc('mark_announcements_read');
+          supabase.rpc('mark_announcements_read').then(() => {});
         }
       )
       .on(
@@ -107,7 +111,7 @@ export default function NotificationsClient({
         (payload) => {
           const n = payload.new as PersoNotif;
           setPersos((prev) => (prev.some((x) => x.id === n.id) ? prev : [n, ...prev]));
-          void supabase.rpc('mark_notifications_read');
+          supabase.rpc('mark_notifications_read').then(() => {});
         }
       )
       .subscribe();

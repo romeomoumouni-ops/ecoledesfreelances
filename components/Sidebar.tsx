@@ -26,7 +26,7 @@ type MenuItem = { href: string; label: string; Icon: typeof IconBook; accent?: b
 const mainMenu: MenuItem[] = [
   { href: '/tableau-de-bord', label: 'Tableau de bord', Icon: IconDashboard },
   { href: '/mes-formations', label: 'Mes cours à suivre', Icon: IconBook },
-  { href: '/live', label: 'Live', Icon: IconLive },
+  { href: '/live', label: 'Live & Replay', Icon: IconLive },
   { href: '/objectif', label: 'Objectif', Icon: IconTarget },
   // { href: '/catalogue', label: 'Catalogue', Icon: IconCompass }, // masqué temporairement — à réactiver plus tard
   { href: '/suivi', label: 'Suivi hebdomadaire', Icon: IconCalendar },

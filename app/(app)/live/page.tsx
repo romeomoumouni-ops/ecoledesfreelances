@@ -1,16 +1,25 @@
 export const dynamic = 'force-dynamic';
 
 import { PageHeader, EmptyState } from '@/components/UI';
-import { getLiveSessions } from '@/lib/db';
-import { IconLive, IconUsers } from '@/components/Icons';
+import { getLiveSessions, getLiveReplays } from '@/lib/db';
+import { IconLive, IconUsers, IconPlayFill, IconArrowRight } from '@/components/Icons';
+
+// Une session reste affichée jusqu'à ~4 h après son début, puis disparaît
+// toute seule (les coachs n'ont plus à faire le ménage).
+const HIDE_AFTER_MS = 4 * 60 * 60 * 1000;
 
 export default async function LivePage() {
-  const liveSessions = await getLiveSessions();
+  const [allSessions, replays] = await Promise.all([getLiveSessions(), getLiveReplays()]);
+  const now = Date.now();
+  const liveSessions = allSessions.filter(
+    (s) => !s.startsAt || new Date(s.startsAt).getTime() + HIDE_AFTER_MS > now
+  );
+
   return (
     <>
       <PageHeader
-        title="Live"
-        subtitle="Tes sessions de coaching de groupe en direct avec tes coachs."
+        title="Live & Replay"
+        subtitle="Tes sessions de coaching en direct — et les replays si tu en as raté une."
       />
 
       {liveSessions.length ? (
@@ -77,6 +86,47 @@ export default async function LivePage() {
           text="Les prochaines sessions de coaching de groupe apparaîtront ici."
         />
       )}
+
+      {/* Replays des lives passés */}
+      <div className="mt-10">
+        <h2 className="mb-1 text-lg font-bold text-ink">Replays</h2>
+        <p className="mb-4 text-sm text-muted">Tu as raté un live ? Regarde le replay quand tu veux.</p>
+        {replays.length ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {replays.map((r) => (
+              <a
+                key={r.id}
+                href={r.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="card group flex items-center gap-4 p-5 transition hover:border-[#e0e0de] hover:shadow-soft"
+              >
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-ink text-white transition group-hover:scale-105">
+                  <IconPlayFill width={16} height={16} className="ml-0.5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold text-ink">{r.title}</span>
+                  <span className="block text-xs text-muted">
+                    {r.coach ? `${r.coach} · ` : ''}
+                    {new Date(r.createdAt).toLocaleDateString('fr-FR', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </span>
+                </span>
+                <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-ink transition group-hover:gap-1.5">
+                  Regarder <IconArrowRight width={15} height={15} />
+                </span>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div className="card p-8 text-center text-sm text-muted">
+            Aucun replay pour l&apos;instant — ils apparaîtront ici après les sessions.
+          </div>
+        )}
+      </div>
     </>
   );
 }

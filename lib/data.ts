@@ -26,6 +26,16 @@ export type LiveSession = {
   theme: string;
   live?: boolean;
   meetingUrl?: string | null;
+  /** Vraie date/heure de début (permet de masquer la session ~4 h après). */
+  startsAt?: string | null;
+};
+
+export type LiveReplay = {
+  id: string;
+  title: string;
+  url: string;
+  coach: string | null;
+  createdAt: string;
 };
 
 export type LeaderRow = {

@@ -26,6 +26,10 @@ export default async function NotificationsPage() {
       .limit(100),
   ]);
 
+  // Ouvrir la page = tout est lu. Marqué CÔTÉ SERVEUR pour être fiable à 100 %
+  // (la pastille ne « revivra » plus après une actualisation).
+  await Promise.all([supabase.rpc('mark_announcements_read'), supabase.rpc('mark_notifications_read')]);
+
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader title="Notifications" subtitle="Vos interactions et les annonces de l'équipe." />

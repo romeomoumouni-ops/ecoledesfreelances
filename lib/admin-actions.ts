@@ -161,12 +161,35 @@ export async function createLive(formData: FormData) {
   if (!theme) throw new Error('Thème requis');
 
   const coach = String(formData.get('coach') || '');
-  const dateLabel = String(formData.get('date_label') || '');
-  const timeLabel = String(formData.get('time_label') || '');
+
+  // Le coach saisit la date/heure en HEURE DU BÉNIN (GMT+1). On stocke le vrai
+  // instant (starts_at) — la session disparaîtra d'elle-même ~4 h après — et on
+  // génère les libellés affichés aux élèves.
+  const rawStart = String(formData.get('starts_at') || '').trim(); // "2026-07-12T21:00"
+  if (!rawStart) throw new Error('Date et heure requises');
+  const startsAt = new Date(`${rawStart}:00+01:00`);
+  if (isNaN(startsAt.getTime())) throw new Error('Date invalide');
+
+  const dateLabel = new Intl.DateTimeFormat('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Africa/Porto-Novo',
+  }).format(startsAt);
+  const heures = new Intl.DateTimeFormat('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone: 'Africa/Porto-Novo',
+  })
+    .format(startsAt)
+    .replace(':', 'h');
+  const timeLabel = `${heures} (GMT+1)`;
 
   const { error } = await supabase.from('live_sessions').insert({
     date_label: dateLabel,
     time_label: timeLabel,
+    starts_at: startsAt.toISOString(),
     coach,
     theme,
     is_live: formData.get('is_live') === 'on',
@@ -247,6 +270,28 @@ export async function testLiveNotification(): Promise<{ ok: boolean; info: strin
       `• ${emailInfo}\n` +
       `• Cloche : lors d’un VRAI live, une notification apparaît pour tout le monde (même mécanisme, déjà éprouvé).`,
   };
+}
+
+/* ---------------- REPLAYS DE LIVES ---------------- */
+export async function createReplay(formData: FormData) {
+  const supabase = await requireAdmin();
+  const title = String(formData.get('title') || '').trim();
+  const url = String(formData.get('url') || '').trim();
+  if (!title || !url) throw new Error('Titre et lien requis');
+  const { error } = await supabase.from('live_replays').insert({
+    title,
+    url,
+    coach: String(formData.get('coach') || '').trim() || null,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath('/admin/live');
+}
+
+export async function deleteReplay(id: string) {
+  const supabase = await requireAdmin();
+  const { error } = await supabase.from('live_replays').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+  revalidatePath('/admin/live');
 }
 
 export async function deleteLive(id: string) {

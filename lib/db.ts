@@ -1,5 +1,5 @@
 import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Course, LiveSession, LeaderRow } from '@/lib/data';
+import type { Course, LiveSession, LiveReplay, LeaderRow } from '@/lib/data';
 import { signMedia } from '@/lib/media';
 
 // Client simple (lecture de contenu public via RLS), créé à la demande pour ne
@@ -60,7 +60,7 @@ export async function getCourseById(id: string): Promise<Course | null> {
 
 export async function getLiveSessions(): Promise<LiveSession[]> {
   const { data } = await db().from('live_sessions').select('*').order('sort');
-  return (data ?? []).map((s) => ({
+  const rows = (data ?? []).map((s) => ({
     id: s.id,
     date: s.date_label,
     time: s.time_label,
@@ -68,6 +68,24 @@ export async function getLiveSessions(): Promise<LiveSession[]> {
     theme: s.theme,
     live: s.is_live ?? false,
     meetingUrl: s.meeting_url ?? null,
+    startsAt: s.starts_at ?? null,
+  }));
+  // Les prochains d'abord (les sessions sans date réelle restent en tête de liste)
+  return rows.sort((a, b) => {
+    if (!a.startsAt || !b.startsAt) return 0;
+    return new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime();
+  });
+}
+
+/** Replays de lives publiés par les coachs (les plus récents d'abord). */
+export async function getLiveReplays(): Promise<LiveReplay[]> {
+  const { data } = await db().from('live_replays').select('*').order('created_at', { ascending: false });
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    title: r.title,
+    url: r.url,
+    coach: r.coach ?? null,
+    createdAt: r.created_at,
   }));
 }
 

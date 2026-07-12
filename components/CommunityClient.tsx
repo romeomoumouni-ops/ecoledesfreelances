@@ -25,7 +25,8 @@ export default function CommunityClient({ me }: { me: FeedUser }) {
   const canPost = !current?.adminOnly || me.isAdmin;
 
   return (
-    <>
+    // Fil centré et étroit façon LinkedIn : plus agréable à lire sur ordinateur.
+    <div className="mx-auto max-w-xl">
       <PageHeader title="Communauté" subtitle="Partage, échange et progresse avec les autres membres." />
 
       {/* Canaux */}
@@ -60,6 +61,6 @@ export default function CommunityClient({ me }: { me: FeedUser }) {
         canPost={canPost}
         placeholder={PLACEHOLDERS[channel] ?? 'Quoi de neuf ?'}
       />
-    </>
+    </div>
   );
 }
