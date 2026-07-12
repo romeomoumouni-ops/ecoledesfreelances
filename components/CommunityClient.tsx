@@ -25,12 +25,11 @@ export default function CommunityClient({ me }: { me: FeedUser }) {
   const canPost = !current?.adminOnly || me.isAdmin;
 
   return (
-    // Fil centré et étroit façon LinkedIn : plus agréable à lire sur ordinateur.
-    <div className="mx-auto max-w-xl">
+    <>
+      {/* En-tête + onglets sur TOUTE la largeur : tous les canaux visibles d'un coup */}
       <PageHeader title="Communauté" subtitle="Partage, échange et progresse avec les autres membres." />
 
-      {/* Canaux */}
-      <div className="scrollbar-hide mb-5 flex gap-2 overflow-x-auto pb-1">
+      <div className="scrollbar-hide mb-5 flex flex-wrap gap-2 pb-1">
         {CHANNELS.map((c) => {
           const active = channel === c.key;
           return (
@@ -48,19 +47,22 @@ export default function CommunityClient({ me }: { me: FeedUser }) {
         })}
       </div>
 
-      {!canPost && (
-        <div className="card mb-5 flex items-center gap-2 p-4 text-sm text-muted">
-          <IconLock width={16} height={16} /> Seuls les administrateurs peuvent publier dans « {current?.label} ».
-        </div>
-      )}
+      {/* Fil centré et étroit façon LinkedIn : plus agréable à lire */}
+      <div className="mx-auto max-w-xl">
+        {!canPost && (
+          <div className="card mb-5 flex items-center gap-2 p-4 text-sm text-muted">
+            <IconLock width={16} height={16} /> Seuls les administrateurs peuvent publier dans « {current?.label} ».
+          </div>
+        )}
 
-      <Feed
-        key={channel}
-        me={me}
-        channel={channel}
-        canPost={canPost}
-        placeholder={PLACEHOLDERS[channel] ?? 'Quoi de neuf ?'}
-      />
-    </div>
+        <Feed
+          key={channel}
+          me={me}
+          channel={channel}
+          canPost={canPost}
+          placeholder={PLACEHOLDERS[channel] ?? 'Quoi de neuf ?'}
+        />
+      </div>
+    </>
   );
 }
