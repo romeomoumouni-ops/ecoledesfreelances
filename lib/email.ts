@@ -52,12 +52,13 @@ export async function sendBroadcastEmail(to: string, subject: string, message: s
 export async function sendBroadcastBatch(
   recipients: string[],
   subject: string,
-  message: string
+  message: string,
+  htmlOverride?: string
 ): Promise<{ sent: number; failed: number; error?: string }> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { sent: 0, failed: recipients.length, error: 'RESEND_API_KEY manquante' };
 
-  const html = broadcastHtml(subject, message);
+  const html = htmlOverride ?? broadcastHtml(subject, message);
   const from = fromAddress();
   let sent = 0;
   let failed = 0;
