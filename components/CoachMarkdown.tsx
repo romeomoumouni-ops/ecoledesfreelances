@@ -66,10 +66,12 @@ export default function CoachMarkdown({ text }: { text: string }) {
       );
       return;
     }
-    // Paragraphe normal
+    // Paragraphe normal — on retire les « _ » d'italique multi-ligne que
+    // RichText ne gère pas (ex. « _Si ce n'était pas ta question… »).
+    const cleaned = line.replace(/^\s*_+\s?/, '').replace(/\s?_+\s*$/, '');
     out.push(
       <p key={key}>
-        <RichText text={line} />
+        <RichText text={cleaned} />
       </p>
     );
   });
