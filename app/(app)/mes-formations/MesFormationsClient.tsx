@@ -9,7 +9,7 @@ export default function MesFormationsClient({ courses }: { courses: Course[] }) 
     <>
       <PageHeader
         title="Mes cours à suivre"
-        subtitle="Tous les cours de votre programme. Ouvrez-en un pour commencer."
+        subtitle="Tous les cours de ton programme. Ouvres-en un pour commencer."
       />
 
       {courses.length ? (
@@ -22,7 +22,7 @@ export default function MesFormationsClient({ courses }: { courses: Course[] }) 
         <EmptyState
           Icon={IconBook}
           title="Aucun cours pour l'instant"
-          text="Les cours de votre programme apparaîtront ici dès qu'ils seront publiés."
+          text="Les cours de ton programme apparaîtront ici dès qu'ils seront publiés."
         />
       )}
     </>

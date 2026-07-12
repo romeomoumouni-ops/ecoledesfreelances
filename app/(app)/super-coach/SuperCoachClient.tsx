@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import RichText from '@/components/RichText';
+import CoachMarkdown from '@/components/CoachMarkdown';
 import Avatar from '@/components/Avatar';
 import { IconSparkle, IconArrowRight } from '@/components/Icons';
 
@@ -278,9 +279,14 @@ export default function SuperCoachClient({
                 }`}
               >
                 {m.content ? (
-                  <p className="whitespace-pre-line">
-                    <RichText text={m.content} onDark={m.role === 'user'} />
-                  </p>
+                  m.role === 'assistant' ? (
+                    // Réponse IA : markdown rendu proprement (titres, puces…)
+                    <CoachMarkdown text={m.content} />
+                  ) : (
+                    <p className="whitespace-pre-line">
+                      <RichText text={m.content} onDark />
+                    </p>
+                  )
                 ) : (
                   <span className="inline-flex gap-1 py-1">
                     <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted" />

@@ -19,6 +19,8 @@ export default function ObjectifClient({
   const router = useRouter();
   const [done, setDone] = useState<Set<string>>(new Set(initialKeys));
   const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [justChecked, setJustChecked] = useState<string | null>(null);
 
   const score = scoreFromKeys(done);
   const percent = Math.min(100, Math.round((score / OBJECTIVE_TARGET) * 100));
@@ -27,6 +29,12 @@ export default function ObjectifClient({
     if (busy) return;
     const isDone = done.has(key);
     setBusy(key);
+    setErr(null);
+    // Petit « pop » sur la coche quand on valide une tâche
+    if (!isDone) {
+      setJustChecked(key);
+      setTimeout(() => setJustChecked(null), 500);
+    }
     // Mise à jour optimiste
     const next = new Set(done);
     if (isDone) next.delete(key);
@@ -49,11 +57,12 @@ export default function ObjectifClient({
       }
       router.refresh(); // met à jour le tableau de bord
     } catch {
-      // rollback si échec
+      // rollback si échec + message clair
       const rb = new Set(next);
       if (isDone) rb.add(key);
       else rb.delete(key);
       setDone(rb);
+      setErr('Impossible d’enregistrer pour le moment. Vérifie ta connexion et réessaie.');
     } finally {
       setBusy(null);
     }
@@ -81,7 +90,14 @@ export default function ObjectifClient({
         <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-black/[0.07]">
           <div className="h-full rounded-full bg-ink transition-all duration-300" style={{ width: `${percent}%` }} />
         </div>
+        {percent >= 100 && (
+          <p className="heart-pop mt-3 rounded-lg bg-green-50 px-3 py-2 text-center text-sm font-bold text-green-700">
+            🎉 Objectif atteint : 100 / 100 ! Énorme bravo, tu as fait le travail. 👏
+          </p>
+        )}
       </div>
+
+      {err && <p className="mb-5 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
 
       {/* Honnêteté */}
       <div className="mb-5 flex items-start gap-3 rounded-xl border border-line bg-black/[0.02] p-4">
@@ -108,7 +124,7 @@ export default function ObjectifClient({
               <span
                 className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md border transition ${
                   checked ? 'border-ink bg-ink text-white' : 'border-[#d0d0ce] bg-white text-transparent'
-                }`}
+                } ${justChecked === t.key ? 'heart-pop' : ''}`}
               >
                 <IconCheck width={14} height={14} />
               </span>

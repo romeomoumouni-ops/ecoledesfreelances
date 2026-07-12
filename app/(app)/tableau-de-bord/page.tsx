@@ -25,14 +25,14 @@ export default async function DashboardPage() {
     <>
       <PageHeader
         title={`Bonjour, ${firstName} 👋`}
-        subtitle="Voici un aperçu de votre programme."
+        subtitle="Voici un aperçu de ton programme."
       />
 
       {/* Statistiques réelles */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
-        <StatCard label="Cours du programme" value={String(courses.length)} Icon={IconBook} note="Cours disponibles dans votre programme." />
+        <StatCard label="Cours du programme" value={String(courses.length)} Icon={IconBook} note="Cours disponibles dans ton programme." />
         <StatCard label="Sessions live" value={String(lives.length)} Icon={IconLive} note="Coachings de groupe programmés." />
-        <StatCard label="Objectif" value={`${percent}%`} Icon={IconTarget} note="Votre progression vers l'objectif (score sur 100)." />
+        <StatCard label="Objectif" value={`${percent}%`} Icon={IconTarget} note="Ta progression vers l'objectif (score sur 100)." />
       </div>
 
       {/* Vidéo de présentation de la plateforme */}
@@ -62,7 +62,7 @@ export default async function DashboardPage() {
               <EmptyState
                 Icon={IconBook}
                 title="Aucun cours pour l'instant"
-                text="Les cours de votre programme apparaîtront ici dès qu'ils seront publiés."
+                text="Les cours de ton programme apparaîtront ici dès qu'ils seront publiés."
               />
             )}
           </div>
@@ -70,10 +70,10 @@ export default async function DashboardPage() {
 
         {/* Colonne latérale */}
         <div className="space-y-6">
-          {/* La route vers votre objectif */}
+          {/* La route vers ton objectif */}
           <div className="card p-5">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="font-bold text-ink">La route vers votre objectif</h3>
+              <h3 className="font-bold text-ink">La route vers ton objectif</h3>
               <Link href="/objectif" className="text-sm font-semibold text-ink hover:underline">
                 Ouvrir
               </Link>

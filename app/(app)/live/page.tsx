@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { PageHeader, EmptyState } from '@/components/UI';
 import { getLiveSessions } from '@/lib/db';
-import { IconLive, IconCalendar, IconClock, IconUsers } from '@/components/Icons';
+import { IconLive, IconUsers } from '@/components/Icons';
 
 export default async function LivePage() {
   const liveSessions = await getLiveSessions();
@@ -10,7 +10,7 @@ export default async function LivePage() {
     <>
       <PageHeader
         title="Live"
-        subtitle="Vos sessions de coaching de groupe en direct avec vos coachs."
+        subtitle="Tes sessions de coaching de groupe en direct avec tes coachs."
       />
 
       {liveSessions.length ? (
@@ -18,7 +18,7 @@ export default async function LivePage() {
           {liveSessions.map((s) => (
             <div
               key={s.id}
-              className={`card flex flex-col gap-4 p-5 sm:flex-row sm:items-center ${
+              className={`card flex flex-col gap-4 p-5 transition hover:border-[#e0e0de] hover:shadow-soft sm:flex-row sm:items-center ${
                 s.live ? 'border-l-2 border-l-ink' : ''
               }`}
             >
@@ -42,7 +42,7 @@ export default async function LivePage() {
                 </div>
 
                 <p className="mt-1 text-sm text-muted">
-                  Vous avez un coaching de groupe le{' '}
+                  Tu as un coaching de groupe le{' '}
                   <b className="font-semibold text-ink">{s.date}</b> à{' '}
                   <b className="font-semibold text-ink">{s.time}</b> avec le coach{' '}
                   <b className="font-semibold text-ink">{s.coach}</b>.
@@ -50,15 +50,6 @@ export default async function LivePage() {
                 <p className="mt-0.5 text-sm text-muted">
                   Thème : «&nbsp;<span className="text-ink">{s.theme}</span>&nbsp;»
                 </p>
-
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted sm:hidden">
-                  <span className="flex items-center gap-1.5">
-                    <IconCalendar width={13} height={13} /> {s.date}
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <IconClock width={13} height={13} /> {s.time}
-                  </span>
-                </div>
               </div>
 
               {/* Action : lien réel de la session (défini par les coachs) */}

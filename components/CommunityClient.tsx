@@ -26,7 +26,7 @@ export default function CommunityClient({ me }: { me: FeedUser }) {
 
   return (
     <>
-      <PageHeader title="Communauté" subtitle="Partagez, échangez et progressez ensemble." />
+      <PageHeader title="Communauté" subtitle="Partage, échange et progresse avec les autres membres." />
 
       {/* Canaux */}
       <div className="scrollbar-hide mb-5 flex gap-2 overflow-x-auto pb-1">

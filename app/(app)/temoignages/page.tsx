@@ -27,8 +27,8 @@ export default async function TemoignagesPage() {
           <IconTrend width={22} height={22} />
         </span>
         <p className="text-sm leading-relaxed text-ink">
-          <b>Présentez vos chiffres</b> et <b>publiez vos vidéos témoignages</b> pour
-          recommander l&apos;incubateur à ceux qui hésitent. Vos résultats inspirent
+          <b>Présente tes chiffres</b> et <b>publie tes vidéos témoignages</b> pour
+          recommander l&apos;incubateur à ceux qui hésitent. Tes résultats inspirent
           les prochains !
         </p>
       </div>

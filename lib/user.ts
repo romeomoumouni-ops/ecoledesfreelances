@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { prettyName } from '@/lib/format';
 
 export type Profile = {
   id: string;
@@ -27,7 +28,9 @@ export async function getCurrentProfile(): Promise<Profile | null> {
     .eq('id', user.id)
     .maybeSingle();
 
-  const name = p?.full_name || (user.email ? user.email.split('@')[0] : 'Membre');
+  // Sans nom renseigné, on met en forme le début de l'e-mail
+  // (« esnard.ngoua » → « Esnard Ngoua ») au lieu de l'afficher brut.
+  const name = p?.full_name || prettyName(user.email);
   return {
     id: user.id,
     email: user.email ?? '',

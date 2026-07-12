@@ -6,7 +6,7 @@ export const CONTACTS: Contact[] = [
   { key: 'christian', name: 'Coach Christian', role: 'Coach' },
   { key: 'tobi', name: 'Coach Tobby', role: 'Coach' },
   { key: 'mohamed', name: 'Coach Mohamed', role: 'Coach' },
-  { key: 'marianne', name: 'Mariane (assistante de Monsieur Roméo)', role: 'Équipe' },
+  { key: 'marianne', name: 'Mariane', role: 'Assistante de Monsieur Roméo' },
 ];
 
 export function contactByKey(key: string): Contact | undefined {

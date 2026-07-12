@@ -240,12 +240,19 @@ function Thread({ me, contactKey, onBack }: { me: Me; contactKey: string; onBack
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
+          onKeyDown={(e) => {
+            // Entrée = envoyer (Maj+Entrée = nouvelle ligne), comme partout ailleurs
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
           className="input min-h-[44px] max-h-40 flex-1 resize-none"
           placeholder={`Message à ${contact.name}…`}
           rows={1}
         />
         <button onClick={send} disabled={busy || !body.trim()} className="btn-primary disabled:opacity-60">
-          {busy ? '…' : 'Envoyer'}
+          {busy ? 'Envoi…' : 'Envoyer'}
         </button>
       </div>
     </div>

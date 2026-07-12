@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Avatar from './Avatar';
 import type { ShellProfile } from './AppShell';
-import { IconMenu, IconChevronDown, IconChat, IconBell } from './Icons';
+import { IconMenu, IconChat, IconBell } from './Icons';
 
 function initials(name: string, email: string) {
   const base = name || email || 'M';
@@ -30,7 +30,7 @@ export default function Topbar({
     <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-line bg-surface/80 px-4 backdrop-blur-xl sm:px-8">
       <button
         onClick={onMenu}
-        className="grid h-9 w-9 place-items-center rounded-lg text-muted hover:bg-black/[0.05] lg:hidden"
+        className="grid h-10 w-10 place-items-center rounded-lg text-muted hover:bg-black/[0.05] lg:hidden"
         aria-label="Ouvrir le menu"
       >
         <IconMenu />
@@ -40,7 +40,7 @@ export default function Topbar({
         {/* Notifications / messages de la plateforme (pastille non-lus en direct) */}
         <Link
           href="/notifications"
-          className="relative grid h-9 w-9 place-items-center rounded-lg text-muted transition hover:bg-black/[0.05] hover:text-ink"
+          className="relative grid h-10 w-10 place-items-center rounded-lg text-muted transition hover:bg-black/[0.05] hover:text-ink"
           aria-label="Notifications"
         >
           <IconBell width={19} height={19} />
@@ -54,7 +54,7 @@ export default function Topbar({
         {/* Messages coachs (avec pastille non-lus, mise à jour en direct) */}
         <Link
           href="/contact"
-          className="relative grid h-9 w-9 place-items-center rounded-lg text-muted transition hover:bg-black/[0.05] hover:text-ink"
+          className="relative grid h-10 w-10 place-items-center rounded-lg text-muted transition hover:bg-black/[0.05] hover:text-ink"
           aria-label="Messages des coachs"
         >
           <IconChat width={19} height={19} />
@@ -81,9 +81,6 @@ export default function Topbar({
               {profile.name}
             </span>
             <span className="block max-w-[160px] truncate text-xs text-muted">{profile.email}</span>
-          </span>
-          <span className="hidden text-muted sm:block">
-            <IconChevronDown width={15} height={15} />
           </span>
         </Link>
       </div>

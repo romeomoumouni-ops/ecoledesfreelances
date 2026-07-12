@@ -109,8 +109,8 @@ export default function SuiviClient({ me }: { me: Me }) {
           <IconShield width={20} height={20} />
         </span>
         <p className="text-sm leading-relaxed text-ink">
-          Le but de cette discussion avec votre chargé de suivi sera de suivre votre évolution
-          au cours du programme. Soyez courtois et respectueux dans l&apos;échange.
+          Cette discussion avec ton chargé de suivi sert à suivre ton évolution
+          tout au long du programme. Sois courtois et respectueux dans l&apos;échange.
         </p>
       </div>
 
@@ -150,12 +150,19 @@ export default function SuiviClient({ me }: { me: Me }) {
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
+            onKeyDown={(e) => {
+              // Entrée = envoyer (Maj+Entrée = nouvelle ligne), comme partout ailleurs
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                send();
+              }
+            }}
             className="input min-h-[44px] max-h-40 flex-1 resize-none"
             placeholder="Écris ton message…"
             rows={1}
           />
           <button onClick={send} disabled={busy || !body.trim()} className="btn-primary disabled:opacity-60">
-            {busy ? '…' : 'Envoyer'}
+            {busy ? 'Envoi…' : 'Envoyer'}
           </button>
         </div>
       </div>

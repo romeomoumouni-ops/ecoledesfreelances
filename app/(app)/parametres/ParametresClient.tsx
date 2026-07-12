@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { PageHeader } from '@/components/UI';
 import UploadLeaveGuard from '@/components/UploadLeaveGuard';
 import Avatar from '@/components/Avatar';
-import { IconUsers, IconLock, IconBell, IconCamera } from '@/components/Icons';
+import { IconUsers, IconLock, IconBell, IconCamera, IconCheckCircle, IconEye, IconEyeOff } from '@/components/Icons';
 import TwoFactorAdmin from './TwoFactorAdmin';
 
 type P = { id: string; fullName: string; email: string; avatarUrl: string | null; isAdmin: boolean };
@@ -28,6 +28,7 @@ export default function ParametresClient({ profile }: { profile: P }) {
   const [name, setName] = useState(profile.fullName);
   const [photo, setPhoto] = useState<string | null>(profile.avatarUrl);
   const [busy, setBusy] = useState<string | null>(null);
+  const [showPwd, setShowPwd] = useState(false);
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
 
   function flash(ok: boolean, msg: string) {
@@ -105,14 +106,15 @@ export default function ParametresClient({ profile }: { profile: P }) {
   return (
     <>
       <UploadLeaveGuard active={busy === 'photo'} title="Photo en cours d'envoi" message="Ta photo de profil n'a pas fini de se charger. Si tu quittes maintenant, elle ne sera pas enregistrée." />
-      <PageHeader title="Paramètres" subtitle="Gérez votre compte et vos préférences." />
+      <PageHeader title="Paramètres" subtitle="Gère ton compte et tes préférences." />
 
       {toast && (
         <div
-          className={`mb-4 rounded-lg px-4 py-2.5 text-sm ${
-            toast.ok ? 'bg-black/[0.04] text-ink' : 'bg-red-50 text-red-600'
+          className={`mb-4 flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm ${
+            toast.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'
           }`}
         >
+          {toast.ok && <IconCheckCircle width={16} height={16} className="shrink-0" />}
           {toast.msg}
         </div>
       )}
@@ -166,22 +168,35 @@ export default function ParametresClient({ profile }: { profile: P }) {
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="label">Nom complet</label>
-                  <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+              {/* Formulaire : Entrée dans le champ = enregistrer */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  saveProfile();
+                }}
+              >
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="label">Nom complet</label>
+                    <input
+                      className="input"
+                      value={name}
+                      maxLength={80}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Adresse e-mail</label>
+                    <input className="input bg-black/[0.03]" value={profile.email} disabled />
+                  </div>
                 </div>
-                <div>
-                  <label className="label">Adresse e-mail</label>
-                  <input className="input bg-black/[0.03]" value={profile.email} disabled />
-                </div>
-              </div>
 
-              <div className="flex justify-end border-t border-line pt-5">
-                <button onClick={saveProfile} disabled={busy === 'profil'} className="btn-primary disabled:opacity-60">
-                  {busy === 'profil' ? 'Enregistrement…' : 'Enregistrer'}
-                </button>
-              </div>
+                <div className="mt-6 flex justify-end border-t border-line pt-5">
+                  <button type="submit" disabled={busy === 'profil'} className="btn-primary disabled:opacity-60">
+                    {busy === 'profil' ? 'Enregistrement…' : 'Enregistrer'}
+                  </button>
+                </div>
+              </form>
             </div>
           )}
 
@@ -190,7 +205,25 @@ export default function ParametresClient({ profile }: { profile: P }) {
               <h2 className="text-lg font-bold text-ink">Sécurité</h2>
               <div className="max-w-md">
                 <label className="label">Nouveau mot de passe</label>
-                <input name="newpwd" type="password" minLength={8} className="input" placeholder="8 caractères minimum" />
+                <div className="relative">
+                  <input
+                    name="newpwd"
+                    type={showPwd ? 'text' : 'password'}
+                    minLength={8}
+                    autoComplete="new-password"
+                    className="input pr-11"
+                    placeholder="8 caractères minimum"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPwd((v) => !v)}
+                    className="absolute inset-y-0 right-0 grid w-11 place-items-center text-muted transition hover:text-ink"
+                    aria-label={showPwd ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                    tabIndex={-1}
+                  >
+                    {showPwd ? <IconEyeOff width={18} height={18} /> : <IconEye width={18} height={18} />}
+                  </button>
+                </div>
               </div>
               <div className="flex justify-end border-t border-line pt-5">
                 <button type="submit" disabled={busy === 'pwd'} className="btn-primary disabled:opacity-60">
@@ -205,8 +238,8 @@ export default function ParametresClient({ profile }: { profile: P }) {
             <div className="space-y-5">
               <h2 className="text-lg font-bold text-ink">Notifications</h2>
               <p className="text-sm text-muted">
-                La gestion fine des notifications arrivera bientôt. Vous recevrez pour l'instant les
-                informations importantes de votre programme.
+                La gestion fine des notifications arrivera bientôt. Tu reçois pour l&apos;instant les
+                informations importantes de ton programme.
               </p>
             </div>
           )}

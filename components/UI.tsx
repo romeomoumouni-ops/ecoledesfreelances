@@ -122,14 +122,21 @@ export function CourseCard({ course }: { course: Course }) {
           <p className="mt-1 text-xs text-muted">Par {course.instructor}</p>
         )}
 
-        <div className="mt-3 flex items-center gap-4 text-xs text-muted">
-          <span className="flex items-center gap-1.5">
-            <IconBook width={14} height={14} /> {course.lessons} leçons
-          </span>
-          <span className="flex items-center gap-1.5">
-            <IconClock width={14} height={14} /> {course.hours} h
-          </span>
-        </div>
+        {/* Métadonnées : on n'affiche que ce qui est renseigné (fini les « 0 h ») */}
+        {(Number(course.lessons) > 0 || Number(course.hours) > 0) && (
+          <div className="mt-3 flex items-center gap-4 text-xs text-muted">
+            {Number(course.lessons) > 0 && (
+              <span className="flex items-center gap-1.5">
+                <IconBook width={14} height={14} /> {course.lessons} leçon{Number(course.lessons) > 1 ? 's' : ''}
+              </span>
+            )}
+            {Number(course.hours) > 0 && (
+              <span className="flex items-center gap-1.5">
+                <IconClock width={14} height={14} /> {course.hours} h
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="mt-auto flex items-center justify-end border-t border-line pt-3.5">
           <span className="flex items-center gap-1 text-sm font-semibold text-ink transition group-hover:gap-1.5">

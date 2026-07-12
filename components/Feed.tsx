@@ -13,7 +13,9 @@ import Avatar from '@/components/Avatar';
 import RichText from '@/components/RichText';
 import ExpandableRichText from '@/components/ExpandableRichText';
 import RichTextArea from '@/components/RichTextArea';
-import { IconHeart, IconChat, IconX, IconCamera, IconFile, IconPin } from '@/components/Icons';
+import { IconHeart, IconChat, IconX, IconCamera, IconFile, IconPin, IconUsers } from '@/components/Icons';
+import { EmptyState } from '@/components/UI';
+import { prettyName } from '@/lib/format';
 
 const supabase = createClient();
 
@@ -305,10 +307,11 @@ export default function Feed({
           ))}
         </div>
       ) : (
-        <div className="card p-10 text-center text-sm text-muted">
-          {emptyText}
-          {canPost ? ' Sois le premier à publier !' : ''}
-        </div>
+        <EmptyState
+          Icon={IconUsers}
+          title={emptyText}
+          text={canPost ? 'Sois le premier à publier !' : 'Reviens bientôt, ça arrive.'}
+        />
       )}
     </>
   );
@@ -502,7 +505,7 @@ function PostCard({
       <div className="flex items-center gap-3">
         <Avatar initials={initialsOf(post.author_name)} src={post.author_avatar} size={42} />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-bold text-ink">{post.author_name || 'Membre'}</p>
+          <p className="truncate font-bold text-ink">{prettyName(post.author_name)}</p>
           <p className="text-xs text-muted">{timeAgo(post.created_at)}</p>
         </div>
         {me.isAdmin && (
@@ -553,15 +556,19 @@ function PostCard({
             </a>
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={post.media_url} alt="" className="w-full object-cover" />
+            <img
+              src={post.media_url}
+              alt={`Image partagée par ${prettyName(post.author_name)}`}
+              className="w-full object-cover"
+            />
           )}
         </div>
       )}
 
       <div className="mt-4 flex items-center gap-5 border-t border-line pt-3 text-sm font-semibold text-muted">
-        <LikeButton liked={post.likedByMe} count={post.likeCount} onToggle={onLike} />
+        <LikeButton liked={post.likedByMe} count={post.likeCount} zeroLabel="J'aime" onToggle={onLike} />
         <button onClick={() => setShowComments((v) => !v)} className="flex items-center gap-1.5 transition hover:text-ink">
-          <IconChat width={18} height={18} /> {post.commentCount}
+          <IconChat width={18} height={18} /> {post.commentCount > 0 ? post.commentCount : 'Commenter'}
         </button>
       </div>
 
@@ -810,7 +817,7 @@ function PostComments({ postId, me }: { postId: string; me: FeedUser }) {
                       me={me}
                       small
                       autoFocus
-                      placeholder={`Répondre à ${c.author_name || 'ce membre'}…`}
+                      placeholder={`Répondre à ${prettyName(c.author_name)}…`}
                       onSubmit={(t) => add(t, c.id)}
                     />
                   )}
@@ -848,7 +855,7 @@ function CommentRow({
       <Avatar initials={initialsOf(c.author_name)} size={small ? 26 : 30} />
       <div className="min-w-0 flex-1">
         <div className="rounded-lg bg-black/[0.03] px-3 py-2">
-          <p className="text-xs font-semibold text-ink">{c.author_name || 'Membre'}</p>
+          <p className="text-xs font-semibold text-ink">{prettyName(c.author_name)}</p>
           <p className="whitespace-pre-line text-sm text-ink">
             <RichText text={c.body} />
           </p>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { ensureRealtimeAuth } from '@/lib/realtime';
 import { IconBell, IconMegaphone, IconHeart, IconChat } from '@/components/Icons';
+import { EmptyState } from '@/components/UI';
 
 const supabase = createClient();
 
@@ -119,12 +120,11 @@ export default function NotificationsClient({
 
   if (!items.length) {
     return (
-      <div className="card flex flex-col items-center gap-3 p-12 text-center">
-        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-black/[0.04] text-muted">
-          <IconBell width={24} height={24} />
-        </span>
-        <p className="text-sm text-muted">Aucune notification pour le moment.</p>
-      </div>
+      <EmptyState
+        Icon={IconBell}
+        title="Aucune notification pour le moment"
+        text="Tu verras ici les annonces de l'équipe et les réactions à tes publications."
+      />
     );
   }
 

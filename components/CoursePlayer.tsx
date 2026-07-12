@@ -7,6 +7,7 @@ import type { QuizQuestion } from '@/lib/content';
 import Avatar from '@/components/Avatar';
 import RichText from '@/components/RichText';
 import { EmptyState } from '@/components/UI';
+import { prettyName, timeAgo } from '@/lib/format';
 import { IconPlayFill, IconCheck, IconChevronRight, IconBook, IconCheckCircle, IconX } from '@/components/Icons';
 
 const supabase = createClient();
@@ -55,8 +56,8 @@ export default function CoursePlayer({
   if (chapters.length === 0) {
     return (
       <div className="mx-auto max-w-2xl">
-        <Link href={`/catalogue/${course.id}`} className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-ink">
-          <IconChevronRight width={16} height={16} className="rotate-180" /> Retour
+        <Link href="/mes-formations" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-ink">
+          <IconChevronRight width={16} height={16} className="rotate-180" /> Mes cours
         </Link>
         <EmptyState
           Icon={IconBook}
@@ -141,7 +142,8 @@ export default function CoursePlayer({
             <div className="border-b border-line p-4">
               <p className="font-bold text-ink">Contenu du cours</p>
               <p className="text-xs text-muted">
-                {useModules ? `${modules.length} module(s) · ` : ''}{chapters.length} chapitre(s)
+                {useModules ? `${modules.length} module${modules.length > 1 ? 's' : ''} · ` : ''}
+                {chapters.length} chapitre{chapters.length > 1 ? 's' : ''}
               </p>
             </div>
             <div className="max-h-[70vh] overflow-y-auto">
@@ -359,8 +361,17 @@ function Quiz({ chapter }: { chapter: PlayerChapter }) {
           </button>
         ) : (
           <>
-            <span className="text-sm font-semibold text-ink">
+            <span
+              className={`heart-pop text-sm font-semibold ${
+                score === chapter.quiz.length ? 'text-green-700' : 'text-ink'
+              }`}
+            >
               Score : {score} / {chapter.quiz.length}
+              {score === chapter.quiz.length
+                ? ' — Parfait ! 🎉'
+                : score >= chapter.quiz.length / 2
+                ? ' — Bien joué 👍'
+                : ''}
             </span>
             <button
               onClick={() => {
@@ -426,8 +437,11 @@ function Comments({ chapterId, me }: { chapterId: string; me: Me }) {
   }
 
   async function del(id: string) {
+    if (!confirm('Supprimer ce commentaire ?')) return;
+    const before = comments;
     setComments((c) => c.filter((x) => x.id !== id));
-    await supabase.from('chapter_comments').delete().eq('id', id);
+    const { error } = await supabase.from('chapter_comments').delete().eq('id', id);
+    if (error) setComments(before); // échec serveur : on le remet
   }
 
   function initials(name: string | null) {
@@ -443,8 +457,16 @@ function Comments({ chapterId, me }: { chapterId: string; me: Me }) {
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
+            onKeyDown={(e) => {
+              // Ctrl/Cmd + Entrée = publier (Entrée seule = nouvelle ligne)
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                post();
+              }
+            }}
+            maxLength={2000}
             className="input min-h-[64px] resize-none"
-            placeholder="Dis nous ce que tu as retenu de ce chapitre"
+            placeholder="Dis-nous ce que tu as retenu de ce chapitre."
           />
           <div className="mt-2 flex justify-end">
             <button onClick={post} disabled={busy || !body.trim()} className="btn-primary disabled:opacity-60">
@@ -462,7 +484,10 @@ function Comments({ chapterId, me }: { chapterId: string; me: Me }) {
             <div key={c.id} className="flex items-start gap-3">
               <Avatar initials={initials(c.author_name)} size={36} />
               <div className="flex-1">
-                <p className="text-sm font-semibold text-ink">{c.author_name || 'Membre'}</p>
+                <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-semibold text-ink">
+                  {prettyName(c.author_name)}
+                  <span className="text-[11px] font-normal text-muted">{timeAgo(c.created_at)}</span>
+                </p>
                 <p className="whitespace-pre-line text-sm leading-relaxed text-ink">
                   <RichText text={c.body} />
                 </p>
@@ -479,7 +504,7 @@ function Comments({ chapterId, me }: { chapterId: string; me: Me }) {
             </div>
           ))
         ) : (
-          <p className="text-sm text-muted">Aucun commentaire pour l&apos;instant. Lancez la discussion !</p>
+          <p className="text-sm text-muted">Aucun commentaire pour l&apos;instant. Lance la discussion !</p>
         )}
       </div>
     </div>
