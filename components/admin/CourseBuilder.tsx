@@ -5,13 +5,15 @@ import { useRouter } from 'next/navigation';
 import * as tus from 'tus-js-client';
 import {
   DndContext,
-  closestCenter,
+  closestCorners,
   PointerSensor,
   TouchSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
+  useDroppable,
   type DragEndEvent,
+  type DragOverEvent,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -110,39 +112,126 @@ export default function CourseBuilder({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  const chaptersOf = (moduleId: string | null) => items.filter((c) => c.module_id === moduleId);
+  const chaptersOf = (moduleId: string | null) =>
+    items.filter((c) => c.module_id === moduleId).sort((a, b) => a.position - b.position);
 
-  // Réordonner les modules
-  async function onModuleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldI = mods.findIndex((m) => m.id === active.id);
-    const newI = mods.findIndex((m) => m.id === over.id);
-    if (oldI < 0 || newI < 0) return;
-    const reordered = arrayMove(mods, oldI, newI);
-    setMods(reordered);
-    try {
-      await Promise.all(reordered.map((m, i) => supabase.from('modules').update({ position: i }).eq('id', m.id)));
-    } catch (e) {
-      fail(e);
-      setMods(modules);
+  /*
+   * Glisser-déposer UNIFIÉ (un seul contexte) :
+   *  - « module:<id> »    = un module (réordonnable entre modules)
+   *  - « chapter:<id> »   = un chapitre (réordonnable ET déplaçable d'un
+   *                         module à l'autre, ou vers « non classés »)
+   *  - « container:<id> » = le corps d'un module / la zone non classés
+   *                         (permet de déposer dans un module vide)
+   */
+  const [itemsBeforeDrag, setItemsBeforeDrag] = useState<Chapter[] | null>(null);
+
+  // Conteneur (module_id) correspondant à l'élément survolé
+  function containerOf(overId: string): string | null | undefined {
+    if (overId.startsWith('container:')) {
+      const key = overId.slice('container:'.length);
+      return key === 'none' ? null : key;
     }
+    if (overId.startsWith('chapter:')) {
+      const ch = items.find((c) => c.id === overId.slice('chapter:'.length));
+      return ch ? ch.module_id : undefined;
+    }
+    return undefined; // un module (barre de titre) ou rien : ignoré
   }
 
-  // Réordonner les chapitres à l'intérieur d'un module (ou des non classés)
-  async function reorderWithin(moduleId: string | null, activeId: string, overId: string) {
-    const group = items.filter((c) => c.module_id === moduleId);
-    const oldI = group.findIndex((c) => c.id === activeId);
-    const newI = group.findIndex((c) => c.id === overId);
-    if (oldI < 0 || newI < 0) return;
-    const newGroup = arrayMove(group, oldI, newI).map((c, i) => ({ ...c, position: i }));
-    const others = items.filter((c) => c.module_id !== moduleId);
-    setItems([...others, ...newGroup]);
+  function onDragStart(event: { active: { id: string | number } }) {
+    if (String(event.active.id).startsWith('chapter:')) setItemsBeforeDrag(items);
+  }
+
+  // Pendant le glissement : le chapitre change de conteneur en direct (aperçu)
+  function onDragOver(event: DragOverEvent) {
+    const activeId = String(event.active.id);
+    if (!activeId.startsWith('chapter:') || !event.over) return;
+    const target = containerOf(String(event.over.id));
+    if (target === undefined) return;
+    const chId = activeId.slice('chapter:'.length);
+    const ch = items.find((c) => c.id === chId);
+    if (!ch || ch.module_id === target) return;
+    setItems((prev) => {
+      const moving = prev.find((c) => c.id === chId);
+      if (!moving) return prev;
+      const rest = prev.filter((c) => c.id !== chId);
+      const maxPos = rest
+        .filter((c) => c.module_id === target)
+        .reduce((m, c) => Math.max(m, c.position), -1);
+      return [...rest, { ...moving, module_id: target, position: maxPos + 1 }];
+    });
+  }
+
+  async function onDragEnd(event: DragEndEvent) {
+    const activeId = String(event.active.id);
+    const overId = event.over ? String(event.over.id) : null;
+
+    // --- Réordonner les MODULES ---
+    if (activeId.startsWith('module:')) {
+      if (!overId || overId === activeId || !overId.startsWith('module:')) return;
+      const a = activeId.slice('module:'.length);
+      const o = overId.slice('module:'.length);
+      const oldI = mods.findIndex((m) => m.id === a);
+      const newI = mods.findIndex((m) => m.id === o);
+      if (oldI < 0 || newI < 0) return;
+      const reordered = arrayMove(mods, oldI, newI);
+      setMods(reordered);
+      try {
+        await Promise.all(reordered.map((m, i) => supabase.from('modules').update({ position: i }).eq('id', m.id)));
+      } catch (e) {
+        fail(e);
+        setMods(modules);
+      }
+      return;
+    }
+
+    // --- Déposer un CHAPITRE (réordre et/ou changement de module) ---
+    if (!activeId.startsWith('chapter:')) return;
+    const snapshot = itemsBeforeDrag;
+    setItemsBeforeDrag(null);
+    const chId = activeId.slice('chapter:'.length);
+    const current = items.find((c) => c.id === chId);
+    if (!current) return;
+    const container = current.module_id; // conteneur final (mis à jour par onDragOver)
+
+    // Ordre final dans le conteneur cible
+    let group = chaptersOf(container);
+    if (overId && overId.startsWith('chapter:') && overId !== activeId) {
+      const overCh = items.find((c) => c.id === overId.slice('chapter:'.length));
+      if (overCh && overCh.module_id === container) {
+        const oldI = group.findIndex((c) => c.id === chId);
+        const newI = group.findIndex((c) => c.id === overCh.id);
+        if (oldI >= 0 && newI >= 0) group = arrayMove(group, oldI, newI);
+      }
+    }
+    const normalized = group.map((c, i) => ({ ...c, position: i }));
+
+    // Renuméroter aussi le conteneur d'origine si le chapitre en a changé
+    const sourceContainer = snapshot?.find((c) => c.id === chId)?.module_id;
+    const sourceGroup =
+      snapshot && sourceContainer !== container
+        ? items
+            .filter((c) => c.module_id === sourceContainer && c.id !== chId)
+            .sort((a, b) => a.position - b.position)
+            .map((c, i) => ({ ...c, position: i }))
+        : [];
+
+    setItems((prev) =>
+      prev.map(
+        (c) => normalized.find((n) => n.id === c.id) ?? sourceGroup.find((s) => s.id === c.id) ?? c
+      )
+    );
+
     try {
-      await Promise.all(newGroup.map((c, i) => supabase.from('chapters').update({ position: i }).eq('id', c.id)));
+      await Promise.all([
+        ...normalized.map((c) =>
+          supabase.from('chapters').update({ module_id: container, position: c.position }).eq('id', c.id)
+        ),
+        ...sourceGroup.map((c) => supabase.from('chapters').update({ position: c.position }).eq('id', c.id)),
+      ]);
     } catch (e) {
       fail(e);
-      setItems(chapters);
+      if (snapshot) setItems(snapshot);
     }
   }
 
@@ -194,13 +283,20 @@ export default function CourseBuilder({
 
       {err && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
 
-      {/* Modules (triables) */}
-      {mods.length > 0 && (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onModuleDragEnd}>
-          <SortableContext items={mods.map((m) => m.id)} strategy={verticalListSortingStrategy}>
+      {/* Un SEUL contexte de glisser-déposer : modules réordonnables ET
+          chapitres déplaçables librement entre modules / non classés. */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDragEnd={onDragEnd}
+      >
+        {mods.length > 0 && (
+          <SortableContext items={mods.map((m) => `module:${m.id}`)} strategy={verticalListSortingStrategy}>
             <div className="mt-4 space-y-4">
               {mods.map((m, mi) => (
-                <SortableModule key={m.id} id={m.id}>
+                <SortableModule key={m.id} id={`module:${m.id}`}>
                   {(handle) => (
                     <ModuleCard
                       module={m}
@@ -209,8 +305,6 @@ export default function CourseBuilder({
                       courseId={course.id}
                       chapters={chaptersOf(m.id)}
                       modules={mods}
-                      sensors={sensors}
-                      onReorder={reorderWithin}
                       onMove={moveChapter}
                       onRename={renameModule}
                       onDelete={deleteModule}
@@ -222,20 +316,23 @@ export default function CourseBuilder({
               ))}
             </div>
           </SortableContext>
-        </DndContext>
-      )}
+        )}
 
-      <CreateModule courseId={course.id} nextPos={mods.length} onChange={refresh} onError={fail} />
+        <CreateModule courseId={course.id} nextPos={mods.length} onChange={refresh} onError={fail} />
 
-      {/* Chapitres non classés */}
-      {(ungrouped.length > 0 || mods.length === 0) && (
+        {/* Chapitres non classés — zone toujours visible : on peut y déposer
+            un chapitre pour le sortir d'un module. */}
         <div className="mt-6">
           <div className="mb-2 flex items-center gap-2">
             <h3 className="text-sm font-bold text-ink">
               {mods.length === 0 ? 'Chapitres' : 'Chapitres non classés'}
             </h3>
-            {mods.length > 0 && ungrouped.length > 0 && (
-              <span className="text-xs text-muted">— classez-les dans un module ci-dessus</span>
+            {mods.length > 0 && (
+              <span className="text-xs text-muted">
+                {ungrouped.length > 0
+                  ? '— glisse-les dans un module ci-dessus'
+                  : '— dépose ici un chapitre pour le sortir d’un module'}
+              </span>
             )}
           </div>
           <ChapterGroup
@@ -243,14 +340,13 @@ export default function CourseBuilder({
             moduleId={null}
             chapters={ungrouped}
             modules={mods}
-            sensors={sensors}
-            onReorder={reorderWithin}
             onMove={moveChapter}
             onChange={refresh}
             onError={fail}
+            emptyLabel="Aucun chapitre ici. Tu peux en déposer un par glisser-déposer."
           />
         </div>
-      )}
+      </DndContext>
     </div>
   );
 }
@@ -350,8 +446,6 @@ function ModuleCard({
   courseId,
   chapters,
   modules,
-  sensors,
-  onReorder,
   onMove,
   onRename,
   onDelete,
@@ -364,8 +458,6 @@ function ModuleCard({
   courseId: string;
   chapters: Chapter[];
   modules: Module[];
-  sensors: ReturnType<typeof useSensors>;
-  onReorder: (moduleId: string | null, activeId: string, overId: string) => void;
   onMove: (chapterId: string, toModuleId: string | null) => void;
   onRename: (id: string, title: string) => void;
   onDelete: (id: string) => void;
@@ -442,12 +534,10 @@ function ModuleCard({
           moduleId={module.id}
           chapters={chapters}
           modules={modules}
-          sensors={sensors}
-          onReorder={onReorder}
           onMove={onMove}
           onChange={onChange}
           onError={onError}
-          emptyLabel="Aucun chapitre dans ce module pour l’instant."
+          emptyLabel="Aucun chapitre — glisse-en un ici, ou ajoute-en un nouveau."
         />
       </div>
     </div>
@@ -460,8 +550,6 @@ function ChapterGroup({
   moduleId,
   chapters,
   modules,
-  sensors,
-  onReorder,
   onMove,
   onChange,
   onError,
@@ -471,43 +559,45 @@ function ChapterGroup({
   moduleId: string | null;
   chapters: Chapter[];
   modules: Module[];
-  sensors: ReturnType<typeof useSensors>;
-  onReorder: (moduleId: string | null, activeId: string, overId: string) => void;
   onMove: (chapterId: string, toModuleId: string | null) => void;
   onChange: () => void;
   onError: (e: unknown) => void;
   emptyLabel?: string;
 }) {
+  // Zone déposable : permet de lâcher un chapitre dans un module (même vide)
+  // ou dans « non classés ». S'illumine quand un chapitre la survole.
+  const { setNodeRef, isOver } = useDroppable({ id: `container:${moduleId ?? 'none'}` });
+
   return (
-    <div className="space-y-2">
+    <div
+      ref={setNodeRef}
+      className={`space-y-2 rounded-lg transition ${
+        isOver ? 'bg-blue-50/70 ring-2 ring-blue-300 ring-offset-2' : ''
+      }`}
+    >
       {chapters.length ? (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={(e) => {
-            const { active, over } = e;
-            if (over && active.id !== over.id) onReorder(moduleId, String(active.id), String(over.id));
-          }}
-        >
-          <SortableContext items={chapters.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-            <div className="space-y-2">
-              {chapters.map((ch, i) => (
-                <SortableChapter
-                  key={ch.id}
-                  index={i}
-                  courseId={courseId}
-                  chapter={ch}
-                  modules={modules}
-                  onMove={onMove}
-                  onChange={onChange}
-                  onError={onError}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
+        <SortableContext items={chapters.map((c) => `chapter:${c.id}`)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-2">
+            {chapters.map((ch, i) => (
+              <SortableChapter
+                key={ch.id}
+                index={i}
+                courseId={courseId}
+                chapter={ch}
+                modules={modules}
+                onMove={onMove}
+                onChange={onChange}
+                onError={onError}
+              />
+            ))}
+          </div>
+        </SortableContext>
       ) : (
-        emptyLabel && <p className="px-1 py-1 text-xs text-muted">{emptyLabel}</p>
+        emptyLabel && (
+          <p className="rounded-lg border border-dashed border-line px-3 py-3 text-center text-xs text-muted">
+            {emptyLabel}
+          </p>
+        )
       )}
 
       <AddChapter courseId={courseId} moduleId={moduleId} onChange={onChange} onError={onError} />
@@ -526,7 +616,7 @@ function SortableChapter(props: {
   onError: (e: unknown) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: props.chapter.id,
+    id: `chapter:${props.chapter.id}`,
   });
   const style = {
     transform: CSS.Transform.toString(transform),
