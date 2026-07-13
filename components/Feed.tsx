@@ -501,7 +501,10 @@ function PostCard({
   async function share() {
     const url = `${window.location.origin}/post/${post.id}`;
     const title = `Publication de ${prettyName(post.author_name)} — L'École des Freelances`;
-    if (typeof navigator.share === 'function') {
+    // Feuille de partage native seulement sur ÉCRAN TACTILE (WhatsApp & co) ;
+    // sur ordinateur, copier le lien est plus pratique.
+    const isTouch = window.matchMedia('(pointer: coarse)').matches;
+    if (isTouch && typeof navigator.share === 'function') {
       try {
         await navigator.share({ title, url });
         return;
