@@ -13,7 +13,8 @@ import Avatar from '@/components/Avatar';
 import RichText from '@/components/RichText';
 import ExpandableRichText from '@/components/ExpandableRichText';
 import RichTextArea from '@/components/RichTextArea';
-import { IconHeart, IconChat, IconX, IconCamera, IconFile, IconPin, IconUsers } from '@/components/Icons';
+import { useRouter } from 'next/navigation';
+import { IconHeart, IconChat, IconX, IconCamera, IconFile, IconPin, IconUsers, IconShare } from '@/components/Icons';
 import { EmptyState } from '@/components/UI';
 import { prettyName } from '@/lib/format';
 
@@ -481,15 +482,41 @@ function PostCard({
   onLike,
   onDelete,
   onTogglePin,
+  defaultOpenComments = false,
 }: {
   post: Post;
   me: FeedUser;
   onLike: () => void;
   onDelete: () => void;
   onTogglePin: () => void;
+  defaultOpenComments?: boolean;
 }) {
-  const [showComments, setShowComments] = useState(false);
+  const [showComments, setShowComments] = useState(defaultOpenComments);
+  const [copied, setCopied] = useState(false);
   const canDelete = post.user_id === me.id || me.isAdmin;
+
+  // Partage : lien direct vers la publication (feuille de partage native sur
+  // téléphone — WhatsApp… — sinon copie du lien). Seuls les membres connectés
+  // pourront ouvrir le lien (page protégée).
+  async function share() {
+    const url = `${window.location.origin}/post/${post.id}`;
+    const title = `Publication de ${prettyName(post.author_name)} — L'École des Freelances`;
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title, url });
+        return;
+      } catch {
+        return; // partage annulé par l'utilisateur
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      window.prompt('Copie ce lien :', url);
+    }
+  }
 
   return (
     <div
@@ -572,6 +599,13 @@ function PostCard({
         <LikeButton liked={post.likedByMe} count={post.likeCount} zeroLabel="J'aime" onToggle={onLike} />
         <button onClick={() => setShowComments((v) => !v)} className="flex items-center gap-1.5 transition hover:text-ink">
           <IconChat width={18} height={18} /> {post.commentCount > 0 ? post.commentCount : 'Commenter'}
+        </button>
+        <button
+          onClick={share}
+          className={`flex items-center gap-1.5 transition hover:text-ink ${copied ? 'text-green-600' : ''}`}
+          title="Partager cette publication"
+        >
+          <IconShare width={17} height={17} /> {copied ? 'Lien copié ✅' : 'Partager'}
         </button>
       </div>
 
@@ -879,5 +913,110 @@ function CommentRow({
         </button>
       )}
     </div>
+  );
+}
+
+/* ---------- Vue d'une publication seule (lien partagé /post/[id]) ---------- */
+export function SinglePostView({ me, postId }: { me: FeedUser; postId: string }) {
+  const router = useRouter();
+  const [post, setPost] = useState<Post | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const { data } = await supabase
+        .from('community_posts')
+        .select('*, community_likes(count), community_comments(count)')
+        .eq('id', postId)
+        .eq('flagged', false)
+        .maybeSingle();
+      if (!active) return;
+      if (!data) {
+        setPost(null);
+        setLoading(false);
+        return;
+      }
+      const { data: myl } = await supabase
+        .from('community_likes')
+        .select('post_id')
+        .eq('user_id', me.id)
+        .eq('post_id', postId);
+      if (!active) return;
+      const p = data as Record<string, unknown> & { id: string };
+      setPost({
+        ...(p as unknown as Post),
+        likeCount: (p.community_likes as { count: number }[])?.[0]?.count ?? 0,
+        commentCount: (p.community_comments as { count: number }[])?.[0]?.count ?? 0,
+        likedByMe: (myl ?? []).length > 0,
+      });
+      setLoading(false);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [postId, me.id]);
+
+  const backHref = post?.channel === 'temoignages' ? '/temoignages' : '/communaute';
+
+  async function toggleLike() {
+    if (!post) return;
+    const liked = post.likedByMe;
+    setPost({ ...post, likedByMe: !liked, likeCount: post.likeCount + (liked ? -1 : 1) });
+    const { error } = liked
+      ? await supabase.from('community_likes').delete().eq('post_id', post.id).eq('user_id', me.id)
+      : await supabase.from('community_likes').insert({ post_id: post.id, user_id: me.id });
+    if (error) setPost({ ...post, likedByMe: liked, likeCount: post.likeCount });
+  }
+
+  async function deletePost() {
+    if (!post) return;
+    if (!confirm('Supprimer cette publication ?')) return;
+    const { error } = await supabase.from('community_posts').delete().eq('id', post.id);
+    if (error) return setErr('La suppression a échoué. Réessaie.');
+    router.push(backHref);
+  }
+
+  async function togglePin() {
+    if (!post) return;
+    const next = !post.pinned;
+    setPost({ ...post, pinned: next });
+    const { error } = await supabase.rpc('set_post_pinned', { p_id: post.id, p_pinned: next });
+    if (error) setPost({ ...post, pinned: !next });
+  }
+
+  if (loading) {
+    return (
+      <div className="card animate-pulse p-5">
+        <div className="h-5 w-40 rounded bg-black/[0.06]" />
+        <div className="mt-3 h-4 w-full rounded bg-black/[0.05]" />
+        <div className="mt-2 h-4 w-2/3 rounded bg-black/[0.05]" />
+      </div>
+    );
+  }
+
+  if (!post) {
+    return (
+      <EmptyState
+        Icon={IconUsers}
+        title="Publication introuvable"
+        text="Elle a peut-être été supprimée. Retourne dans la communauté pour voir les dernières publications."
+      />
+    );
+  }
+
+  return (
+    <>
+      {err && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
+      <PostCard
+        post={post}
+        me={me}
+        onLike={toggleLike}
+        onDelete={deletePost}
+        onTogglePin={togglePin}
+        defaultOpenComments
+      />
+    </>
   );
 }

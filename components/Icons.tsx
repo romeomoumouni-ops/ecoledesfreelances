@@ -268,6 +268,15 @@ export const IconDownload = (p: IconProps) => (
   </svg>
 );
 
+export const IconShare = (p: IconProps) => (
+  <svg {...base(p)}>
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4" />
+  </svg>
+);
+
 export const IconPin = (p: IconProps) => (
   <svg {...base(p)}>
     <line x1="12" y1="17" x2="12" y2="22" />

@@ -46,10 +46,14 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Non connecté → tout renvoie vers la connexion (sauf les pages d'auth)
+  // Non connecté → tout renvoie vers la connexion (sauf les pages d'auth).
+  // On mémorise la page visée (?next=…) pour y revenir après connexion
+  // (ex. lien partagé vers une publication : /post/xyz).
   if (!user && !isAuthPage) {
     const url = request.nextUrl.clone();
     url.pathname = '/connexion';
+    url.search = '';
+    if (path !== '/' && path !== '/tableau-de-bord') url.searchParams.set('next', path);
     return NextResponse.redirect(url);
   }
 

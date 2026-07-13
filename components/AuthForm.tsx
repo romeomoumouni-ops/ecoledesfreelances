@@ -28,6 +28,14 @@ export default function AuthForm() {
     return true;
   }
 
+  // Page à ouvrir après connexion : celle demandée avant la redirection
+  // (?next=/post/xyz pour un lien partagé), sinon le tableau de bord.
+  function destination(): string {
+    if (typeof window === 'undefined') return '/tableau-de-bord';
+    const n = new URLSearchParams(window.location.search).get('next');
+    return n && n.startsWith('/') && !n.startsWith('//') ? n : '/tableau-de-bord';
+  }
+
   // Si un facteur 2FA vérifié existe, on lance un challenge et on passe à l'étape code.
   async function maybeRequireMfa(): Promise<boolean> {
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
@@ -57,7 +65,7 @@ export default function AuthForm() {
         setLoading(false);
         return; // on attend le code 2FA
       }
-      router.replace('/tableau-de-bord');
+      router.replace(destination());
       router.refresh();
     } catch (err) {
       setError(translateError(err));
@@ -81,7 +89,7 @@ export default function AuthForm() {
       setLoading(false);
       return;
     }
-    router.replace('/tableau-de-bord');
+    router.replace(destination());
     router.refresh();
   }
 
@@ -111,7 +119,7 @@ export default function AuthForm() {
       if (signErr) throw signErr;
 
       if (data.session) {
-        router.replace('/tableau-de-bord');
+        router.replace(destination());
         router.refresh();
       } else {
         setMessage(
