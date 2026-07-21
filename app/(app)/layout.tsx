@@ -38,8 +38,8 @@ async function getSuiviUnread(userId: string): Promise<number> {
   return (msgs ?? []).filter((m) => new Date(m.created_at).getTime() > seen).length;
 }
 
-// Canaux regroupés sous l'onglet « Communauté » (le reste = « Témoignages »).
-const COMMUNAUTE_CHANNELS = ['annonces', 'membres', 'victoires', 'challenge', 'ressources'];
+// Tous les canaux de l'onglet « Communauté » (témoignages inclus désormais).
+const COMMUNAUTE_CHANNELS = ['annonces', 'membres', 'victoires', 'challenge', 'ressources', 'temoignages'];
 
 /** Nombre de nouveaux posts non lus (hors les siens, hors signalés) sur un scope. */
 async function getPostsUnread(userId: string, scope: string, channels: string[]): Promise<number> {
@@ -99,14 +99,12 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
     { data: annUnread },
     { data: persoUnread },
     communauteUnread,
-    temoignagesUnread,
   ] = await Promise.all([
     getContactUnread(profile.id),
     getSuiviUnread(profile.id),
     supabaseNotif.rpc('my_unread_announcements'),
     supabaseNotif.rpc('my_unread_notifications'),
     getPostsUnread(profile.id, 'communaute', COMMUNAUTE_CHANNELS),
-    getPostsUnread(profile.id, 'temoignages', ['temoignages']),
   ]);
   // Cloche = annonces de l'équipe + interactions personnelles (like/commentaire/réponse)
   const notifUnread = ((annUnread as number | null) ?? 0) + ((persoUnread as number | null) ?? 0);
@@ -125,7 +123,6 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
       suiviUnread={suiviUnread}
       notifUnread={notifUnread}
       communauteUnread={communauteUnread}
-      temoignagesUnread={temoignagesUnread}
       installment={installment}
     >
       {children}

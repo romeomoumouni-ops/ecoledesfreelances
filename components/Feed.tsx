@@ -961,7 +961,7 @@ export function SinglePostView({ me, postId }: { me: FeedUser; postId: string })
     };
   }, [postId, me.id]);
 
-  const backHref = post?.channel === 'temoignages' ? '/temoignages' : '/communaute';
+  const backHref = '/communaute';
 
   async function toggleLike() {
     if (!post) return;

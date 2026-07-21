@@ -3,7 +3,6 @@ export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getCurrentProfile } from '@/lib/user';
-import { createClient } from '@/lib/supabase/server';
 import { SinglePostView } from '@/components/Feed';
 import { IconChevronRight } from '@/components/Icons';
 
@@ -16,16 +15,8 @@ export default async function PostPage({ params }: { params: { id: string } }) {
   const profile = await getCurrentProfile();
   if (!profile) redirect('/connexion');
 
-  // Canal du post (pour le lien retour) — la vue client charge le reste.
-  const supabase = createClient();
-  const { data: post } = await supabase
-    .from('community_posts')
-    .select('id, channel')
-    .eq('id', params.id)
-    .maybeSingle();
-
-  const backHref = post?.channel === 'temoignages' ? '/temoignages' : '/communaute';
-  const backLabel = post?.channel === 'temoignages' ? 'Résultats et témoignages' : 'Communauté';
+  const backHref = '/communaute';
+  const backLabel = 'Communauté';
 
   return (
     <div className="mx-auto max-w-xl">

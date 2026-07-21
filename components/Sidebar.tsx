@@ -32,8 +32,8 @@ const mainMenu: MenuItem[] = [
   { href: '/suivi', label: 'Suivi hebdomadaire', Icon: IconCalendar },
   { href: '/super-coach', label: 'Super Coach Roméo', Icon: IconSparkle },
   { href: '/ai-post-maker', label: 'AI Post Maker', Icon: IconWand, accent: true },
-  { href: '/temoignages', label: 'Résultats et témoignages', Icon: IconTrend },
   { href: '/communaute', label: 'Communauté', Icon: IconUsers },
+  { href: '/coaching', label: 'Coaching avec Roméo', Icon: IconTrend },
 ];
 
 const settingMenu = [
@@ -48,7 +48,6 @@ export default function Sidebar({
   contactUnread = 0,
   suiviUnread = 0,
   communauteUnread = 0,
-  temoignagesUnread = 0,
 }: {
   open?: boolean;
   onClose?: () => void;
@@ -56,7 +55,6 @@ export default function Sidebar({
   contactUnread?: number;
   suiviUnread?: number;
   communauteUnread?: number;
-  temoignagesUnread?: number;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -74,13 +72,7 @@ export default function Sidebar({
   const Item = ({ href, label, Icon, accent }: MenuItem) => {
     const active = isActive(href);
     const rawBadge =
-      href === '/suivi'
-        ? suiviUnread
-        : href === '/communaute'
-        ? communauteUnread
-        : href === '/temoignages'
-        ? temoignagesUnread
-        : 0;
+      href === '/suivi' ? suiviUnread : href === '/communaute' ? communauteUnread : 0;
     // On masque la pastille sur l'onglet où l'on se trouve (déjà en lecture).
     const badge = active ? 0 : rawBadge;
     return (

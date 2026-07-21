@@ -58,7 +58,8 @@ function persoLabel(n: PersoNotif): string {
 }
 
 function persoHref(n: PersoNotif): string {
-  return n.channel === 'temoignages' ? '/temoignages' : '/communaute';
+  // Lien direct vers la publication concernée
+  return n.post_id ? `/post/${n.post_id}` : '/communaute';
 }
 
 function merge(anns: Announcement[], persos: PersoNotif[]): Item[] {

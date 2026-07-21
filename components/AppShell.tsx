@@ -19,7 +19,7 @@ export type ShellProfile = {
 };
 
 // Onglets SANS le bouton « Payer ma tranche ».
-const TRANCHE_HIDDEN = ['/super-coach', '/ai-post-maker', '/temoignages'];
+const TRANCHE_HIDDEN = ['/super-coach', '/ai-post-maker', '/coaching'];
 
 export default function AppShell({
   children,
@@ -28,7 +28,6 @@ export default function AppShell({
   suiviUnread = 0,
   notifUnread = 0,
   communauteUnread = 0,
-  temoignagesUnread = 0,
   installment = null,
 }: {
   children: React.ReactNode;
@@ -37,7 +36,6 @@ export default function AppShell({
   suiviUnread?: number;
   notifUnread?: number;
   communauteUnread?: number;
-  temoignagesUnread?: number;
   installment?: Installment | null;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -45,7 +43,6 @@ export default function AppShell({
   const [suivi, setSuivi] = useState(suiviUnread);
   const [notif, setNotif] = useState(notifUnread);
   const [commu, setCommu] = useState(communauteUnread);
-  const [temoi, setTemoi] = useState(temoignagesUnread);
   const pathname = usePathname();
 
   // Resynchronise avec le serveur à chaque navigation / refresh
@@ -53,13 +50,11 @@ export default function AppShell({
   useEffect(() => setSuivi(suiviUnread), [suiviUnread]);
   useEffect(() => setNotif(notifUnread), [notifUnread]);
   useEffect(() => setCommu(communauteUnread), [communauteUnread]);
-  useEffect(() => setTemoi(temoignagesUnread), [temoignagesUnread]);
 
   // Sur la page notifications, la pastille retombe à zéro (lecture en cours)
   useEffect(() => {
     if (pathname === '/notifications') setNotif(0);
     if (pathname.startsWith('/communaute')) setCommu(0);
-    if (pathname.startsWith('/temoignages')) setTemoi(0);
   }, [pathname]);
 
   // Temps réel : nouvelle réponse coach, suivi ou notification → pastille immédiate
@@ -104,11 +99,7 @@ export default function AppShell({
         (payload) => {
           const p = payload.new as { channel: string; user_id: string; flagged?: boolean };
           if (p.flagged || p.user_id === profile.id) return; // signalé ou mon propre post
-          if (p.channel === 'temoignages') {
-            if (!pathname.startsWith('/temoignages')) setTemoi((n) => n + 1);
-          } else if (!pathname.startsWith('/communaute')) {
-            setCommu((n) => n + 1);
-          }
+          if (!pathname.startsWith('/communaute')) setCommu((n) => n + 1);
         }
       )
       .subscribe();
@@ -127,7 +118,6 @@ export default function AppShell({
         contactUnread={unread}
         suiviUnread={suivi}
         communauteUnread={commu}
-        temoignagesUnread={temoi}
       />
       <div className="lg:pl-[264px]">
         <Topbar onMenu={() => setMenuOpen(true)} profile={profile} contactUnread={unread} notifUnread={notif} />

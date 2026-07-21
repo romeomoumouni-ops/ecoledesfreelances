@@ -11,12 +11,14 @@ const CHANNELS = [
   { key: 'victoires', label: 'Vos victoires du jour' },
   { key: 'challenge', label: 'Challenge' },
   { key: 'ressources', label: 'Ressources', adminOnly: true },
+  { key: 'temoignages', label: 'Résultats et témoignages' },
 ];
 
 const PLACEHOLDERS: Record<string, string> = {
   victoires: 'Partage ta victoire du jour…',
   challenge: 'Partage ton avancée sur le challenge…',
   ressources: 'Partage une ressource utile (PDF, lien, conseil)…',
+  temoignages: 'Présente tes chiffres, raconte tes résultats… (photo ou vidéo témoignage bienvenue)',
 };
 
 export default function CommunityClient({ me }: { me: FeedUser }) {
