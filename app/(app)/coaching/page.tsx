@@ -8,7 +8,7 @@ export const metadata = { title: 'Coaching privé avec Roméo' };
 
 const WHATSAPP = 'https://wa.me/22999002211';
 
-const CTA_LABEL = 'Je suis prêt à faire un coaching en privé avec le coach Roméo';
+const CTA_LABEL = 'Je suis prêt à payer pour un coaching en privé avec le coach Roméo';
 
 function WhatsAppButton({ big = false }: { big?: boolean }) {
   return (
