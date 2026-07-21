@@ -73,6 +73,28 @@ export default async function CoachingPage() {
         </div>
       </div>
 
+      {/* Roméo en action (interviews / podcasts) */}
+      <div className="mt-8">
+        <div className="grid grid-cols-2 gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/coaching-podcast-1.jpg"
+            alt="Roméo Moumouni en interview au micro, en studio"
+            className="aspect-[3/4] w-full rounded-xl border border-line object-cover"
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/coaching-podcast-2.jpg"
+            alt="Roméo Moumouni invité d'un podcast, en pleine discussion"
+            className="aspect-[3/4] w-full rounded-xl border border-line object-cover"
+          />
+        </div>
+        <p className="mt-2 text-center text-xs leading-relaxed text-muted">
+          Invité et écouté sur les plateaux — c&apos;est cette même méthode que Roméo t&apos;apprend,
+          appliquée à <b className="text-ink">ton</b> cas précis.
+        </p>
+      </div>
+
       {/* Ce que tu obtiens */}
       <div className="mt-8">
         <h2 className="text-lg font-bold text-ink">Ce que le 1-à-1 change pour toi</h2>
