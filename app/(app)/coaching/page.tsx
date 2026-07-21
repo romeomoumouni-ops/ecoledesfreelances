@@ -90,8 +90,9 @@ export default async function CoachingPage() {
           />
         </div>
         <p className="mt-2 text-center text-xs leading-relaxed text-muted">
-          Invité et écouté sur les plateaux — c&apos;est cette même méthode que Roméo t&apos;apprend,
-          appliquée à <b className="text-ink">ton</b> cas précis.
+          Un coaching <b className="text-ink">sur mesure, en privé et tous les jours avec Roméo
+          lui-même</b> te permettra d&apos;aller plus vite — surtout si tu n&apos;aimes pas les
+          coachings collectifs.
         </p>
       </div>
 
