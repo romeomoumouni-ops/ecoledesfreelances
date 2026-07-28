@@ -47,7 +47,14 @@ function apiKeys(): string[] {
   );
 }
 
-type VerifiedSale = { email: string; productId: string; status: string; amount: number | null };
+type VerifiedSale = {
+  email: string;
+  productId: string;
+  status: string;
+  amount: number | null;
+  name: string | null;
+  phone: string | null; // chiffres uniquement, indicatif pays inclus (pour wa.me)
+};
 
 /** Vérifie la vente auprès de Chariow (essaie chaque clé API configurée : une par boutique). */
 async function verifySale(saleId: string): Promise<VerifiedSale | null> {
@@ -66,7 +73,10 @@ async function verifySale(saleId: string): Promise<VerifiedSale | null> {
       const status = sale?.status;
       const rawAmount = sale?.amount?.value;
       const amount = typeof rawAmount === 'number' && rawAmount > 0 ? rawAmount : null;
-      if (email && productId) return { email, productId, status, amount };
+      const name = (sale?.customer?.name as string | undefined)?.trim() || null;
+      const rawPhone = sale?.customer?.phone?.number;
+      const phone = rawPhone ? String(rawPhone).replace(/\D/g, '') || null : null;
+      if (email && productId) return { email, productId, status, amount, name, phone };
     } catch {
       // réseau : on tentera la clé suivante ; si tout échoue -> 500 plus bas (Chariow réessaie)
     }
@@ -185,6 +195,8 @@ export async function POST(req: NextRequest) {
           p_product: verified.productId,
           p_sale_id: saleId,
           p_amount: verified.amount,
+          p_name: verified.name,
+          p_phone: verified.phone,
         });
 
   await log(error ? `rpc_error:${error.message.slice(0, 120)}` : `ok:${JSON.stringify(data).slice(0, 150)}`, {

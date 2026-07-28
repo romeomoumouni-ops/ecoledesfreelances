@@ -14,6 +14,7 @@ import {
   IconCard,
   IconSparkle,
   IconWand,
+  IconPhone,
   IconArrowRight,
 } from './Icons';
 
@@ -27,6 +28,7 @@ const items = [
   { href: '/admin/super-coach', label: 'Super Coach', Icon: IconSparkle },
   { href: '/admin/post-maker', label: 'AI Post Maker', Icon: IconWand },
   { href: '/admin/communaute', label: 'Communauté', Icon: IconChat },
+  { href: '/admin/closer', label: 'Closer', Icon: IconPhone },
   { href: '/admin/utilisateurs', label: 'Utilisateurs', Icon: IconUsers },
 ];
 
