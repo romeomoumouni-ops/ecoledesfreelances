@@ -4,11 +4,15 @@
 // direct (wa.me + numéro utilisé à l'achat). Tri du plus récent au plus ancien
 // (inversable) + recherche + synchronisation des numéros depuis Chariow.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { ensureRealtimeAuth } from '@/lib/realtime';
 import type { Achat } from './page';
 import { prettyName, timeAgo } from '@/lib/format';
 import Avatar from '@/components/Avatar';
+
+const supabase = createClient();
 
 const TABS: { key: string; label: string; sub: string }[] = [
   { key: '1x', label: '98 000 FCFA', sub: 'Paiement en 1 fois' },
@@ -35,6 +39,22 @@ export default function CloserClient({ achats, sansNumero }: { achats: Achat[]; 
   const [query, setQuery] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
+
+  // Temps réel : dès qu'un paiement arrive, la liste se met à jour toute seule
+  // (le nouveau client apparaît en haut ou en bas selon le tri choisi).
+  useEffect(() => {
+    void ensureRealtimeAuth();
+    const ch = supabase
+      .channel('closer-ventes')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chariow_purchases' }, (payload) => {
+        const p = payload.new as { plan?: string };
+        if (p.plan === '1x' || p.plan === '3x' || p.plan === '6x') router.refresh();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [router]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { '1x': 0, '3x': 0, '6x': 0 };
@@ -87,10 +107,15 @@ export default function CloserClient({ achats, sansNumero }: { achats: Achat[]; 
 
   return (
     <>
-      <h1 className="mb-1 text-xl font-bold text-ink">Closer</h1>
+      <h1 className="mb-1 flex items-center gap-2.5 text-xl font-bold text-ink">
+        Closer
+        <span className="chip bg-black/[0.05] text-xs font-semibold text-muted">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" /> Temps réel
+        </span>
+      </h1>
       <p className="mb-4 text-sm text-muted">
-        Les clients des 3 formules, avec leur numéro WhatsApp d&apos;achat. Un clic sur le bouton vert
-        ouvre directement la conversation.
+        Les clients des 3 formules, avec leur numéro WhatsApp d&apos;achat. Chaque nouveau paiement
+        apparaît ici automatiquement. Un clic sur le bouton vert ouvre la conversation.
       </p>
 
       {/* Synchronisation des numéros (ventes passées) */}
