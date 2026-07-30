@@ -6,7 +6,7 @@ import { IconCheckCircle, IconSparkle, IconArrowRight } from '@/components/Icons
 
 export const metadata = { title: 'Coaching privé avec Roméo' };
 
-const WHATSAPP = 'https://wa.me/22999002211';
+const WHATSAPP = 'https://wa.me/2290157342814';
 
 const CTA_LABEL = 'Je suis prêt à payer pour un coaching en privé avec le coach Roméo';
 
