@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import * as tus from 'tus-js-client';
 import {
@@ -31,6 +31,9 @@ import { IconPlus, IconX, IconPlayFill, IconPen, IconGrip, IconBook } from '@/co
 
 const VIDEO_UPLOAD_MSG =
   "La vidéo n'a pas fini de se charger. Si tu quittes maintenant, l'envoi sera interrompu et la vidéo ne sera pas enregistrée.";
+
+// Chapitres dont le fichier vidéo a disparu du stockage (avertissement admin).
+const MissingVideos = createContext<Set<string>>(new Set());
 
 const supabase = createClient();
 const BUCKET = 'course-media';
@@ -86,11 +89,14 @@ export default function CourseBuilder({
   course,
   chapters,
   modules,
+  missingVideos = [],
 }: {
   course: { id: string; title: string };
   chapters: Chapter[];
   modules: Module[];
+  missingVideos?: string[];
 }) {
+  const missingSet = new Set(missingVideos);
   const router = useRouter();
   const [err, setErr] = useState<string | null>(null);
   const [items, setItems] = useState<Chapter[]>(chapters);
@@ -274,6 +280,7 @@ export default function CourseBuilder({
   const ungrouped = chaptersOf(null);
 
   return (
+    <MissingVideos.Provider value={missingSet}>
     <div>
       <h2 className="text-lg font-bold text-ink">Modules &amp; chapitres</h2>
       <p className="mt-1 text-sm text-muted">
@@ -282,6 +289,15 @@ export default function CourseBuilder({
       </p>
 
       {err && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
+
+      {/* Alerte : des vidéos référencées n'existent plus dans le stockage */}
+      {missingSet.size > 0 && (
+        <p className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+          ⚠️ <b>{missingSet.size} chapitre(s)</b> ont perdu leur fichier vidéo (marqués
+          « Vidéo introuvable » ci-dessous). Les élèves y voient « Vidéo bientôt disponible » :
+          re-téléverse la vidéo sur ces chapitres.
+        </p>
+      )}
 
       {/* Un SEUL contexte de glisser-déposer : modules réordonnables ET
           chapitres déplaçables librement entre modules / non classés. */}
@@ -348,6 +364,7 @@ export default function CourseBuilder({
         </div>
       </DndContext>
     </div>
+    </MissingVideos.Provider>
   );
 }
 
@@ -670,6 +687,8 @@ function ChapterBlock({
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
+  // Le fichier vidéo référencé a-t-il disparu du stockage ?
+  const videoLost = useContext(MissingVideos).has(chapter.id);
 
   async function remove() {
     if (!confirm('Supprimer ce chapitre ?')) return;
@@ -715,13 +734,28 @@ function ChapterBlock({
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-black/[0.06] text-xs font-bold text-ink">
           {index + 1}
         </span>
-        <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-md ${chapter.video_url ? 'bg-black/[0.06] text-ink' : 'bg-black/[0.03] text-muted'}`}>
+        <span
+          className={`grid h-8 w-8 shrink-0 place-items-center rounded-md ${
+            videoLost
+              ? 'bg-amber-100 text-amber-700'
+              : chapter.video_url
+              ? 'bg-black/[0.06] text-ink'
+              : 'bg-black/[0.03] text-muted'
+          }`}
+        >
           <IconPlayFill width={13} height={13} />
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-ink">{chapter.title}</p>
           <p className="text-xs text-muted">
-            {chapter.video_url ? 'Vidéo ajoutée' : 'Pas de vidéo'} · {chapter.quiz.length} question(s)
+            {videoLost ? (
+              <span className="font-bold text-amber-700">⚠️ Vidéo introuvable — à re-téléverser</span>
+            ) : chapter.video_url ? (
+              'Vidéo ajoutée'
+            ) : (
+              'Pas de vidéo'
+            )}{' '}
+            · {chapter.quiz.length} question(s)
           </p>
         </div>
         <button onClick={() => setEditing((v) => !v)} className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-black/[0.04] hover:text-ink" aria-label="Modifier" title="Modifier">

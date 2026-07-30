@@ -4,7 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { getCourseById } from '@/lib/db';
 import { getCourseChapters, getCourseModules } from '@/lib/content';
 import { getCurrentProfile } from '@/lib/user';
-import { signMedia } from '@/lib/media';
+import { signMediaMany } from '@/lib/media';
 import { createClient } from '@/lib/supabase/server';
 import CoursePlayer from '@/components/CoursePlayer';
 
@@ -25,18 +25,17 @@ export default async function CoursePlayerPage({ params }: { params: { id: strin
     .eq('user_id', profile.id);
   const posMap = new Map<string, number>((progress ?? []).map((p) => [p.chapter_id, Number(p.seconds)]));
 
-  // URLs vidéo signées (temporaires) + position de reprise
-  const playerChapters = await Promise.all(
-    chapters.map(async (ch) => ({
-      id: ch.id,
-      title: ch.title,
-      description: ch.description,
-      moduleId: ch.module_id,
-      quiz: ch.quiz,
-      videoUrl: await signMedia(ch.video_url),
-      startAt: posMap.get(ch.id) ?? 0,
-    }))
-  );
+  // URLs vidéo signées EN UNE SEULE requête (avant : une par chapitre → page lente)
+  const signed = await signMediaMany(chapters.map((ch) => ch.video_url));
+  const playerChapters = chapters.map((ch) => ({
+    id: ch.id,
+    title: ch.title,
+    description: ch.description,
+    moduleId: ch.module_id,
+    quiz: ch.quiz,
+    videoUrl: ch.video_url ? signed.get(ch.video_url) ?? null : null,
+    startAt: posMap.get(ch.id) ?? 0,
+  }));
 
   return (
     <CoursePlayer

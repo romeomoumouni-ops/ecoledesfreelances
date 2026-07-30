@@ -14,3 +14,27 @@ export async function signMedia(
   const { data } = await supabase.storage.from('course-media').createSignedUrl(path, expiresIn);
   return data?.signedUrl ?? null;
 }
+
+/**
+ * Signe PLUSIEURS fichiers en UNE SEULE requête (createSignedUrls).
+ * Indispensable pour les pages de cours : signer 49 chapitres un par un
+ * faisait 49 allers-retours réseau (page très lente). Renvoie chemin -> URL ;
+ * un chemin absent du stockage n'a simplement pas d'entrée.
+ */
+export async function signMediaMany(
+  paths: (string | null | undefined)[],
+  expiresIn = 60 * 60 * 6
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const toSign = [...new Set(paths.filter((p): p is string => !!p && !p.startsWith('http')))];
+  // URLs déjà complètes : on les renvoie telles quelles
+  for (const p of paths) if (p && p.startsWith('http')) out.set(p, p);
+  if (!toSign.length) return out;
+
+  const supabase = createClient();
+  const { data } = await supabase.storage.from('course-media').createSignedUrls(toSign, expiresIn);
+  for (const item of data ?? []) {
+    if (item?.path && item?.signedUrl && !item.error) out.set(item.path, item.signedUrl);
+  }
+  return out;
+}

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getCourseById } from '@/lib/db';
 import { getCourseChapters, getCourseModules } from '@/lib/content';
+import { createClient } from '@/lib/supabase/server';
 import CourseBuilder from '@/components/admin/CourseBuilder';
 import EditCourseForm from '@/components/admin/EditCourseForm';
 import { IconChevronRight } from '@/components/Icons';
@@ -16,6 +17,11 @@ export default async function AdminCourseBuilderPage({ params }: { params: { id:
   ]);
   if (!course) notFound();
 
+  // Chapitres dont le fichier vidéo a disparu du stockage (à re-téléverser)
+  const supabase = createClient();
+  const { data: missing } = await supabase.rpc('admin_missing_chapter_videos', { p_course: params.id });
+  const missingVideos = ((missing ?? []) as unknown[]).map(String);
+
   return (
     <div className="mx-auto max-w-3xl">
       <Link href="/admin/cours" className="mb-4 inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-ink">
@@ -25,7 +31,12 @@ export default async function AdminCourseBuilderPage({ params }: { params: { id:
       <EditCourseForm course={course} />
 
       <div className="mt-6">
-        <CourseBuilder course={{ id: course.id, title: course.title }} chapters={chapters} modules={modules} />
+        <CourseBuilder
+          course={{ id: course.id, title: course.title }}
+          chapters={chapters}
+          modules={modules}
+          missingVideos={missingVideos}
+        />
       </div>
     </div>
   );
