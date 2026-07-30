@@ -69,7 +69,9 @@ async function uploadVideoResumable(
         bucketName: BUCKET,
         objectName,
         contentType: file.type || 'video/mp4',
-        cacheControl: '3600',
+        // 1 an : le chemin contient un UUID unique, le fichier ne change jamais.
+        // Le navigateur garde donc la vidéo en cache (revisionnage instantané).
+        cacheControl: '31536000',
       },
       onError: (e) => reject(e),
       onProgress: (sent, total) => onProgress(Math.round((sent / total) * 100)),
