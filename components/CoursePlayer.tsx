@@ -7,10 +7,15 @@ import type { QuizQuestion } from '@/lib/content';
 import Avatar from '@/components/Avatar';
 import RichText from '@/components/RichText';
 import { EmptyState } from '@/components/UI';
+import ExternalVideoPlayer from '@/components/ExternalVideoPlayer';
+import { parseExternalVideo } from '@/lib/video-embed';
 import { prettyName, timeAgo } from '@/lib/format';
 import { IconPlayFill, IconCheck, IconChevronRight, IconBook, IconCheckCircle, IconX } from '@/components/Icons';
 
 const supabase = createClient();
+
+/** Lien de vidéo externe (YouTube, Vimeo, Loom, Drive) ou null si fichier interne. */
+const externalOf = (url: string | null) => parseExternalVideo(url);
 
 type Me = { id: string; name: string; isAdmin?: boolean };
 type PlayerModule = { id: string; title: string };
@@ -44,6 +49,18 @@ export default function CoursePlayer({
 
   const [currentId, setCurrentId] = useState<string | null>(ordered[0]?.id ?? chapters[0]?.id ?? null);
   const current = chapters.find((c) => c.id === currentId) ?? null;
+
+  // Enregistre la position de lecture des vidéos externes (comme les vidéos internes)
+  const lastExtSave = useRef(0);
+  function saveProgress(chapterId: string, seconds: number) {
+    const now = Date.now();
+    if (now - lastExtSave.current < 5000 || !Number.isFinite(seconds) || seconds < 0) return;
+    lastExtSave.current = now;
+    void supabase.from('video_progress').upsert(
+      { user_id: me.id, chapter_id: chapterId, seconds, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,chapter_id' }
+    );
+  }
 
   const idx = ordered.findIndex((c) => c.id === currentId);
   const prevChapter = idx > 0 ? ordered[idx - 1] : null;
@@ -105,7 +122,16 @@ export default function CoursePlayer({
           {current && (
             <>
               <div className="card overflow-hidden">
-                {current.videoUrl ? (
+                {externalOf(current.videoUrl) ? (
+                  // Vidéo hébergée ailleurs (YouTube, Vimeo, Loom…) : lecture
+                  // verrouillée sur la plateforme, aucun renvoi vers le site d'origine.
+                  <ExternalVideoPlayer
+                    key={current.id}
+                    video={externalOf(current.videoUrl)!}
+                    startAt={current.startAt}
+                    onProgress={(s) => saveProgress(current.id, s)}
+                  />
+                ) : current.videoUrl ? (
                   <VideoPlayer
                     key={current.id}
                     chapterId={current.id}

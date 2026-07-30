@@ -27,6 +27,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { Chapter, Module } from '@/lib/content';
 import RichTextArea from '@/components/RichTextArea';
 import UploadLeaveGuard from '@/components/UploadLeaveGuard';
+import { parseExternalVideo, providerLabel } from '@/lib/video-embed';
 import { IconPlus, IconX, IconPlayFill, IconPen, IconGrip, IconBook } from '@/components/Icons';
 
 const VIDEO_UPLOAD_MSG =
@@ -689,6 +690,12 @@ function ChapterBlock({
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
+  // Lien externe (YouTube/Vimeo/Loom/Drive) : si le chapitre en utilise un déjà
+  const [link, setLink] = useState(
+    chapter.video_url && /^https?:\/\//i.test(chapter.video_url) ? chapter.video_url : ''
+  );
+  const linkInfo = parseExternalVideo(link);
+  const chapterExternal = parseExternalVideo(chapter.video_url);
   // Le fichier vidéo référencé a-t-il disparu du stockage ?
   const videoLost = useContext(MissingVideos).has(chapter.id);
 
@@ -714,6 +721,13 @@ function ChapterBlock({
       if (file) {
         setProgress(0);
         patch.video_url = await uploadVideoResumable(courseId, file, setProgress);
+      } else if (link.trim()) {
+        // Lien externe : on refuse un lien non reconnu plutôt que d'enregistrer
+        // quelque chose d'illisible pour les élèves.
+        if (!linkInfo) throw new Error('Lien vidéo non reconnu (YouTube, Vimeo, Loom ou Google Drive).');
+        patch.video_url = link.trim();
+      } else if (!link.trim() && chapter.video_url && /^https?:\/\//i.test(chapter.video_url)) {
+        patch.video_url = null; // lien effacé volontairement
       }
       const { error } = await supabase.from('chapters').update(patch).eq('id', chapter.id);
       if (error) throw error;
@@ -752,6 +766,8 @@ function ChapterBlock({
           <p className="text-xs text-muted">
             {videoLost ? (
               <span className="font-bold text-amber-700">⚠️ Vidéo introuvable — à re-téléverser</span>
+            ) : chapterExternal ? (
+              `Vidéo ${providerLabel(chapterExternal.provider)} (lien)`
             ) : chapter.video_url ? (
               'Vidéo ajoutée'
             ) : (
@@ -811,6 +827,27 @@ function ChapterBlock({
               </div>
             )}
           </div>
+
+          {/* Ou : lien d'une vidéo hébergée ailleurs (lecture verrouillée) */}
+          <div className="rounded-lg border border-dashed border-line p-3">
+            <label className="label">
+              Ou coller un lien vidéo (YouTube, Vimeo, Loom, Google Drive)
+            </label>
+            <input
+              className="input"
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              placeholder="https://…"
+              disabled={busy}
+            />
+            <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+              {linkInfo
+                ? `✅ Lien ${providerLabel(linkInfo.provider)} reconnu — la vidéo sera lue directement ici, sans logo ni lien vers ${providerLabel(linkInfo.provider)}.`
+                : link.trim()
+                ? '⚠️ Lien non reconnu (YouTube, Vimeo, Loom ou Google Drive attendu).'
+                : 'La vidéo reste lue sur la plateforme : aucun bouton ni logo ne peut renvoyer l’élève vers le site d’origine.'}
+            </p>
+          </div>
           <div className="flex gap-2">
             <button onClick={save} disabled={busy} className="btn-primary disabled:opacity-60">
               {busy ? 'Enregistrement…' : 'Enregistrer'}
@@ -846,8 +883,10 @@ function AddChapter({
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [link, setLink] = useState('');
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
+  const linkInfo = parseExternalVideo(link);
 
   async function submit() {
     if (!title.trim()) return;
@@ -857,6 +896,9 @@ function AddChapter({
       if (file) {
         setProgress(0);
         video = await uploadVideoResumable(courseId, file, setProgress);
+      } else if (link.trim()) {
+        if (!linkInfo) throw new Error('Lien vidéo non reconnu (YouTube, Vimeo, Loom ou Google Drive).');
+        video = link.trim();
       }
       const { error } = await supabase.from('chapters').insert({
         course_id: courseId,
@@ -908,6 +950,26 @@ function AddChapter({
           </div>
         )}
       </div>
+
+      {/* Ou : lien d'une vidéo hébergée ailleurs (lecture verrouillée) */}
+      <div className="rounded-lg border border-dashed border-line p-3">
+        <label className="label">Ou coller un lien vidéo (YouTube, Vimeo, Loom, Google Drive)</label>
+        <input
+          className="input"
+          value={link}
+          onChange={(e) => setLink(e.target.value)}
+          placeholder="https://…"
+          disabled={busy}
+        />
+        <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+          {linkInfo
+            ? `✅ Lien ${providerLabel(linkInfo.provider)} reconnu — lu directement ici, sans logo ni lien vers ${providerLabel(linkInfo.provider)}.`
+            : link.trim()
+            ? '⚠️ Lien non reconnu (YouTube, Vimeo, Loom ou Google Drive attendu).'
+            : 'Idéal pour les vidéos lourdes : la lecture reste sur la plateforme, sans renvoi vers le site d’origine.'}
+        </p>
+      </div>
+
       <div className="flex gap-2">
         <button onClick={submit} disabled={busy} className="btn-primary disabled:opacity-60">
           {busy ? 'Ajout…' : 'Ajouter le chapitre'}
