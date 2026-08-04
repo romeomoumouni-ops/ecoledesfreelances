@@ -47,8 +47,12 @@ function StatutChip({ c, now }: { c: ClientAcces; now: number }) {
   return <span className="chip bg-red-50 text-red-600">Expiré</span>;
 }
 
+// Fuseau FIXE (heure du Bénin). Sans ça, le serveur (UTC) et le navigateur
+// affichent deux heures différentes : React casse l'hydratation de la page et
+// les abonnements temps réel ne s'installent jamais.
 function dateHeureFr(iso: string) {
   return new Date(iso).toLocaleString('fr-FR', {
+    timeZone: 'Africa/Porto-Novo',
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 }
