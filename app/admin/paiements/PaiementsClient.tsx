@@ -93,6 +93,22 @@ export default function PaiementsClient({
     };
   }, [router]);
 
+  // Filet de sécurité : le websocket temps réel peut se couper (onglet mis en
+  // veille par le navigateur, réseau instable, session rafraîchie). On recharge
+  // donc aussi toutes les 30 s tant que la page est visible, et dès qu'on
+  // revient sur l'onglet — les chiffres ne peuvent jamais rester en retard.
+  useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') router.refresh();
+    };
+    const t = setInterval(refreshIfVisible, 30_000);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
+  }, [router]);
+
   // Offre à 200 000 FCFA : combien de personnes, combien d'argent, qui.
   const s200 = useMemo(() => {
     const q = query.trim().toLowerCase();
