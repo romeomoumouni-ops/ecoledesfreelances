@@ -19,8 +19,10 @@ export const dynamic = 'force-dynamic';
 
 const CHARIOW_API = 'https://api.chariow.com/v1';
 
-// Produits d'accès à la plateforme (1x / 3x / 6x)
-const ACCESS_PRODUCTS = new Set(['prd_97u01b', 'prd_ocqbu9', 'prd_mq2c4np5']);
+// Produits d'accès à la plateforme.
+// prd_b4ip13ur = offre actuelle : 200 000 FCFA en une fois (accès à vie).
+// prd_97u01b / prd_ocqbu9 / prd_mq2c4np5 = anciennes formules 1x / 3x / 6x.
+const ACCESS_PRODUCTS = new Set(['prd_b4ip13ur', 'prd_97u01b', 'prd_ocqbu9', 'prd_mq2c4np5']);
 // Recharges de questions du Super Coach (1500 FCFA = +15 questions) :
 // prd_v19rl2tn = produit « service » (lien boutique) ; CHARIOW_CREDIT_PRODUCT =
 // produit « licence » acheté via l'API checkout (paiement direct).

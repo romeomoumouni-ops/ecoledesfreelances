@@ -86,7 +86,8 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
     ? [[detectedCountry, `${detectedCountry} (ton pays)`], ...COUNTRIES]
     : COUNTRIES;
 
-  const [modal, setModal] = useState<null | '1x' | '3x'>(null);
+  // Offre unique : 200 000 FCFA payés en une fois (accès à vie).
+  const [modal, setModal] = useState(false);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -102,7 +103,7 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
       const res = await fetch('/api/join/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name, phone, country, plan: modal }),
+        body: JSON.stringify({ email, name, phone, country, plan: '1x200' }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setErr(data.error || 'Le paiement n’a pas pu démarrer.'); setBusy(false); return; }
@@ -115,21 +116,16 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
   }
 
   const Cta = ({ id }: { id: number }) => (
-    <div className="mx-auto mt-8 flex max-w-xl flex-col gap-4">
+    <div className="mx-auto mt-8 flex max-w-xl flex-col gap-3">
       <button
-        onClick={() => setModal('1x')}
-        className="cta-shake flex w-full items-center justify-center gap-3 rounded-full bg-[#2f7bdc] px-6 py-5 text-lg font-extrabold uppercase leading-tight tracking-tight text-white shadow-glow transition hover:bg-[#1f63c4]"
+        onClick={() => setModal(true)}
+        className="cta-shake flex w-full flex-col items-center justify-center gap-1 rounded-full bg-[#2f7bdc] px-6 py-5 text-white shadow-glow transition hover:bg-[#1f63c4]"
       >
-        Rejoindre l’école des freelances en 1X
-        <span className="grid h-8 w-8 place-items-center rounded-full bg-white/20">→</span>
-      </button>
-      <button
-        onClick={() => setModal('3x')}
-        className="cta-shake flex w-full items-center justify-center gap-3 rounded-full bg-[#2f7bdc] px-6 py-5 text-lg font-extrabold uppercase leading-tight tracking-tight text-white shadow-glow transition hover:bg-[#1f63c4]"
-        style={{ animationDelay: '0.15s' }}
-      >
-        Rejoindre l’école des freelances en X3
-        <span className="grid h-8 w-8 place-items-center rounded-full bg-white/20">→</span>
+        <span className="flex items-center gap-3 text-lg font-extrabold uppercase leading-tight tracking-tight">
+          Rejoindre l’école
+          <span className="grid h-8 w-8 place-items-center rounded-full bg-white/20">→</span>
+        </span>
+        <span className="text-sm font-bold uppercase tracking-tight text-white/90">200.000 FCFA</span>
       </button>
       <p className="text-center text-xs text-white/60" data-cta={id}>Paiement sécurisé · Mobile Money, Wave, Orange, carte…</p>
     </div>
@@ -237,7 +233,7 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
       {/* BONUS PREMIUM (1X) */}
       <section className="px-5 py-8">
         <div className="mx-auto max-w-2xl">
-          <h2 className="text-center text-2xl font-extrabold uppercase tracking-tight">Bonus premium (paiement en 1X uniquement)</h2>
+          <h2 className="text-center text-2xl font-extrabold uppercase tracking-tight">Bonus premium inclus</h2>
           <div className="mt-6 space-y-3">
             {PREMIUM.map(([t, d], i) => (
               <div key={i} className="rounded-2xl border border-[#2f7bdc]/40 bg-[#2f7bdc]/[0.08] p-4">
@@ -255,15 +251,9 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
           <p className="text-sm font-semibold uppercase text-white/60">Valeur totale du programme</p>
           <p className="mt-1 text-2xl font-bold text-white/50 line-through">9.835.000 FCFA</p>
           <p className="mt-4 text-sm font-semibold uppercase text-white/80">Aujourd’hui, tu rejoins pour</p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <div className="text-3xl font-extrabold text-white">98.000 FCFA</div>
-              <div className="text-xs font-semibold uppercase text-white/60">Paiement en 1X · accès à vie</div>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <div className="text-3xl font-extrabold text-white">65.000 FCFA</div>
-              <div className="text-xs font-semibold uppercase text-white/60">× 2 · paiement en 3X</div>
-            </div>
+          <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <div className="text-4xl font-extrabold text-white">200.000 FCFA</div>
+            <div className="mt-1 text-xs font-semibold uppercase text-white/60">Accès à vie · tout est inclus</div>
           </div>
           <Cta id={5} />
         </div>
@@ -310,10 +300,10 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
 
       {/* MODALE DE PAIEMENT */}
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center" onClick={() => !busy && setModal(null)}>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center" onClick={() => !busy && setModal(false)}>
           <div className="w-full max-w-md rounded-3xl bg-white p-6 text-ink" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-extrabold text-ink">
-              Rejoindre en {modal === '1x' ? '1X (98.000 FCFA)' : '3X (65.000 FCFA × 2)'}
+              Rejoindre l’école — 200.000 FCFA
             </h3>
             <p className="mt-1 text-sm text-muted">Renseigne tes infos, tu es redirigé vers le paiement.</p>
             <div className="mt-4 space-y-3">
@@ -330,7 +320,7 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
             <button onClick={pay} disabled={busy} className="mt-5 w-full rounded-xl bg-[#2f7bdc] py-3.5 text-sm font-extrabold uppercase text-white transition hover:bg-[#1f63c4] disabled:opacity-60">
               {busy ? 'Redirection…' : 'Payer maintenant'}
             </button>
-            <button onClick={() => !busy && setModal(null)} className="mt-2 w-full py-2 text-sm font-semibold text-muted">Annuler</button>
+            <button onClick={() => !busy && setModal(false)} className="mt-2 w-full py-2 text-sm font-semibold text-muted">Annuler</button>
           </div>
         </div>
       )}

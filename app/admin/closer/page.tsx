@@ -29,7 +29,7 @@ export default async function CloserPage() {
     const { data } = await supabase
       .from('chariow_purchases')
       .select('email, plan, customer_name, customer_phone, created_at')
-      .in('plan', ['1x', '3x', '6x'])
+      .in('plan', ['1x200', '1x', '3x', '6x'])
       .order('created_at', { ascending: false })
       .range(from, from + PAGE - 1);
     rows.push(...((data ?? []) as Row[]));
@@ -64,7 +64,7 @@ export default async function CloserPage() {
   const { count: sansNumero } = await supabase
     .from('chariow_purchases')
     .select('sale_id', { count: 'exact', head: true })
-    .in('plan', ['1x', '3x', '6x'])
+    .in('plan', ['1x200', '1x', '3x', '6x'])
     .is('customer_phone', null);
 
   return <CloserClient achats={[...byKey.values()]} sansNumero={sansNumero ?? 0} />;

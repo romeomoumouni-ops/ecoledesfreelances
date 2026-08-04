@@ -21,6 +21,17 @@ export type Revenue = {
   plans: Record<string, { ventes: number; montant: number }>;
 };
 
+/** Un paiement de l'offre à 200 000 FCFA (une fois). */
+export type Paiement200 = {
+  sale_id: string;
+  email: string;
+  customer_name: string | null;
+  customer_phone: string | null;
+  amount: number | null;
+  created_at: string;
+  on_platform: boolean; // a créé son compte sur la plateforme
+};
+
 export default async function AdminPaiementsPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect('/connexion');
@@ -55,5 +66,19 @@ export default async function AdminPaiementsPage() {
   }
   for (const g of grants) g.on_platform = inscrits.has(g.email.toLowerCase());
 
-  return <PaiementsClient clients={grants} revenue={(revenue as Revenue) ?? null} />;
+  // Offre à 200 000 FCFA (paiement en une fois) : chaque vente encaissée.
+  const p200: Paiement200[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await supabase
+      .from('chariow_purchases')
+      .select('sale_id, email, customer_name, customer_phone, amount, created_at')
+      .eq('plan', '1x200')
+      .order('created_at', { ascending: false })
+      .range(from, from + PAGE - 1);
+    p200.push(...((data ?? []) as Paiement200[]));
+    if (!data || data.length < PAGE) break;
+  }
+  for (const p of p200) p.on_platform = inscrits.has(p.email.toLowerCase());
+
+  return <PaiementsClient clients={grants} revenue={(revenue as Revenue) ?? null} p200={p200} />;
 }

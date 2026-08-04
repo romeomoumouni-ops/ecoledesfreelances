@@ -53,7 +53,7 @@ export async function POST() {
   const { data: pending, count } = await supabase
     .from('chariow_purchases')
     .select('sale_id', { count: 'exact' })
-    .in('plan', ['1x', '3x', '6x'])
+    .in('plan', ['1x200', '1x', '3x', '6x'])
     .is('customer_phone', null)
     .order('created_at', { ascending: false })
     .limit(BATCH);

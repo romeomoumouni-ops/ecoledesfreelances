@@ -6,17 +6,20 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { ensureRealtimeAuth } from '@/lib/realtime';
-import type { ClientAcces, Revenue } from './page';
+import type { ClientAcces, Revenue, Paiement200 } from './page';
 import { IconUsers, IconCheckCircle, IconCard, IconX } from '@/components/Icons';
 
 const supabase = createClient();
 
 const PLAN_LABEL: Record<string, string> = {
+  '1x200': 'Paiement en une fois (200 000)',
   '1x': 'Paiement en 1 fois',
   '3x': 'Paiement en 3 fois',
   '6x': 'Paiement en 6 fois',
   coach15: 'Recharges Super Coach',
 };
+
+const PRIX_200 = 200000;
 
 // Montant d'une tranche selon le plan.
 const TRANCHE_PRICE: Record<string, number> = { '3x': 45000, '6x': 20000 };
@@ -44,15 +47,23 @@ function StatutChip({ c, now }: { c: ClientAcces; now: number }) {
   return <span className="chip bg-red-50 text-red-600">Expiré</span>;
 }
 
+function dateHeureFr(iso: string) {
+  return new Date(iso).toLocaleString('fr-FR', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
 export default function PaiementsClient({
   clients,
   revenue,
+  p200 = [],
 }: {
   clients: ClientAcces[];
   revenue: Revenue | null;
+  p200?: Paiement200[];
 }) {
   const router = useRouter();
-  const [view, setView] = useState<'echeances' | 'ca'>('echeances');
+  const [view, setView] = useState<'p200' | 'echeances' | 'ca'>('p200');
   const [query, setQuery] = useState('');
   const [filtre, setFiltre] = useState<'tous' | Statut>('tous');
   // « Maintenant » rafraîchi chaque minute → les accès qui expirent basculent en direct.
@@ -77,6 +88,22 @@ export default function PaiementsClient({
       supabase.removeChannel(ch);
     };
   }, [router]);
+
+  // Offre à 200 000 FCFA : combien de personnes, combien d'argent, qui.
+  const s200 = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const emails = new Set<string>();
+    let montant = 0, inscrits = 0;
+    for (const p of p200) {
+      montant += p.amount ?? PRIX_200;
+      if (!emails.has(p.email.toLowerCase())) {
+        emails.add(p.email.toLowerCase());
+        if (p.on_platform) inscrits++;
+      }
+    }
+    const liste = q ? p200.filter((p) => p.email.toLowerCase().includes(q)) : p200;
+    return { personnes: emails.size, ventes: p200.length, montant, inscrits, liste };
+  }, [p200, query]);
 
   const stats = useMemo(() => {
     let aVie = 0, actifs = 0, expires = 0;
@@ -143,7 +170,24 @@ export default function PaiementsClient({
       </p>
 
       {/* Onglets */}
-      <div className="mb-5 flex gap-2">
+      <div className="mb-5 flex flex-wrap gap-2">
+        <button
+          onClick={() => setView('p200')}
+          className={`chip px-4 py-2.5 text-sm transition ${
+            view === 'p200' ? 'bg-ink text-white' : 'border border-line bg-white text-muted hover:text-ink'
+          }`}
+        >
+          200 000
+          {s200.personnes > 0 && (
+            <span
+              className={`ml-2 grid h-5 min-w-[20px] place-items-center rounded-full px-1.5 text-[11px] font-bold ${
+                view === 'p200' ? 'bg-white/20 text-white' : 'bg-ink text-white'
+              }`}
+            >
+              {s200.personnes}
+            </span>
+          )}
+        </button>
         <button
           onClick={() => setView('echeances')}
           className={`chip px-4 py-2.5 text-sm transition ${
@@ -162,7 +206,93 @@ export default function PaiementsClient({
         </button>
       </div>
 
-      {view === 'echeances' ? (
+      {view === 'p200' ? (
+        <>
+          <p className="mb-4 text-sm text-muted">
+            L&apos;offre à <b className="text-ink">200 000 FCFA payés en une fois</b> (accès à vie). Chaque
+            paiement apparaît ici <b className="text-ink">immédiatement</b>, sans recharger la page.
+          </p>
+
+          {/* 1) LES PERSONNES */}
+          <div className="card mb-4 p-5">
+            <p className="text-sm font-bold text-ink">Personnes qui ont payé 200 000 FCFA</p>
+            <p className="mt-1 text-4xl font-bold tracking-tight text-ink">
+              {s200.personnes.toLocaleString('fr-FR')}
+            </p>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="rounded-xl bg-emerald-50 p-4">
+                <p className="text-2xl font-bold text-emerald-700">{s200.inscrits.toLocaleString('fr-FR')}</p>
+                <p className="mt-0.5 text-xs font-medium text-emerald-700/80">
+                  ont créé leur compte — ils sont sur la plateforme
+                </p>
+              </div>
+              <div className="rounded-xl bg-amber-50 p-4">
+                <p className="text-2xl font-bold text-amber-700">
+                  {Math.max(0, s200.personnes - s200.inscrits).toLocaleString('fr-FR')}
+                </p>
+                <p className="mt-0.5 text-xs font-medium text-amber-700/80">
+                  ont payé mais n&apos;ont pas encore créé leur compte — à relancer
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 2) L'ARGENT */}
+          <div className="card mb-4 overflow-hidden">
+            <div className="bg-ink p-5 text-white">
+              <p className="text-xs font-semibold uppercase tracking-wider text-white/60">
+                Encaissé sur cette offre
+              </p>
+              <p className="mt-1 text-3xl font-bold tracking-tight">{fcfa(s200.montant)}</p>
+              <p className="mt-1 text-xs text-white/60">
+                {s200.ventes.toLocaleString('fr-FR')} paiement(s) encaissé(s)
+              </p>
+            </div>
+          </div>
+
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="input mb-4 max-w-sm"
+            placeholder="Rechercher un e-mail…"
+          />
+
+          {/* 3) QUI A PAYÉ */}
+          {s200.liste.length ? (
+            <div className="card divide-y divide-line overflow-hidden">
+              {s200.liste.slice(0, 200).map((p) => (
+                <div key={p.sale_id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 p-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-ink">
+                      {p.customer_name || p.email}
+                    </p>
+                    <p className="truncate text-xs text-muted">
+                      {p.customer_name ? `${p.email} · ` : ''}
+                      {fcfa(p.amount ?? PRIX_200)} · {dateHeureFr(p.created_at)}
+                    </p>
+                  </div>
+                  {p.on_platform ? (
+                    <span className="chip bg-ink text-white">Compte créé</span>
+                  ) : (
+                    <span className="chip bg-amber-50 text-amber-700">Pas encore inscrit</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="card p-10 text-center text-sm text-muted">
+              {query ? 'Aucun paiement ne correspond.' : 'Aucun paiement à 200 000 FCFA pour le moment.'}
+            </div>
+          )}
+
+          {s200.liste.length > 200 && (
+            <p className="mt-3 text-center text-xs text-muted">
+              {s200.liste.length.toLocaleString('fr-FR')} paiements — affinez la recherche pour voir le reste
+              (200 affichés).
+            </p>
+          )}
+        </>
+      ) : view === 'echeances' ? (
         <>
           <p className="mb-4 text-sm text-muted">
             Suivi des étudiants qui paient <b className="text-ink">en plusieurs fois</b> (3× ou 6×) et qui ont
@@ -252,8 +382,8 @@ export default function PaiementsClient({
                 <p className="mt-1 text-3xl font-bold tracking-tight">{fcfa(revenue.total)}</p>
                 <p className="mt-1 text-xs text-white/60">{revenue.ventes.toLocaleString('fr-FR')} paiement(s) encaissé(s)</p>
               </div>
-              <div className="grid grid-cols-1 divide-y divide-line sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
-                {['1x', '3x', '6x', 'coach15'].map((p) => (
+              <div className="grid grid-cols-1 divide-y divide-line sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-5">
+                {['1x200', '1x', '3x', '6x', 'coach15'].map((p) => (
                   <div key={p} className="p-4">
                     <p className="text-xs font-medium text-muted">{PLAN_LABEL[p]}</p>
                     <p className="mt-0.5 text-lg font-bold tracking-tight text-ink">

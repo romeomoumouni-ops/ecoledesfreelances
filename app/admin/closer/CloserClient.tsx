@@ -14,7 +14,10 @@ import Avatar from '@/components/Avatar';
 
 const supabase = createClient();
 
-const TABS: { key: string; label: string; sub: string }[] = [
+type PlanKey = '1x200' | '1x' | '3x' | '6x';
+
+const TABS: { key: PlanKey; label: string; sub: string }[] = [
+  { key: '1x200', label: '200 000 FCFA', sub: 'Paiement en une fois' },
   { key: '1x', label: '98 000 FCFA', sub: 'Paiement en 1 fois' },
   { key: '3x', label: '45 000 FCFA', sub: 'Paiement en 3 fois' },
   { key: '6x', label: '20 000 FCFA', sub: 'Paiement en 6 fois' },
@@ -34,7 +37,7 @@ function WhatsAppIcon({ size = 16 }: { size?: number }) {
 
 export default function CloserClient({ achats, sansNumero }: { achats: Achat[]; sansNumero: number }) {
   const router = useRouter();
-  const [tab, setTab] = useState<'1x' | '3x' | '6x'>('1x');
+  const [tab, setTab] = useState<PlanKey>('1x200');
   const [recent, setRecent] = useState(true); // true = plus récent d'abord
   const [query, setQuery] = useState('');
   const [syncing, setSyncing] = useState(false);
@@ -48,7 +51,7 @@ export default function CloserClient({ achats, sansNumero }: { achats: Achat[]; 
       .channel('closer-ventes')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chariow_purchases' }, (payload) => {
         const p = payload.new as { plan?: string };
-        if (p.plan === '1x' || p.plan === '3x' || p.plan === '6x') router.refresh();
+        if (TABS.some((t) => t.key === p.plan)) router.refresh();
       })
       .subscribe();
     return () => {
@@ -57,7 +60,7 @@ export default function CloserClient({ achats, sansNumero }: { achats: Achat[]; 
   }, [router]);
 
   const counts = useMemo(() => {
-    const c: Record<string, number> = { '1x': 0, '3x': 0, '6x': 0 };
+    const c: Record<string, number> = { '1x200': 0, '1x': 0, '3x': 0, '6x': 0 };
     for (const a of achats) c[a.plan] = (c[a.plan] ?? 0) + 1;
     return c;
   }, [achats]);
@@ -136,7 +139,7 @@ export default function CloserClient({ achats, sansNumero }: { achats: Achat[]; 
         {TABS.map((t) => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key as '1x' | '3x' | '6x')}
+            onClick={() => setTab(t.key)}
             className={`rounded-xl border p-3 text-left transition ${
               tab === t.key ? 'border-ink bg-ink text-white' : 'border-line bg-white hover:border-[#dcdcda]'
             }`}
@@ -175,7 +178,7 @@ export default function CloserClient({ achats, sansNumero }: { achats: Achat[]; 
                   <p className="truncate font-semibold text-ink">{displayName}</p>
                   <p className="truncate text-xs text-muted">
                     {a.email} · a payé {timeAgo(a.last_paid_at)}
-                    {a.plan !== '1x' && ` · ${a.payments} paiement(s)`}
+                    {a.plan !== '1x' && a.plan !== '1x200' && ` · ${a.payments} paiement(s)`}
                   </p>
                 </div>
                 {phoneOk ? (

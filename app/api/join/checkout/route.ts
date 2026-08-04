@@ -5,8 +5,17 @@ import { joinGhostEmail } from '@/lib/ghost-email';
 export const dynamic = 'force-dynamic';
 
 // Produits d'accès à l'école (page de vente).
-const PRODUCTS: Record<'1x' | '3x', string> = { '1x': 'prd_97u01b', '3x': 'prd_ocqbu9' };
-const FALLBACK: Record<'1x' | '3x', string> = {
+// '1x200' = l'offre actuelle : 200 000 FCFA en UNE FOIS, accès à vie.
+// '1x'/'3x' = anciennes formules, conservées pour les liens déjà en circulation.
+type Plan = '1x200' | '1x' | '3x';
+
+const PRODUCTS: Record<Plan, string> = {
+  '1x200': 'prd_b4ip13ur',
+  '1x': 'prd_97u01b',
+  '3x': 'prd_ocqbu9',
+};
+const FALLBACK: Record<Plan, string> = {
+  '1x200': 'https://romeomoumouni.mychariow.shop/prd_b4ip13ur/checkout',
   '1x': 'https://romeomoumouni.mychariow.store/prd_97u01b/checkout',
   '3x': 'https://romeomoumouni.mychariow.store/prd_ocqbu9/checkout',
 };
@@ -25,7 +34,7 @@ export async function POST(req: NextRequest) {
   const name = (body.name ?? '').trim().slice(0, 80);
   const phone = (body.phone ?? '').replace(/\D/g, '');
   const country = (body.country ?? 'BJ').toUpperCase().slice(0, 2);
-  const plan: '1x' | '3x' = body.plan === '3x' ? '3x' : '1x';
+  const plan: Plan = body.plan === '3x' ? '3x' : body.plan === '1x' ? '1x' : '1x200';
 
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return NextResponse.json({ error: 'Entre une adresse e-mail valide.' }, { status: 400 });
