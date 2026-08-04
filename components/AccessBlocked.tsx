@@ -8,9 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 import Logo from '@/components/Logo';
 import { IconShield, IconArrowRight, IconLogout } from '@/components/Icons';
 
-// Régler une échéance : on renvoie l'élève vers SA formule d'origine.
 const PAY_LINKS: Record<string, string> = {
-  '1x200': 'https://romeomoumouni.mychariow.shop/prd_b4ip13ur/checkout',
   '1x': 'https://romeomoumouni.mychariow.store/prd_97u01b/checkout',
   '3x': 'https://romeomoumouni.mychariow.store/prd_ocqbu9/checkout',
   '6x': 'https://romeomoumouni.mychariow.shop/prd_mq2c4np5/checkout',
@@ -105,11 +103,17 @@ export default function AccessBlocked({ email, state }: { email: string; state: 
                 <IconArrowRight width={17} height={17} />
               </a>
             ) : (
-              /* Aucun achat : l'offre unique, 200 000 FCFA en une fois */
-              <a href="/paiement" className="btn-primary w-full">
-                Rejoindre l&apos;école — 200.000 FCFA
-                <IconArrowRight width={17} height={17} />
-              </a>
+              <>
+                <a href={PAY_LINKS['1x']} target="_blank" rel="noopener noreferrer" className="btn-primary w-full">
+                  Paiement en 1 fois <IconArrowRight width={17} height={17} />
+                </a>
+                <a href={PAY_LINKS['3x']} target="_blank" rel="noopener noreferrer" className="btn-outline w-full">
+                  Paiement en 3 fois
+                </a>
+                <a href={PAY_LINKS['6x']} target="_blank" rel="noopener noreferrer" className="btn-outline w-full">
+                  Paiement en 6 fois
+                </a>
+              </>
             )}
           </div>
 
