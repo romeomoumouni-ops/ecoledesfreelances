@@ -33,7 +33,7 @@ const mainMenu: MenuItem[] = [
   { href: '/super-coach', label: 'Super Coach Roméo', Icon: IconSparkle },
   { href: '/ai-post-maker', label: 'AI Post Maker', Icon: IconWand, accent: true },
   { href: '/communaute', label: 'Communauté', Icon: IconUsers },
-  { href: '/coaching', label: 'Coaching avec Roméo', Icon: IconTrend },
+  // { href: '/coaching', label: 'Coaching avec Roméo', Icon: IconTrend }, // masqué temporairement — décommenter pour le remettre
 ];
 
 const settingMenu = [
