@@ -343,11 +343,13 @@ export default function Feed({
         />
       )}
 
-      {loading ? (
+      {loading && !posts.length ? (
         <p className="py-8 text-center text-sm text-muted">Chargement…</p>
       ) : posts.length ? (
         <>
-          <div className="space-y-4">
+          {/* Pendant un changement de page, on garde le fil et les boutons en
+              place (simplement estompés) : pas de saut ni de page blanche. */}
+          <div className={`space-y-4 transition-opacity ${loading ? 'opacity-40' : ''}`}>
             {posts.map((p) => (
               <PostCard
                 key={p.id}
