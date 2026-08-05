@@ -20,6 +20,11 @@ import { prettyName } from '@/lib/format';
 
 const supabase = createClient();
 
+// Nombre de publications par page. Avant, le fil chargeait TOUT le canal d'un
+// coup (près de 300 posts, dont ~190 avec photo ou vidéo) : la connexion
+// saturait et la page ramait. On charge désormais une page à la fois.
+const PAGE_SIZE = 15;
+
 export type FeedUser = { id: string; name: string; isAdmin: boolean; avatarUrl: string | null };
 
 type Post = {
@@ -117,16 +122,25 @@ export default function Feed({
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [page, setPage] = useState(0); // 0 = première page
+  const [total, setTotal] = useState(0); // nombre total de publications du canal
+  const topRef = useRef<HTMLDivElement>(null);
+  // Le temps réel doit savoir sur quelle page on est sans se réabonner.
+  const pageRef = useRef(0);
+  pageRef.current = page;
 
-  async function loadFeed() {
+  async function loadFeed(p: number) {
     setLoading(true);
-    const { data } = await supabase
+    const from = p * PAGE_SIZE;
+    const { data, count } = await supabase
       .from('community_posts')
-      .select('*, community_likes(count), community_comments(count)')
+      .select('*, community_likes(count), community_comments(count)', { count: 'exact' })
       .eq('channel', channel)
       .eq('flagged', false) // les posts signalés (remboursement/révolte) sont masqués
       .order('pinned', { ascending: false }) // épinglés en premier
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+    setTotal(count ?? 0);
     const rows = data ?? [];
     let liked = new Set<string>();
     const ids = rows.map((r: { id: string }) => r.id);
@@ -150,9 +164,16 @@ export default function Feed({
   }
 
   useEffect(() => {
-    loadFeed();
+    loadFeed(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [channel]);
+  }, [channel, page]);
+
+  /** Change de page et remonte en haut du fil. */
+  function goToPage(p: number) {
+    if (p === page) return;
+    setPage(p);
+    topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   // Temps réel : posts, likes et commentaires des autres apparaissent sans recharger
   useEffect(() => {
@@ -165,10 +186,17 @@ export default function Feed({
         (payload) => {
           const p = payload.new as Post & { flagged?: boolean };
           if (p.flagged) return; // post signalé → ne pas afficher dans le fil
+          setTotal((n) => n + 1);
+          // Une nouvelle publication va toujours en tête du fil : on ne l'insère
+          // donc que si on est sur la première page (sinon on décalerait tout).
+          if (pageRef.current !== 0) return;
           setPosts((prev) =>
             prev.some((x) => x.id === p.id)
               ? prev
-              : sortPosts([{ ...p, likeCount: 0, commentCount: 0, likedByMe: false }, ...prev])
+              : sortPosts([{ ...p, likeCount: 0, commentCount: 0, likedByMe: false }, ...prev]).slice(
+                  0,
+                  PAGE_SIZE
+                )
           );
         }
       )
@@ -177,7 +205,11 @@ export default function Feed({
         { event: 'DELETE', schema: 'public', table: 'community_posts' },
         (payload) => {
           const id = (payload.old as { id: string }).id;
-          setPosts((prev) => prev.filter((p) => p.id !== id));
+          setPosts((prev) => {
+            if (!prev.some((p) => p.id === id)) return prev;
+            setTotal((n) => Math.max(0, n - 1));
+            return prev.filter((p) => p.id !== id);
+          });
         }
       )
       .on(
@@ -244,7 +276,11 @@ export default function Feed({
       // Échec serveur : on remet la publication et on prévient.
       setPosts(before);
       setErr('La suppression a échoué. Réessaie.');
+      return;
     }
+    setTotal((n) => Math.max(0, n - 1));
+    // On recharge la page pour la recompléter avec la publication suivante.
+    void loadFeed(page);
   }
 
   async function toggleLike(post: Post) {
@@ -278,8 +314,12 @@ export default function Feed({
     }
   }
 
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
   return (
     <>
+      <div ref={topRef} className="scroll-mt-24" />
+
       {err && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
 
       {canPost && (
@@ -287,7 +327,18 @@ export default function Feed({
           me={me}
           channel={channel}
           placeholder={placeholder}
-          onPosted={(p) => setPosts((ps) => (ps.some((x) => x.id === p.id) ? ps : sortPosts([p, ...ps])))}
+          onPosted={(p) => {
+            setTotal((n) => n + 1);
+            // Publier depuis une page suivante : on revient à la page 1, là où
+            // la nouvelle publication apparaît.
+            if (page !== 0) {
+              goToPage(0);
+              return;
+            }
+            setPosts((ps) =>
+              ps.some((x) => x.id === p.id) ? ps : sortPosts([p, ...ps]).slice(0, PAGE_SIZE)
+            );
+          }}
           onError={setErr}
         />
       )}
@@ -295,18 +346,22 @@ export default function Feed({
       {loading ? (
         <p className="py-8 text-center text-sm text-muted">Chargement…</p>
       ) : posts.length ? (
-        <div className="space-y-4">
-          {posts.map((p) => (
-            <PostCard
-              key={p.id}
-              post={p}
-              me={me}
-              onLike={() => toggleLike(p)}
-              onDelete={() => deletePost(p.id)}
-              onTogglePin={() => togglePin(p)}
-            />
-          ))}
-        </div>
+        <>
+          <div className="space-y-4">
+            {posts.map((p) => (
+              <PostCard
+                key={p.id}
+                post={p}
+                me={me}
+                onLike={() => toggleLike(p)}
+                onDelete={() => deletePost(p.id)}
+                onTogglePin={() => togglePin(p)}
+              />
+            ))}
+          </div>
+
+          <Pagination page={page} pageCount={pageCount} total={total} onGo={goToPage} />
+        </>
       ) : (
         <EmptyState
           Icon={IconUsers}
@@ -315,6 +370,89 @@ export default function Feed({
         />
       )}
     </>
+  );
+}
+
+/* ---------- Pagination ---------- */
+/** Numéros de page à afficher, avec des « … » quand il y en a beaucoup. */
+function pageNumbers(page: number, pageCount: number): (number | '…')[] {
+  if (pageCount <= 7) return Array.from({ length: pageCount }, (_, i) => i);
+  const out: (number | '…')[] = [0];
+  const start = Math.max(1, page - 1);
+  const end = Math.min(pageCount - 2, page + 1);
+  if (start > 1) out.push('…');
+  for (let i = start; i <= end; i++) out.push(i);
+  if (end < pageCount - 2) out.push('…');
+  out.push(pageCount - 1);
+  return out;
+}
+
+function Pagination({
+  page,
+  pageCount,
+  total,
+  onGo,
+}: {
+  page: number;
+  pageCount: number;
+  total: number;
+  onGo: (p: number) => void;
+}) {
+  if (pageCount <= 1) return null;
+  const btn =
+    'grid h-9 min-w-9 shrink-0 place-items-center rounded-lg px-2.5 text-sm font-semibold transition disabled:opacity-40';
+
+  return (
+    <nav className="mt-6 flex flex-col items-center gap-3" aria-label="Pages du fil">
+      {/* Sur mobile, les numéros passent à la ligne au lieu de déborder */}
+      <div className="flex flex-wrap items-center justify-center gap-1.5">
+        <button
+          onClick={() => onGo(page - 1)}
+          disabled={page === 0}
+          className={`${btn} border border-line bg-white text-ink hover:bg-black/[0.03] disabled:hover:bg-white`}
+          aria-label="Page précédente"
+        >
+          ‹
+        </button>
+
+        <span className="flex flex-wrap items-center justify-center gap-1.5">
+          {pageNumbers(page, pageCount).map((n, i) =>
+            n === '…' ? (
+              <span key={`gap-${i}`} className="px-1 text-sm text-muted">
+                …
+              </span>
+            ) : (
+              <button
+                key={n}
+                onClick={() => onGo(n)}
+                aria-current={n === page ? 'page' : undefined}
+                className={`${btn} ${
+                  n === page
+                    ? 'bg-ink text-white'
+                    : 'border border-line bg-white text-muted hover:bg-black/[0.03] hover:text-ink'
+                }`}
+              >
+                {n + 1}
+              </button>
+            )
+          )}
+        </span>
+
+        <button
+          onClick={() => onGo(page + 1)}
+          disabled={page >= pageCount - 1}
+          className={`${btn} border border-line bg-white text-ink hover:bg-black/[0.03] disabled:hover:bg-white`}
+          aria-label="Page suivante"
+        >
+          ›
+        </button>
+      </div>
+
+      <p className="text-xs text-muted">
+        Page {page + 1} sur {pageCount} · {total.toLocaleString('fr-FR')} publication
+        {total > 1 ? 's' : ''}
+      </p>
+    </nav>
   );
 }
 
@@ -568,7 +706,14 @@ function PostCard({
       {post.media_url && (
         <div className="mt-3 overflow-hidden rounded-lg border border-line">
           {post.media_type === 'video' ? (
-            <video src={post.media_url} controls className="max-h-[470px] w-full bg-ink" />
+            /* preload="none" : la vidéo ne se télécharge QUE si l'élève la lance */
+            <video
+              src={post.media_url}
+              controls
+              preload="none"
+              playsInline
+              className="max-h-[470px] w-full bg-ink"
+            />
           ) : post.media_type === 'pdf' ? (
             <a
               href={post.media_url}
@@ -588,9 +733,12 @@ function PostCard({
             // eslint-disable-next-line @next/next/no-img-element
             // Hauteur contenue façon LinkedIn ; clic = image en grand
             <a href={post.media_url} target="_blank" rel="noopener noreferrer" title="Voir l'image en grand">
+              {/* loading="lazy" : l'image n'est téléchargée qu'en arrivant à l'écran */}
               <img
                 src={post.media_url}
                 alt={`Image partagée par ${prettyName(post.author_name)}`}
+                loading="lazy"
+                decoding="async"
                 className="max-h-[470px] w-full object-cover transition hover:opacity-95"
               />
             </a>
