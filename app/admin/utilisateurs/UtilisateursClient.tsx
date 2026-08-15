@@ -488,8 +488,9 @@ function ManuelsList({
   async function give() {
     const v = email.trim().toLowerCase();
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return onError(new Error('Adresse e-mail invalide.'));
-    if (dejaAcheteurs.some((a) => a.email === v) || list.some((m) => m.email.toLowerCase() === v))
-      return onError(new Error('Cet e-mail a déjà un accès (paiement ou manuel).'));
+    // Pas de refus si l'e-mail est déjà connu : un accès EXPIRÉ doit pouvoir
+    // être réactivé ici (paiement reçu par Western Union, etc.). Le serveur
+    // décide : accès à vie déjà actif = rien à faire, sinon mise à jour.
     setBusy(true);
     // Route serveur : crée l'accès (access_grants) selon le plan ET envoie l'e-mail de bienvenue
     try {
@@ -504,7 +505,9 @@ function ManuelsList({
         plan === '1x' ? 'à vie (1 fois)' : plan === '3x' ? '3 fois (30 j)' : '6 fois (30 j)';
       setInfo(
         j?.already
-          ? `${v} a déjà un accès — rien n'a été modifié (aucun e-mail renvoyé).`
+          ? `${v} a déjà un accès à vie actif — rien à modifier.`
+          : j?.updated
+          ? `Accès de ${v} mis à jour en « ${planLabel} ». Son compte est réactivé immédiatement.`
           : `Accès « ${planLabel} » donné à ${v}. E-mail de bienvenue envoyé. La personne peut créer son compte avec cet e-mail.`
       );
       setTimeout(() => setInfo(null), 9000);

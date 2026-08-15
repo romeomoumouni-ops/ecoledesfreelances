@@ -35,8 +35,15 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabase.rpc('admin_manual_grant', { p_email: email, p_plan: plan });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  if ((data as { status?: string } | null)?.status === 'already') {
+  const status = (data as { status?: string } | null)?.status;
+  if (status === 'already') {
+    // Accès à vie déjà actif : rien à changer, pas d'e-mail.
     return NextResponse.json({ ok: true, already: true });
+  }
+  if (status === 'updated') {
+    // Réactivation / changement de plan : la personne a déjà son compte,
+    // pas besoin de renvoyer l'e-mail de bienvenue.
+    return NextResponse.json({ ok: true, updated: true, plan });
   }
 
   // Nouvel accès : e-mail de bienvenue (silencieux si non configuré)

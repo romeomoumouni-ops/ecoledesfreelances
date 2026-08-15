@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { ensureRealtimeAuth } from '@/lib/realtime';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
-import DeviceGuard from './DeviceGuard';
+// import DeviceGuard from './DeviceGuard'; // limite des 3 appareils retirée — trop de blocages à tort (l'identifiant d'appareil sautait au nettoyage du navigateur)
 import TranchePayBanner, { type Installment } from './TranchePayBanner';
 
 export type ShellProfile = {
@@ -110,7 +110,7 @@ export default function AppShell({
 
   return (
     <div className="min-h-screen bg-surface">
-      <DeviceGuard />
+      {/* <DeviceGuard /> — retiré : e-mail + mot de passe suffisent désormais */}
       <Sidebar
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
