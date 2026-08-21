@@ -76,8 +76,8 @@ export async function middleware(request: NextRequest) {
       url.pathname = '/tableau-de-bord';
       return NextResponse.redirect(url);
     }
-    // L'espace « Accès super admin » (CA, paiements) est réservé au super admin
-    if (path.startsWith('/admin/paiements') && !prof?.is_super_admin) {
+    // Espaces réservés au super admin : paiements (CA) et Bible de lancement
+    if ((path.startsWith('/admin/paiements') || path.startsWith('/admin/lancement')) && !prof?.is_super_admin) {
       const url = request.nextUrl.clone();
       url.pathname = '/admin';
       return NextResponse.redirect(url);

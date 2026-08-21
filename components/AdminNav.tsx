@@ -16,6 +16,7 @@ import {
   IconWand,
   IconPhone,
   IconArrowRight,
+  IconTarget,
 } from './Icons';
 
 const items = [
@@ -32,12 +33,11 @@ const items = [
   { href: '/admin/utilisateurs', label: 'Utilisateurs', Icon: IconUsers },
 ];
 
-// Visible uniquement pour le super admin (compte fondateur)
-const superAdminItem: (typeof items)[number] = {
-  href: '/admin/paiements',
-  label: 'Accès super admin',
-  Icon: IconCard,
-};
+// Visibles uniquement pour le super admin (compte fondateur)
+const superAdminItems: (typeof items)[number][] = [
+  { href: '/admin/paiements', label: 'Accès super admin', Icon: IconCard },
+  { href: '/admin/lancement', label: 'Bible de lancement', Icon: IconTarget },
+];
 
 export default function AdminNav({
   messagesUnread = 0,
@@ -57,7 +57,7 @@ export default function AdminNav({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <nav className="flex flex-wrap gap-1">
-        {[...items, ...(superAdmin ? [superAdminItem] : [])].map((it) => {
+        {[...items, ...(superAdmin ? superAdminItems : [])].map((it) => {
           const on = active(it.href, it.exact);
           const badge = badgeFor(it.href);
           return (
