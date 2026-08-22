@@ -44,6 +44,24 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    title: 'Groupe Facebook',
+    emoji: '📘',
+    items: [
+      { key: 'fb_creer', label: 'Créer le groupe Facebook du lancement' },
+      { key: 'fb_admins', label: 'Ajouter les administrateurs du groupe' },
+      {
+        key: 'fb_parametres',
+        label: 'Vérifier tous les paramètres habituels du groupe',
+        hint: 'Confidentialité, questions d’entrée, règles, approbation des membres…',
+      },
+      {
+        key: 'fb_verif',
+        label: 'Dernier contrôle : le groupe est prêt à recevoir du monde',
+        hint: 'Se poser la question franchement : « Es-tu sûr que le groupe est bien fait ? »',
+      },
+    ],
+  },
+  {
     title: 'Systeme.io — Page d’opt-in',
     emoji: '🎯',
     items: [
