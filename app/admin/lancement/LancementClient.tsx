@@ -44,6 +44,22 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    title: 'Communautés WhatsApp',
+    emoji: '👥',
+    items: [
+      { key: 'com_pretes', label: 'Les 8 communautés sont créées et prêtes' },
+      {
+        key: 'com_marianne',
+        label: 'Lien envoyé à Marianne pour l’ajout des administrateurs',
+      },
+      {
+        key: 'com_admins',
+        label: 'Tous les administrateurs sont présents dans chacune des 8 communautés',
+        hint: 'À vérifier une par une avant de cocher.',
+      },
+    ],
+  },
+  {
     title: 'Groupe Facebook',
     emoji: '📘',
     items: [
@@ -89,18 +105,13 @@ const SECTIONS: Section[] = [
     ],
   },
   {
-    title: 'Communautés WhatsApp',
-    emoji: '👥',
+    title: 'Page de l’espace membre',
+    emoji: '🏠',
     items: [
-      { key: 'com_pretes', label: 'Les 8 communautés sont créées et prêtes' },
       {
-        key: 'com_marianne',
-        label: 'Lien envoyé à Marianne pour l’ajout des administrateurs',
-      },
-      {
-        key: 'com_admins',
-        label: 'Tous les administrateurs sont présents dans chacune des 8 communautés',
-        hint: 'À vérifier une par une avant de cocher.',
+        key: 'membre_lien_fb',
+        label: 'Changer le lien du groupe Facebook sur la page de l’espace membre',
+        hint: 'Le lien doit pointer vers le NOUVEAU groupe du lancement, pas l’ancien.',
       },
     ],
   },
