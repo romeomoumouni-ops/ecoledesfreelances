@@ -132,6 +132,18 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    title: 'Lives',
+    emoji: '🎥',
+    items: [
+      { key: 'live_programmer', label: 'Programmer les lives du lancement' },
+      {
+        key: 'live_liens_sio',
+        label: 'Remplacer les liens derrière la page de live sur Systeme.io',
+        hint: 'Chaque bouton de la page de live doit pointer vers le NOUVEAU live, pas l’ancien.',
+      },
+    ],
+  },
+  {
     title: 'Vérifications finales',
     emoji: '✅',
     items: [
