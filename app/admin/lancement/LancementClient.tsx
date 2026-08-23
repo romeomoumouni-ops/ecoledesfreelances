@@ -116,6 +116,22 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    title: 'Tally — Formulaires d’exercices',
+    emoji: '📝',
+    items: [
+      {
+        key: 'tally_lien_fb',
+        label: 'Changer le lien du groupe Facebook derrière les formulaires Tally des exercices',
+        hint: 'Passer les formulaires un par un — chacun doit envoyer vers le NOUVEAU groupe.',
+      },
+      {
+        key: 'tally_test',
+        label: 'Soumettre un formulaire pour vérifier la redirection',
+        hint: 'Remplir un exercice comme un élève : on doit atterrir dans le nouveau groupe.',
+      },
+    ],
+  },
+  {
     title: 'Vérifications finales',
     emoji: '✅',
     items: [
