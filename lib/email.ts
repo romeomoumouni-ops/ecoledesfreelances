@@ -172,3 +172,53 @@ export async function sendPostMakerEmail(to: string, validUntil: string | null):
     `Génère des posts et des messages de prospection à volonté, directement depuis ton espace 🚀`;
   return send(to, subject, confirmTemplate('Abonnement activé 🎉', body, 'Ouvrir AI Post Maker →', `${SITE_URL}/ai-post-maker`));
 }
+
+/**
+ * Relance des acheteurs qui ont payé mais n'ont JAMAIS créé leur compte.
+ * On leur rappelle que leur accès est bien actif et on leur redonne le chemin
+ * exact : créer son compte avec l'adresse utilisée pour payer.
+ */
+export async function sendAccessReminderEmail(to: string, nom?: string | null): Promise<boolean> {
+  const prenom = (nom ?? '').trim().split(/\s+/)[0] ?? '';
+  const bonjour = prenom ? `Bonjour ${escapeHtml(prenom)},` : 'Bonjour,';
+  const subject = 'Ton accès t’attend — tu n’as pas encore créé ton compte 👀';
+  const html = `
+  <div style="margin:0;padding:24px;background:#f7f7f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1d1d1f;">
+    <div style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #ececeb;border-radius:16px;overflow:hidden;">
+      <div style="padding:28px 28px 8px;">
+        <div style="font-size:17px;font-weight:700;">L'École des Freelances</div>
+      </div>
+      <div style="padding:8px 28px 28px;">
+        <h1 style="font-size:20px;font-weight:700;margin:12px 0 8px;">Ton accès est actif, mais ton compte n'existe pas encore</h1>
+        <p style="font-size:14px;line-height:1.6;color:#4a4a4a;margin:0 0 14px;">
+          ${bonjour}<br/><br/>
+          Ton paiement pour rejoindre <b>L'École des Freelances</b> a bien été reçu et
+          <b>ton accès est activé</b>. Mais on voit que tu ne t'es pas encore connecté(e)
+          à la plateforme depuis ton achat.
+        </p>
+        <div style="background:#f7f7f5;border-radius:12px;padding:14px 16px;margin:16px 0;">
+          <p style="font-size:13px;line-height:1.7;color:#1d1d1f;margin:0;">
+            <b>Ce qu'il te reste à faire (2 minutes) :</b><br/>
+            1️⃣ Clique sur le bouton ci-dessous<br/>
+            2️⃣ Crée ton compte avec <b>cette adresse e-mail exactement</b> : ${escapeHtml(to)}<br/>
+            3️⃣ Choisis un mot de passe et <b>note-le bien</b><br/><br/>
+            🔒 Ton accès s'ouvre automatiquement dès la création du compte.
+          </p>
+        </div>
+        <div style="text-align:center;margin:26px 0 10px;">
+          <a href="${SITE_URL}/inscription" style="display:inline-block;background:#1d1d1f;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 28px;border-radius:12px;">
+            Créer mon compte maintenant →
+          </a>
+        </div>
+        <p style="font-size:12px;line-height:1.6;color:#8a8a8a;text-align:center;margin:14px 0 0;">
+          Tu as déjà un compte ? <a href="${SITE_URL}/connexion" style="color:#4a4a4a;">Connecte-toi ici</a>.<br/>
+          Un souci pour entrer ? Réponds simplement à cet e-mail, on s'occupe de toi.
+        </p>
+      </div>
+    </div>
+    <p style="max-width:520px;margin:14px auto 0;font-size:11px;color:#a0a0a0;text-align:center;">
+      L'École des Freelances — tu reçois cet e-mail car un accès a été activé pour cette adresse.
+    </p>
+  </div>`;
+  return send(to, subject, html);
+}

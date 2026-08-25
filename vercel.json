@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/weekly-boost",
       "schedule": "0 7 * * 1"
+    },
+    {
+      "path": "/api/cron/relance-non-inscrits",
+      "schedule": "0 8 * * *"
     }
   ]
 }
