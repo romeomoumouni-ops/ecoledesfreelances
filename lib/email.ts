@@ -242,3 +242,66 @@ export async function sendAccessReminderEmail(
   </div>`;
   return send(to, subject, html, scheduledAt);
 }
+
+export type SuspectAddress = {
+  adresse_actuelle: string;
+  client: string;
+  whatsapp: string;
+  a_un_compte: boolean;
+  correction_proposee: string;
+  deja_utilisee: boolean;
+};
+
+/**
+ * Rapport du lundi envoyé au fondateur : qui a été relancé, et surtout les
+ * adresses qui ressemblent à une faute de frappe — avec le WhatsApp du client
+ * pour trancher en quelques secondes. Aucune correction n'est faite tout seul.
+ */
+export async function sendWeeklyAccessReport(
+  to: string,
+  relances: number,
+  suspects: SuspectAddress[]
+): Promise<boolean> {
+  const lignes = suspects
+    .map((s) => {
+      const wa = s.whatsapp
+        ? `<a href="https://wa.me/${s.whatsapp}" style="color:#1d1d1f;font-weight:600;">WhatsApp →</a>`
+        : '<span style="color:#a0a0a0;">pas de numéro</span>';
+      const etat = s.a_un_compte
+        ? '<span style="color:#b45309;">a un compte (ne reçoit aucun e-mail)</span>'
+        : '<span style="color:#c2410c;">aucun compte créé</span>';
+      const conflit = s.deja_utilisee
+        ? '<br/><b style="color:#dc2626;">⚠ l’adresse corrigée est déjà prise — vérifier avant de toucher</b>'
+        : '';
+      return `<tr><td style="padding:12px 0;border-bottom:1px solid #ececeb;font-size:13px;line-height:1.6;">
+        <b>${escapeHtml(s.client || s.adresse_actuelle)}</b> · ${wa}<br/>
+        Saisi : <code style="background:#f7f7f5;padding:2px 5px;border-radius:4px;">${escapeHtml(s.adresse_actuelle)}</code><br/>
+        Sans doute : <code style="background:#ecfdf5;padding:2px 5px;border-radius:4px;">${escapeHtml(s.correction_proposee)}</code><br/>
+        ${etat}${conflit}
+      </td></tr>`;
+    })
+    .join('');
+
+  const bloc = suspects.length
+    ? `<h2 style="font-size:15px;font-weight:700;margin:26px 0 6px;">✍️ ${suspects.length} adresse(s) probablement mal saisie(s)</h2>
+       <p style="font-size:13px;color:#6a6a6a;margin:0 0 8px;">Confirme par WhatsApp avant toute correction — puis dis-le-moi.</p>
+       <table style="width:100%;border-collapse:collapse;">${lignes}</table>`
+    : `<p style="font-size:13px;color:#6a6a6a;margin:22px 0 0;">✅ Aucune adresse suspecte cette semaine.</p>`;
+
+  const html = `
+  <div style="margin:0;padding:24px;background:#f7f7f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1d1d1f;">
+    <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #ececeb;border-radius:16px;padding:28px;">
+      <div style="font-size:17px;font-weight:700;">L'École des Freelances</div>
+      <h1 style="font-size:20px;font-weight:700;margin:14px 0 8px;">Rapport d'accès du lundi</h1>
+      <p style="font-size:14px;line-height:1.6;color:#4a4a4a;margin:0;">
+        <b>${relances}</b> personne(s) qui avaient payé sans jamais créer leur compte viennent
+        d'être relancées automatiquement.
+      </p>
+      ${bloc}
+      <div style="text-align:center;margin:28px 0 4px;">
+        <a href="${SITE_URL}/admin/utilisateurs" style="display:inline-block;background:#1d1d1f;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 24px;border-radius:12px;">Ouvrir l'espace admin →</a>
+      </div>
+    </div>
+  </div>`;
+  return send(to, `Accès — rapport du lundi : ${relances} relance(s), ${suspects.length} adresse(s) à vérifier`, html);
+}

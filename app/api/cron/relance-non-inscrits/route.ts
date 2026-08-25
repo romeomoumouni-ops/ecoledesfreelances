@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
-import { sendAccessReminderEmail } from '@/lib/email';
+import { sendAccessReminderEmail, sendWeeklyAccessReport, type SuspectAddress } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -87,8 +87,27 @@ export async function GET(req: NextRequest) {
     await new Promise((r) => setTimeout(r, 600)); // limite de débit Resend (2/s)
   }
 
+  // Rapport au fondateur : ce qui a été relancé + les adresses qui ressemblent
+  // à une faute de frappe (avec le WhatsApp du client). On ne corrige jamais
+  // une adresse tout seul : envoyer les accès d'un élève à un inconnu qui
+  // posséderait l'adresse « corrigée » serait pire que le problème.
+  const { data: suspectsRaw } = await supabase.rpc('suspect_email_domains', {
+    p_secret: process.env.CHARIOW_GRANT_SECRET,
+    p_days: days,
+  });
+  const suspects = (suspectsRaw ?? []) as SuspectAddress[];
+
+  const { data: patron } = await supabase.rpc('super_admin_email', {
+    p_secret: process.env.CHARIOW_GRANT_SECRET,
+  });
+  let rapport = false;
+  if (typeof patron === 'string' && patron) {
+    rapport = await sendWeeklyAccessReport(patron, sent, suspects);
+  }
+
   return NextResponse.json({
     ok: true, candidats: list.length, envoyes: sent, echecs: failed,
+    adresses_suspectes: suspects.length, rapport_envoye: rapport,
     ...(at ? { livraison_prevue: at } : {}),
   });
 }
