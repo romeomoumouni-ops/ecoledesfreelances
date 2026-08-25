@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/server';
 import { sendAccessReminderEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
@@ -16,9 +17,10 @@ export const maxDuration = 60;
  * - fenêtre de 30 jours par défaut : les 1869 achats importés en masse le
  *   03/07/2026 (reprise d'historique) ne sont jamais relancés automatiquement.
  *
- * Sécurité : header du cron Vercel (Bearer CRON_SECRET) ou
- * ?token=CHARIOW_WEBHOOK_TOKEN pour un déclenchement manuel.
- * Options : &days=N (fenêtre) · &dry=1 (liste sans envoyer).
+ * Sécurité : header du cron Vercel (Bearer CRON_SECRET), ou
+ * ?token=CHARIOW_WEBHOOK_TOKEN, ou une session super admin connectée.
+ * Options : &days=N (fenêtre) · &dry=1 (liste sans envoyer)
+ *           &test=email (envoi d'un exemplaire à cette adresse seulement).
  */
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization');
@@ -26,10 +28,28 @@ export async function GET(req: NextRequest) {
   const okToken =
     !!process.env.CHARIOW_WEBHOOK_TOKEN &&
     req.nextUrl.searchParams.get('token') === process.env.CHARIOW_WEBHOOK_TOKEN;
-  if (!okCron && !okToken) return NextResponse.json({ ok: false }, { status: 401 });
+  // Sinon : super admin connecté (pour tester depuis l'espace admin)
+  let okSuper = false;
+  if (!okCron && !okToken) {
+    const sb = createClient();
+    const { data: { user } } = await sb.auth.getUser();
+    if (user) {
+      const { data: prof } = await sb
+        .from('profiles').select('is_super_admin').eq('id', user.id).maybeSingle();
+      okSuper = !!prof?.is_super_admin;
+    }
+  }
+  if (!okCron && !okToken && !okSuper) return NextResponse.json({ ok: false }, { status: 401 });
 
   const days = Math.min(365, Math.max(1, Number(req.nextUrl.searchParams.get('days')) || 30));
   const dry = req.nextUrl.searchParams.get('dry') === '1';
+  const test = (req.nextUrl.searchParams.get('test') ?? '').trim().toLowerCase();
+
+  // Test : un exemplaire de l'e-mail à une adresse choisie, rien d'autre.
+  if (test) {
+    const ok = await sendAccessReminderEmail(test, 'Test');
+    return NextResponse.json({ ok, test, envoye: ok });
+  }
 
   const supabase = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
