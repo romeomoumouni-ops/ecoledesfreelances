@@ -42,7 +42,13 @@ export async function GET(req: NextRequest) {
   }
   if (!okCron && !okToken && !okSuper) return NextResponse.json({ ok: false }, { status: 401 });
 
-  const days = Math.min(365, Math.max(1, Number(req.nextUrl.searchParams.get('days')) || 30));
+  // GARDE-FOU : le 03/07/2026, 1869 achats ont été importés en masse (reprise
+  // de l'historique). Ces contacts anciens ne doivent JAMAIS être relancés.
+  // La fenêtre est donc plafonnée pour ne jamais remonter avant le 10/07/2026.
+  const IMPORT_EN_MASSE = new Date('2026-07-10T00:00:00Z').getTime();
+  const maxDays = Math.floor((Date.now() - IMPORT_EN_MASSE) / 86400000);
+  const asked = Number(req.nextUrl.searchParams.get('days')) || 30;
+  const days = Math.min(maxDays, Math.max(1, asked));
   const dry = req.nextUrl.searchParams.get('dry') === '1';
   const test = (req.nextUrl.searchParams.get('test') ?? '').trim().toLowerCase();
   // Livraison différée (ex. préparer maintenant, arriver à 9 h) — Resend garde
@@ -108,6 +114,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true, candidats: list.length, envoyes: sent, echecs: failed,
     adresses_suspectes: suspects.length, rapport_envoye: rapport,
+    fenetre_jours: days, ...(asked > days ? { fenetre_plafonnee: true } : {}),
     ...(at ? { livraison_prevue: at } : {}),
   });
 }
