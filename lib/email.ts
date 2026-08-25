@@ -7,14 +7,30 @@ function fromAddress(): string {
   return process.env.RESEND_FROM || "L'École des Freelances <onboarding@resend.dev>";
 }
 
-async function send(to: string, subject: string, html: string): Promise<boolean> {
+/**
+ * Envoi d'un e-mail. `scheduledAt` (ISO 8601) confie la livraison à Resend pour
+ * plus tard : utile pour préparer un envoi maintenant et le faire arriver à une
+ * heure choisie (ex. 9 h au Bénin).
+ */
+async function send(
+  to: string,
+  subject: string,
+  html: string,
+  scheduledAt?: string
+): Promise<boolean> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return false; // e-mail non configuré : on ignore proprement
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: fromAddress(), to, subject, html }),
+      body: JSON.stringify({
+        from: fromAddress(),
+        to,
+        subject,
+        html,
+        ...(scheduledAt ? { scheduled_at: scheduledAt } : {}),
+      }),
     });
     return res.ok;
   } catch {
@@ -178,7 +194,11 @@ export async function sendPostMakerEmail(to: string, validUntil: string | null):
  * On leur rappelle que leur accès est bien actif et on leur redonne le chemin
  * exact : créer son compte avec l'adresse utilisée pour payer.
  */
-export async function sendAccessReminderEmail(to: string, nom?: string | null): Promise<boolean> {
+export async function sendAccessReminderEmail(
+  to: string,
+  nom?: string | null,
+  scheduledAt?: string
+): Promise<boolean> {
   const prenom = (nom ?? '').trim().split(/\s+/)[0] ?? '';
   const bonjour = prenom ? `Bonjour ${escapeHtml(prenom)},` : 'Bonjour,';
   const subject = 'Ton accès t’attend — tu n’as pas encore créé ton compte 👀';
@@ -220,5 +240,5 @@ export async function sendAccessReminderEmail(to: string, nom?: string | null): 
       L'École des Freelances — tu reçois cet e-mail car un accès a été activé pour cette adresse.
     </p>
   </div>`;
-  return send(to, subject, html);
+  return send(to, subject, html, scheduledAt);
 }

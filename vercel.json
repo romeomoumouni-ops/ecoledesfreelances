@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/relance-non-inscrits",
-      "schedule": "0 8 * * *"
+      "schedule": "0 14 * * 1"
     }
   ]
 }

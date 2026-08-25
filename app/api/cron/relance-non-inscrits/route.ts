@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 /**
- * Relance quotidienne (9 h heure du Bénin, cf. vercel.json) des personnes qui
+ * Relance hebdomadaire (LUNDI 15 h heure du Bénin, cf. vercel.json) des personnes qui
  * ont PAYÉ mais n'ont JAMAIS créé leur compte : leur accès est actif, elles ne
  * le savent pas ou n'ont pas vu l'e-mail de bienvenue.
  *
@@ -20,7 +20,8 @@ export const maxDuration = 60;
  * Sécurité : header du cron Vercel (Bearer CRON_SECRET), ou
  * ?token=CHARIOW_WEBHOOK_TOKEN, ou une session super admin connectée.
  * Options : &days=N (fenêtre) · &dry=1 (liste sans envoyer)
- *           &test=email (envoi d'un exemplaire à cette adresse seulement).
+ *           &test=email (exemplaire à cette adresse seulement)
+ *           &at=ISO8601 (livraison différée confiée à Resend).
  */
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization');
@@ -44,10 +45,13 @@ export async function GET(req: NextRequest) {
   const days = Math.min(365, Math.max(1, Number(req.nextUrl.searchParams.get('days')) || 30));
   const dry = req.nextUrl.searchParams.get('dry') === '1';
   const test = (req.nextUrl.searchParams.get('test') ?? '').trim().toLowerCase();
+  // Livraison différée (ex. préparer maintenant, arriver à 9 h) — Resend garde
+  // l'e-mail en file et le délivre à l'heure demandée.
+  const at = (req.nextUrl.searchParams.get('at') ?? '').trim() || undefined;
 
   // Test : un exemplaire de l'e-mail à une adresse choisie, rien d'autre.
   if (test) {
-    const ok = await sendAccessReminderEmail(test, 'Test');
+    const ok = await sendAccessReminderEmail(test, 'Test', at);
     return NextResponse.json({ ok, test, envoye: ok });
   }
 
@@ -69,7 +73,7 @@ export async function GET(req: NextRequest) {
   let sent = 0;
   const failed: string[] = [];
   for (const r of list) {
-    const ok = await sendAccessReminderEmail(r.email, r.nom);
+    const ok = await sendAccessReminderEmail(r.email, r.nom, at);
     if (ok) {
       sent++;
       // Marqué seulement si l'envoi a réussi : un échec sera retenté demain.
@@ -83,5 +87,8 @@ export async function GET(req: NextRequest) {
     await new Promise((r) => setTimeout(r, 600)); // limite de débit Resend (2/s)
   }
 
-  return NextResponse.json({ ok: true, candidats: list.length, envoyes: sent, echecs: failed });
+  return NextResponse.json({
+    ok: true, candidats: list.length, envoyes: sent, echecs: failed,
+    ...(at ? { livraison_prevue: at } : {}),
+  });
 }
