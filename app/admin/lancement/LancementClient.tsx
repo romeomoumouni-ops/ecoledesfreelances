@@ -87,6 +87,11 @@ const SECTIONS: Section[] = [
         label: 'Tester une inscription de bout en bout',
         hint: 'S’inscrire soi-même : opt-in → redirection → arrivée au bon endroit.',
       },
+      {
+        key: 'sio_mobile',
+        label: 'Vérifier la version TÉLÉPHONE de toutes les pages Systeme.io',
+        hint: 'Systeme.io a un affichage mobile séparé du bureau : ouvre l’opt-in, la page d’atterrissage ET la page de live sur un vrai téléphone. Textes lisibles, boutons cliquables, rien qui déborde.',
+      },
     ],
   },
   {
