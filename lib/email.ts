@@ -257,10 +257,20 @@ export type SuspectAddress = {
  * adresses qui ressemblent à une faute de frappe — avec le WhatsApp du client
  * pour trancher en quelques secondes. Aucune correction n'est faite tout seul.
  */
+export type EmailFix = {
+  ancienne: string;
+  nouvelle: string;
+  client: string;
+  whatsapp: string;
+  avait_un_compte: boolean;
+  notifie: boolean;
+};
+
 export async function sendWeeklyAccessReport(
   to: string,
   relances: number,
-  suspects: SuspectAddress[]
+  suspects: SuspectAddress[],
+  corriges: EmailFix[] = []
 ): Promise<boolean> {
   const lignes = suspects
     .map((s) => {
@@ -282,11 +292,37 @@ export async function sendWeeklyAccessReport(
     })
     .join('');
 
+  // Ce qui a été CORRIGÉ automatiquement (fait, pas à faire)
+  const lignesFix = corriges
+    .map((f) => {
+      const wa = f.whatsapp
+        ? ` · <a href="https://wa.me/${f.whatsapp}" style="color:#1d1d1f;font-weight:600;">WhatsApp →</a>`
+        : '';
+      const suite = f.avait_un_compte
+        ? 'compte basculé, prévenu(e) à la nouvelle adresse (mot de passe inchangé)'
+        : 'accès envoyé à la nouvelle adresse';
+      return `<tr><td style="padding:10px 0;border-bottom:1px solid #ececeb;font-size:13px;line-height:1.6;">
+        <b>${escapeHtml(f.client || f.nouvelle)}</b>${wa}<br/>
+        <code style="background:#fef2f2;padding:2px 5px;border-radius:4px;text-decoration:line-through;">${escapeHtml(f.ancienne)}</code>
+        → <code style="background:#ecfdf5;padding:2px 5px;border-radius:4px;">${escapeHtml(f.nouvelle)}</code><br/>
+        <span style="color:#047857;">✅ ${suite}${f.notifie ? '' : ' — <b style="color:#dc2626">e-mail non parti, à relancer</b>'}</span>
+      </td></tr>`;
+    })
+    .join('');
+  const blocFix = corriges.length
+    ? `<h2 style="font-size:15px;font-weight:700;margin:26px 0 6px;">✅ ${corriges.length} adresse(s) corrigée(s) automatiquement</h2>
+       <p style="font-size:13px;color:#6a6a6a;margin:0 0 8px;">C'est fait. Rien à faire de ton côté.</p>
+       <table style="width:100%;border-collapse:collapse;">${lignesFix}</table>`
+    : '';
+
+  // Ce qui n'a PAS pu être corrigé tout seul (adresse corrigée déjà prise)
   const bloc = suspects.length
-    ? `<h2 style="font-size:15px;font-weight:700;margin:26px 0 6px;">✍️ ${suspects.length} adresse(s) probablement mal saisie(s)</h2>
-       <p style="font-size:13px;color:#6a6a6a;margin:0 0 8px;">Confirme par WhatsApp avant toute correction — puis dis-le-moi.</p>
+    ? `<h2 style="font-size:15px;font-weight:700;margin:26px 0 6px;">⚠️ ${suspects.length} cas à trancher toi-même</h2>
+       <p style="font-size:13px;color:#6a6a6a;margin:0 0 8px;">L'adresse corrigée existe déjà chez quelqu'un : je n'ai pas touché, pour ne pas fusionner deux comptes à l'aveugle.</p>
        <table style="width:100%;border-collapse:collapse;">${lignes}</table>`
-    : `<p style="font-size:13px;color:#6a6a6a;margin:22px 0 0;">✅ Aucune adresse suspecte cette semaine.</p>`;
+    : corriges.length
+    ? ''
+    : `<p style="font-size:13px;color:#6a6a6a;margin:22px 0 0;">✅ Aucune adresse mal saisie cette semaine.</p>`;
 
   const html = `
   <div style="margin:0;padding:24px;background:#f7f7f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1d1d1f;">
@@ -297,11 +333,42 @@ export async function sendWeeklyAccessReport(
         <b>${relances}</b> personne(s) qui avaient payé sans jamais créer leur compte viennent
         d'être relancées automatiquement.
       </p>
+      ${blocFix}
       ${bloc}
       <div style="text-align:center;margin:28px 0 4px;">
         <a href="${SITE_URL}/admin/utilisateurs" style="display:inline-block;background:#1d1d1f;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;padding:12px 24px;border-radius:12px;">Ouvrir l'espace admin →</a>
       </div>
     </div>
   </div>`;
-  return send(to, `Accès — rapport du lundi : ${relances} relance(s), ${suspects.length} adresse(s) à vérifier`, html);
+  return send(to, `Accès — rapport du lundi : ${relances} relance(s), ${corriges.length} adresse(s) corrigée(s)${suspects.length ? `, ${suspects.length} à trancher` : ''}`, html);
+}
+
+/**
+ * Adresse corrigée automatiquement : on prévient la personne à sa NOUVELLE
+ * adresse (la seule qui reçoit du courrier) que son identifiant de connexion
+ * a changé. Le mot de passe est inchangé.
+ */
+export async function sendEmailCorrectedNotice(
+  nouvelle: string,
+  ancienne: string,
+  nom?: string | null,
+  avaitUnCompte = true
+): Promise<boolean> {
+  const prenom = (nom ?? '').trim().split(/\s+/)[0] ?? '';
+  const bonjour = prenom ? `Bonjour ${escapeHtml(prenom)},` : 'Bonjour,';
+  const subject = avaitUnCompte
+    ? 'Ton adresse e-mail a été corrigée — voici ton nouvel identifiant'
+    : 'Ton accès est prêt — ton adresse a été corrigée';
+  const corps = avaitUnCompte
+    ? `Lors de ton paiement, ton adresse avait été saisie <b>${escapeHtml(ancienne)}</b> — une petite faute de frappe qui t'empêchait de recevoir nos e-mails.<br/><br/>
+       Nous l'avons corrigée en <b>${escapeHtml(nouvelle)}</b>.<br/><br/>
+       <b>À partir de maintenant, connecte-toi avec cette adresse.</b> Ton mot de passe ne change pas, et tout ce que tu as fait sur la plateforme est conservé.`
+    : `Lors de ton paiement, ton adresse avait été saisie <b>${escapeHtml(ancienne)}</b> — une petite faute de frappe.<br/><br/>
+       Nous l'avons corrigée en <b>${escapeHtml(nouvelle)}</b> et ton accès est actif.<br/><br/>
+       <b>Crée ton compte avec cette adresse exactement</b>, choisis un mot de passe, et tu entres directement dans le programme.`;
+  const cta = avaitUnCompte ? 'Me connecter →' : 'Créer mon compte →';
+  const href = avaitUnCompte ? `${SITE_URL}/connexion` : `${SITE_URL}/inscription`;
+  return send(nouvelle, subject, confirmTemplate(
+    avaitUnCompte ? 'Ton identifiant de connexion a changé' : 'Ton accès t’attend',
+    `${bonjour}<br/><br/>${corps}`, cta, href));
 }

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
-import { sendAccessReminderEmail, sendWeeklyAccessReport, type SuspectAddress } from '@/lib/email';
+import {
+  sendAccessReminderEmail,
+  sendEmailCorrectedNotice,
+  sendWeeklyAccessReport,
+  type SuspectAddress,
+} from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -67,6 +72,30 @@ export async function GET(req: NextRequest) {
     { auth: { persistSession: false } }
   );
 
+  // 1) CORRECTION AUTOMATIQUE des adresses mal saisies (décision du fondateur :
+  //    on ne demande plus de validation). Faite AVANT les relances pour que
+  //    les personnes corrigées sans compte reçoivent leur accès dans la foulée.
+  //    Les cas de conflit (adresse corrigée déjà prise) sont laissés au rapport.
+  type Fix = { ancienne: string; nouvelle: string; client: string; whatsapp: string; avait_un_compte: boolean };
+  const { data: fixRaw } = await supabase.rpc('auto_fix_suspect_emails', {
+    p_secret: process.env.CHARIOW_GRANT_SECRET,
+    p_days: days,
+  });
+  const fixes = (fixRaw ?? []) as Fix[];
+  const corriges: (Fix & { notifie: boolean })[] = [];
+  for (const f of fixes) {
+    const ok = await sendEmailCorrectedNotice(f.nouvelle, f.ancienne, f.client, f.avait_un_compte);
+    if (ok) {
+      await supabase.rpc('mark_email_correction_notified', {
+        p_secret: process.env.CHARIOW_GRANT_SECRET,
+        p_nouvelle: f.nouvelle,
+      });
+    }
+    corriges.push({ ...f, notifie: ok });
+    await new Promise((r) => setTimeout(r, 600));
+  }
+
+  // 2) RELANCES des acheteurs sans compte
   const { data, error } = await supabase.rpc('pending_access_reminders', {
     p_secret: process.env.CHARIOW_GRANT_SECRET,
     p_days: days,
@@ -108,12 +137,12 @@ export async function GET(req: NextRequest) {
   });
   let rapport = false;
   if (typeof patron === 'string' && patron) {
-    rapport = await sendWeeklyAccessReport(patron, sent, suspects);
+    rapport = await sendWeeklyAccessReport(patron, sent, suspects, corriges);
   }
 
   return NextResponse.json({
     ok: true, candidats: list.length, envoyes: sent, echecs: failed,
-    adresses_suspectes: suspects.length, rapport_envoye: rapport,
+    adresses_corrigees: corriges, conflits_a_voir: suspects.length, rapport_envoye: rapport,
     fenetre_jours: days, ...(asked > days ? { fenetre_plafonnee: true } : {}),
     ...(at ? { livraison_prevue: at } : {}),
   });
