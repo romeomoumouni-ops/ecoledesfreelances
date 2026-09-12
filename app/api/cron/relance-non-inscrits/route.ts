@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
   //    les personnes corrigées sans compte reçoivent leur accès dans la foulée.
   //    Les cas de conflit (adresse corrigée déjà prise) sont laissés au rapport.
   type Fix = { ancienne: string; nouvelle: string; client: string; whatsapp: string; avait_un_compte: boolean };
-  const { data: fixRaw } = await supabase.rpc('auto_fix_suspect_emails', {
+  const { data: fixRaw, error: fixError } = await supabase.rpc('auto_fix_suspect_emails', {
     p_secret: process.env.CHARIOW_GRANT_SECRET,
     p_days: days,
   });
@@ -143,6 +143,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true, candidats: list.length, envoyes: sent, echecs: failed,
     adresses_corrigees: corriges, conflits_a_voir: suspects.length, rapport_envoye: rapport,
+    ...(fixError ? { erreur_correction: fixError.message } : {}),
     fenetre_jours: days, ...(asked > days ? { fenetre_plafonnee: true } : {}),
     ...(at ? { livraison_prevue: at } : {}),
   });
