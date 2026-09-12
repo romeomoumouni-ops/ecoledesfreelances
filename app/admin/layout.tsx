@@ -11,15 +11,23 @@ export const dynamic = 'force-dynamic';
 /** Messages d'élèves non lus par CET admin (tous coachs confondus). */
 async function getMessagesUnread(adminId: string): Promise<number> {
   const supabase = createClient();
-  const [{ data: msgs }, { data: marks }] = await Promise.all([
-    supabase
+  // Paginé : au-delà de 1000 messages d'élèves, le compteur se tronquait.
+  const PAGE = 1000;
+  const msgs: { recipient: string; student_id: string; created_at: string }[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await supabase
       .from('support_messages')
       .select('recipient, student_id, created_at')
-      .eq('from_admin', false),
-    supabase.from('read_marks').select('scope, last_read_at').eq('user_id', adminId),
-  ]);
+      .eq('from_admin', false)
+      .order('created_at', { ascending: false })
+      .range(from, from + PAGE - 1);
+    msgs.push(...(data ?? []));
+    if (!data || data.length < PAGE) break;
+  }
+  const { data: marks } = await supabase
+    .from('read_marks').select('scope, last_read_at').eq('user_id', adminId);
   const readAt = new Map((marks ?? []).map((m) => [m.scope, new Date(m.last_read_at).getTime()]));
-  return (msgs ?? []).filter((m) => {
+  return msgs.filter((m) => {
     const seen = readAt.get(`admincv:${m.recipient}:${m.student_id}`) ?? 0;
     return new Date(m.created_at).getTime() > seen;
   }).length;

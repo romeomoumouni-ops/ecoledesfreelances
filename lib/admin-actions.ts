@@ -133,6 +133,7 @@ async function notifyNewLive(
     sender_id: adminId,
     sender_name: 'Mariane',
     from_admin: true,
+    broadcast: true, // envoi groupé : ignoré par la boîte des coachs
     body: inboxBody,
   }));
   const CHUNK = 500;

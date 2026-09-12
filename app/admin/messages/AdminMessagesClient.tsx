@@ -46,14 +46,24 @@ export default function AdminMessagesClient({ me }: { me: Me }) {
   const [loading, setLoading] = useState(true);
 
   async function loadAll() {
-    const [{ data: msgs }, { data: mk }] = await Promise.all([
-      supabase
+    // Supabase plafonne chaque requête à 1000 lignes : on pagine pour TOUT
+    // ramener, et on exclut les envois groupés de la Messagerie (68 000+ lignes
+    // qui noyaient les vrais messages — les coachs ne voyaient plus rien).
+    const PAGE = 1000;
+    const msgs: Msg[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data } = await supabase
         .from('support_messages')
         .select('id, recipient, student_id, body, from_admin, sender_name, created_at')
-        .order('created_at', { ascending: true }),
-      supabase.from('read_marks').select('scope, last_read_at').eq('user_id', me.id),
-    ]);
-    setMessages(msgs ?? []);
+        .eq('broadcast', false)
+        .order('created_at', { ascending: true })
+        .range(from, from + PAGE - 1);
+      msgs.push(...((data ?? []) as Msg[]));
+      if (!data || data.length < PAGE) break;
+    }
+    const { data: mk } = await supabase
+      .from('read_marks').select('scope, last_read_at').eq('user_id', me.id);
+    setMessages(msgs);
     setMarks(new Map((mk ?? []).map((m) => [m.scope, new Date(m.last_read_at).getTime()])));
     setLoading(false);
   }
@@ -72,7 +82,8 @@ export default function AdminMessagesClient({ me }: { me: Me }) {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'support_messages' },
         (payload) => {
-          const m = payload.new as Msg;
+          const m = payload.new as Msg & { broadcast?: boolean };
+          if (m.broadcast) return; // envoi groupé : pas une conversation
           setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
         }
       )
