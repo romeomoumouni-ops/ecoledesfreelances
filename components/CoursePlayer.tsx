@@ -419,25 +419,40 @@ function Quiz({ chapter }: { chapter: PlayerChapter }) {
 }
 
 /* ---------- Commentaires ---------- */
-type Comment = { id: string; author_name: string | null; body: string; user_id: string; created_at: string };
+// Fil à un niveau : commentaires + réponses. Les coachs (admins) peuvent
+// répondre à n'importe quel commentaire et supprimer n'importe lequel ;
+// un élève peut répondre aussi et supprimer les siens.
+type Comment = {
+  id: string;
+  author_name: string | null;
+  body: string;
+  user_id: string;
+  created_at: string;
+  parent_id: string | null;
+  author_is_admin: boolean;
+};
+
+const COMMENT_COLS = 'id, author_name, body, user_id, created_at, parent_id, author_is_admin';
 
 function Comments({ chapterId, me }: { chapterId: string; me: Me }) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [body, setBody] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [replyTo, setReplyTo] = useState<string | null>(null); // id du commentaire auquel on répond
+  const [reply, setReply] = useState('');
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     supabase
       .from('chapter_comments')
-      .select('id, author_name, body, user_id, created_at')
+      .select(COMMENT_COLS)
       .eq('chapter_id', chapterId)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: true })
       .then(({ data }) => {
         if (active) {
-          setComments(data ?? []);
+          setComments((data ?? []) as Comment[]);
           setLoading(false);
         }
       });
@@ -446,32 +461,96 @@ function Comments({ chapterId, me }: { chapterId: string; me: Me }) {
     };
   }, [chapterId]);
 
-  async function post() {
-    const text = body.trim();
-    if (!text) return;
+  async function send(text: string, parentId: string | null) {
+    const clean = text.trim();
+    if (!clean) return false;
     setBusy(true);
     const { data, error } = await supabase
       .from('chapter_comments')
-      .insert({ chapter_id: chapterId, user_id: me.id, author_name: me.name, body: text })
-      .select('id, author_name, body, user_id, created_at')
+      .insert({
+        chapter_id: chapterId,
+        user_id: me.id,
+        author_name: me.name,
+        author_is_admin: me.isAdmin,
+        body: clean,
+        parent_id: parentId,
+      })
+      .select(COMMENT_COLS)
       .single();
-    if (!error && data) {
-      setComments((c) => [data, ...c]);
-      setBody('');
-    }
     setBusy(false);
+    if (error || !data) return false;
+    setComments((c) => [...c, data as Comment]);
+    return true;
+  }
+
+  async function post() {
+    if (await send(body, null)) setBody('');
+  }
+
+  async function postReply() {
+    if (!replyTo) return;
+    if (await send(reply, replyTo)) {
+      setReply('');
+      setReplyTo(null);
+    }
   }
 
   async function del(id: string) {
-    if (!confirm('Supprimer ce commentaire ?')) return;
+    const hasReplies = comments.some((c) => c.parent_id === id);
+    if (!confirm(hasReplies ? 'Supprimer ce commentaire et ses réponses ?' : 'Supprimer ce commentaire ?')) return;
     const before = comments;
-    setComments((c) => c.filter((x) => x.id !== id));
+    setComments((c) => c.filter((x) => x.id !== id && x.parent_id !== id));
     const { error } = await supabase.from('chapter_comments').delete().eq('id', id);
     if (error) setComments(before); // échec serveur : on le remet
   }
 
   function initials(name: string | null) {
     return (name || 'M').split(/\s+/).map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+  }
+
+  // Les plus récents en haut ; les réponses restent sous leur commentaire, dans l'ordre
+  const roots = comments.filter((c) => !c.parent_id).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const repliesOf = (id: string) => comments.filter((c) => c.parent_id === id);
+
+  function CommentRow({ c, isReply = false }: { c: Comment; isReply?: boolean }) {
+    const canDelete = c.user_id === me.id || me.isAdmin;
+    return (
+      <div className={`flex items-start gap-3 ${isReply ? 'ml-9 mt-3 sm:ml-12' : ''}`}>
+        <Avatar initials={initials(c.author_name)} size={isReply ? 30 : 36} />
+        <div className="min-w-0 flex-1">
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-ink">
+            {prettyName(c.author_name)}
+            {c.author_is_admin && (
+              <span className="rounded-full bg-ink px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                Coach
+              </span>
+            )}
+            <span className="text-[11px] font-normal text-muted">{timeAgo(c.created_at)}</span>
+          </p>
+          <p className="whitespace-pre-line text-sm leading-relaxed text-ink">
+            <RichText text={c.body} />
+          </p>
+          <div className="mt-1.5 flex items-center gap-4 text-xs font-semibold">
+            {!isReply && (
+              <button
+                onClick={() => {
+                  setReplyTo(replyTo === c.id ? null : c.id);
+                  setReply('');
+                }}
+                className="text-muted transition hover:text-ink"
+              >
+                {replyTo === c.id ? 'Annuler' : 'Répondre'}
+              </button>
+            )}
+            {canDelete && (
+              <button onClick={() => del(c.id)} className="text-muted transition hover:text-red-600">
+                Supprimer
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -502,30 +581,49 @@ function Comments({ chapterId, me }: { chapterId: string; me: Me }) {
         </div>
       </div>
 
-      <div className="mt-5 space-y-4">
+      <div className="mt-5 space-y-5">
         {loading ? (
           <p className="text-sm text-muted">Chargement…</p>
-        ) : comments.length ? (
-          comments.map((c) => (
-            <div key={c.id} className="flex items-start gap-3">
-              <Avatar initials={initials(c.author_name)} size={36} />
-              <div className="flex-1">
-                <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-semibold text-ink">
-                  {prettyName(c.author_name)}
-                  <span className="text-[11px] font-normal text-muted">{timeAgo(c.created_at)}</span>
-                </p>
-                <p className="whitespace-pre-line text-sm leading-relaxed text-ink">
-                  <RichText text={c.body} />
-                </p>
-              </div>
-              {(c.user_id === me.id || me.isAdmin) && (
-                <button
-                  onClick={() => del(c.id)}
-                  className="mt-1 text-muted hover:text-red-600"
-                  aria-label="Supprimer"
-                >
-                  <IconX width={15} height={15} />
-                </button>
+        ) : roots.length ? (
+          roots.map((c) => (
+            <div key={c.id}>
+              <CommentRow c={c} />
+              {repliesOf(c.id).map((r) => (
+                <CommentRow key={r.id} c={r} isReply />
+              ))}
+              {replyTo === c.id && (
+                <div className="ml-9 mt-3 flex items-start gap-3 sm:ml-12">
+                  <Avatar initials={initials(me.name)} size={30} />
+                  <div className="flex-1">
+                    <textarea
+                      autoFocus
+                      value={reply}
+                      onChange={(e) => setReply(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                          e.preventDefault();
+                          postReply();
+                        }
+                        if (e.key === 'Escape') setReplyTo(null);
+                      }}
+                      maxLength={2000}
+                      className="input min-h-[56px] resize-none text-sm"
+                      placeholder={`Répondre à ${prettyName(c.author_name)}…`}
+                    />
+                    <div className="mt-2 flex justify-end gap-2">
+                      <button onClick={() => setReplyTo(null)} className="btn-outline py-1.5 text-xs">
+                        Annuler
+                      </button>
+                      <button
+                        onClick={postReply}
+                        disabled={busy || !reply.trim()}
+                        className="btn-primary py-1.5 text-xs disabled:opacity-60"
+                      >
+                        {busy ? 'Envoi…' : 'Répondre'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           ))
