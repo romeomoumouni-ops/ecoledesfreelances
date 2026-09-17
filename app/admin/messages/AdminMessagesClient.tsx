@@ -22,7 +22,15 @@ type Msg = {
   created_at: string;
   ai_generated?: boolean;
 };
-type Marks = Map<string, number>; // scope -> last_read_at (ms)
+type Conv = {
+  student_id: string;
+  name: string;
+  last_at: string;
+  last_body: string;
+  last_from_admin: boolean;
+  unread: number;
+};
+const PAGE_SIZE = 10; // conversations par page (les plus récentes d'abord)
 
 function initialsOf(name: string | null) {
   return (name || 'M').split(/\s+/).map((n) => n[0]).join('').slice(0, 2).toUpperCase();
@@ -41,33 +49,36 @@ const scopeOf = (coach: string, student: string) => `admincv:${coach}:${student}
 export default function AdminMessagesClient({ me }: { me: Me }) {
   const router = useRouter();
   const [coach, setCoach] = useState(CONTACTS[0].key);
-  const [messages, setMessages] = useState<Msg[]>([]); // TOUS les messages (tous coachs)
-  const [marks, setMarks] = useState<Marks>(new Map());
+  // Conversations de la page courante (côté base : tri + regroupement + non-lus)
+  const [convs, setConvs] = useState<Conv[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
+  const [unreadByCoach, setUnreadByCoach] = useState<Record<string, number>>({});
+  // Fil ouvert : chargé à la demande, jamais tout d'un coup
   const [student, setStudent] = useState<string | null>(null);
+  const [thread, setThread] = useState<Msg[]>([]);
+  const [threadLoading, setThreadLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   // Pilote automatique (IA) par coach + taille de sa boîte de data
   const [pilots, setPilots] = useState<Record<string, boolean>>({});
   const [dataCount, setDataCount] = useState<Record<string, { n: number; chars: number }>>({});
   const [pilotBusy, setPilotBusy] = useState(false);
 
-  async function loadAll() {
-    // Supabase plafonne chaque requête à 1000 lignes : on pagine pour TOUT
-    // ramener, et on exclut les envois groupés de la Messagerie (68 000+ lignes
-    // qui noyaient les vrais messages — les coachs ne voyaient plus rien).
-    const PAGE = 1000;
-    const msgs: Msg[] = [];
-    for (let from = 0; ; from += PAGE) {
-      const { data } = await supabase
-        .from('support_messages')
-        .select('id, recipient, student_id, body, from_admin, sender_name, created_at, ai_generated')
-        .eq('broadcast', false)
-        .order('created_at', { ascending: true })
-        .range(from, from + PAGE - 1);
-      msgs.push(...((data ?? []) as Msg[]));
-      if (!data || data.length < PAGE) break;
-    }
-    const [{ data: mk }, { data: pl }, { data: kd }] = await Promise.all([
-      supabase.from('read_marks').select('scope, last_read_at').eq('user_id', me.id),
+  async function loadPage(coachKey: string, p: number) {
+    setLoading(true);
+    const [{ data: conv }, { data: unread }] = await Promise.all([
+      supabase.rpc('admin_conversations', { p_coach: coachKey, p_page: p, p_size: PAGE_SIZE }),
+      supabase.rpc('admin_unread_by_coach'),
+    ]);
+    const c = (conv ?? { total: 0, items: [] }) as { total: number; items: Conv[] };
+    setConvs(c.items);
+    setTotal(c.total);
+    setUnreadByCoach((unread ?? {}) as Record<string, number>);
+    setLoading(false);
+  }
+
+  async function loadSettings() {
+    const [{ data: pl }, { data: kd }] = await Promise.all([
       supabase.from('coach_autopilot').select('coach_key, enabled'),
       supabase.from('coach_reply_data').select('coach_key, chars'),
     ]);
@@ -77,17 +88,33 @@ export default function AdminMessagesClient({ me }: { me: Me }) {
       dc[k.coach_key] = { n: (dc[k.coach_key]?.n ?? 0) + 1, chars: (dc[k.coach_key]?.chars ?? 0) + (k.chars ?? 0) };
     }
     setDataCount(dc);
-    setMessages(msgs);
-    setMarks(new Map((mk ?? []).map((m) => [m.scope, new Date(m.last_read_at).getTime()])));
-    setLoading(false);
+  }
+
+  async function openThread(coachKey: string, studentId: string) {
+    setStudent(studentId);
+    setThreadLoading(true);
+    const { data } = await supabase
+      .from('support_messages')
+      .select('id, recipient, student_id, body, from_admin, sender_name, created_at, ai_generated')
+      .eq('recipient', coachKey)
+      .eq('student_id', studentId)
+      .eq('broadcast', false)
+      .order('created_at', { ascending: true });
+    setThread((data ?? []) as Msg[]);
+    setThreadLoading(false);
   }
 
   useEffect(() => {
-    loadAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void loadSettings();
   }, []);
 
-  // Temps réel : tout nouveau message (élève ou autre admin) apparaît sans recharger
+  useEffect(() => {
+    void loadPage(coach, page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coach, page]);
+
+  // Temps réel : un nouveau message (élève, coach ou IA) rafraîchit la page de
+  // conversations et complète le fil ouvert s'il est concerné.
   useEffect(() => {
     void ensureRealtimeAuth();
     const channel = supabase
@@ -98,20 +125,18 @@ export default function AdminMessagesClient({ me }: { me: Me }) {
         (payload) => {
           const m = payload.new as Msg & { broadcast?: boolean };
           if (m.broadcast) return; // envoi groupé : pas une conversation
-          setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+          if (m.recipient === coach) void loadPage(coach, page);
+          if (student && m.recipient === coach && m.student_id === student) {
+            setThread((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+          }
         }
       )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
-
-  function isUnread(m: Msg): boolean {
-    if (m.from_admin) return false;
-    const seen = marks.get(scopeOf(m.recipient, m.student_id)) ?? 0;
-    return new Date(m.created_at).getTime() > seen;
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coach, page, student]);
 
   async function setAutopilot(coachKey: string, enabled: boolean) {
     setPilotBusy(true);
@@ -125,45 +150,18 @@ export default function AdminMessagesClient({ me }: { me: Me }) {
   }
 
   async function markRead(coachKey: string, studentId: string) {
-    const scope = scopeOf(coachKey, studentId);
-    const now = Date.now();
-    setMarks((prev) => new Map(prev).set(scope, now));
     await supabase.from('read_marks').upsert(
-      { user_id: me.id, scope, last_read_at: new Date(now).toISOString() },
+      { user_id: me.id, scope: scopeOf(coachKey, studentId), last_read_at: new Date().toISOString() },
       { onConflict: 'user_id,scope' }
     );
-    router.refresh(); // met à jour la pastille de la nav admin
+    setConvs((cs) => cs.map((c) => (c.student_id === studentId ? { ...c, unread: 0 } : c)));
+    const { data: unread } = await supabase.rpc('admin_unread_by_coach');
+    setUnreadByCoach((unread ?? {}) as Record<string, number>);
+    router.refresh(); // pastille du menu admin
   }
 
-  // Marque lu quand un nouveau message élève arrive alors que le fil est ouvert
-  useEffect(() => {
-    if (!student) return;
-    const hasNew = messages.some((m) => m.recipient === coach && m.student_id === student && isUnread(m));
-    if (hasNew) void markRead(coach, student);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages.length, student]);
-
-  const coachMessages = messages.filter((m) => m.recipient === coach);
-  const unreadByCoach: Record<string, number> = {};
-  for (const m of messages) if (isUnread(m)) unreadByCoach[m.recipient] = (unreadByCoach[m.recipient] ?? 0) + 1;
-
-  // Conversations groupées par élève (pour le coach sélectionné)
-  const conversations = new Map<string, { name: string; last: Msg; unread: number }>();
-  for (const m of coachMessages) {
-    const prev = conversations.get(m.student_id);
-    const name = !m.from_admin && m.sender_name ? m.sender_name : prev?.name || 'Élève';
-    conversations.set(m.student_id, {
-      name,
-      last: m,
-      unread: (prev?.unread ?? 0) + (isUnread(m) ? 1 : 0),
-    });
-  }
-  const convList = [...conversations.entries()].sort(
-    (a, b) => new Date(b[1].last.created_at).getTime() - new Date(a[1].last.created_at).getTime()
-  );
-
-  const thread = student ? coachMessages.filter((m) => m.student_id === student) : [];
-  const studentName = student ? conversations.get(student)?.name ?? 'Élève' : '';
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const studentName = student ? convs.find((c) => c.student_id === student)?.name ?? 'Élève' : '';
 
   return (
     <>
@@ -180,6 +178,7 @@ export default function AdminMessagesClient({ me }: { me: Me }) {
             onClick={() => {
               setCoach(c.key);
               setStudent(null);
+              setPage(0);
             }}
             className={`chip shrink-0 gap-2 px-4 py-2.5 text-sm transition ${
               coach === c.key ? 'bg-ink text-white' : 'border border-line bg-white text-muted hover:bg-black/[0.03] hover:text-ink'
@@ -196,7 +195,7 @@ export default function AdminMessagesClient({ me }: { me: Me }) {
       </div>
 
       {/* Pilote automatique + Boîte de data du coach sélectionné */}
-      {!loading && !student && (
+      {!student && (
         <div className="card mb-5 p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
@@ -262,47 +261,103 @@ export default function AdminMessagesClient({ me }: { me: Me }) {
         </div>
       )}
 
-      {loading ? (
+      {student ? (
+        threadLoading ? (
+          <p className="py-8 text-center text-sm text-muted">Chargement de la conversation…</p>
+        ) : (
+          <AdminThread
+            me={me}
+            coachKey={coach}
+            studentId={student}
+            studentName={studentName}
+            thread={thread}
+            onBack={() => setStudent(null)}
+            onSent={(m) => setThread((all) => (all.some((x) => x.id === m.id) ? all : [...all, m]))}
+          />
+        )
+      ) : loading && !convs.length ? (
         <p className="py-8 text-center text-sm text-muted">Chargement…</p>
-      ) : student ? (
-        <AdminThread
-          me={me}
-          coachKey={coach}
-          studentId={student}
-          studentName={studentName}
-          thread={thread}
-          onBack={() => setStudent(null)}
-          onSent={(m) => setMessages((all) => (all.some((x) => x.id === m.id) ? all : [...all, m]))}
-        />
-      ) : convList.length ? (
-        <div className="card divide-y divide-line overflow-hidden">
-          {convList.map(([sid, c]) => (
-            <button
-              key={sid}
-              onClick={() => {
-                setStudent(sid);
-                void markRead(coach, sid);
-              }}
-              className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-black/[0.02]"
-            >
-              <Avatar initials={initialsOf(c.name)} size={40} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-semibold text-ink">{c.name}</span>
-                <span className={`block truncate text-xs ${c.unread ? 'font-semibold text-ink' : 'text-muted'}`}>
-                  {c.last.from_admin ? 'Vous : ' : ''}
-                  {c.last.body}
+      ) : convs.length ? (
+        <>
+          <div className={`card divide-y divide-line overflow-hidden transition-opacity ${loading ? 'opacity-50' : ''}`}>
+            {convs.map((c) => (
+              <button
+                key={c.student_id}
+                onClick={() => {
+                  void openThread(coach, c.student_id);
+                  void markRead(coach, c.student_id);
+                }}
+                className="flex w-full items-center gap-3 p-4 text-left transition hover:bg-black/[0.02]"
+              >
+                <Avatar initials={initialsOf(c.name)} size={40} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold text-ink">{c.name}</span>
+                  <span className={`block truncate text-xs ${c.unread ? 'font-semibold text-ink' : 'text-muted'}`}>
+                    {c.last_from_admin ? 'Vous : ' : ''}
+                    {c.last_body}
+                  </span>
                 </span>
-              </span>
-              {c.unread > 0 && (
-                <span className="grid h-5 min-w-[20px] shrink-0 place-items-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white">
-                  {c.unread > 9 ? '9+' : c.unread}
-                </span>
-              )}
-              <span className="shrink-0 text-xs text-muted">{timeAgo(c.last.created_at)}</span>
-              <IconChevronRight width={16} height={16} className="shrink-0 text-muted" />
-            </button>
-          ))}
-        </div>
+                {c.unread > 0 && (
+                  <span className="grid h-5 min-w-[20px] shrink-0 place-items-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white">
+                    {c.unread > 9 ? '9+' : c.unread}
+                  </span>
+                )}
+                <span className="shrink-0 text-xs text-muted">{timeAgo(c.last_at)}</span>
+                <IconChevronRight width={16} height={16} className="shrink-0 text-muted" />
+              </button>
+            ))}
+          </div>
+
+          {/* Pagination : page 1 = conversations les plus récentes */}
+          {pageCount > 1 && (
+            <nav className="mt-4 flex flex-col items-center gap-2" aria-label="Pages">
+              <div className="flex flex-wrap items-center justify-center gap-1.5">
+                <button
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                  className="grid h-9 min-w-9 place-items-center rounded-lg border border-line bg-white px-2.5 text-sm font-semibold text-ink disabled:opacity-40"
+                  aria-label="Plus récentes"
+                >
+                  ‹
+                </button>
+                {Array.from({ length: pageCount }, (_, i) => i)
+                  .filter((i) => i === 0 || i === pageCount - 1 || Math.abs(i - page) <= 1)
+                  .reduce<(number | '…')[]>((acc, i, idx, arr) => {
+                    if (idx > 0 && i - (arr[idx - 1] as number) > 1) acc.push('…');
+                    acc.push(i);
+                    return acc;
+                  }, [])
+                  .map((n, i) =>
+                    n === '…' ? (
+                      <span key={`gap-${i}`} className="px-1 text-sm text-muted">…</span>
+                    ) : (
+                      <button
+                        key={n}
+                        onClick={() => setPage(n)}
+                        aria-current={n === page ? 'page' : undefined}
+                        className={`grid h-9 min-w-9 place-items-center rounded-lg px-2.5 text-sm font-semibold ${
+                          n === page ? 'bg-ink text-white' : 'border border-line bg-white text-muted hover:text-ink'
+                        }`}
+                      >
+                        {n + 1}
+                      </button>
+                    )
+                  )}
+                <button
+                  onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                  disabled={page >= pageCount - 1}
+                  className="grid h-9 min-w-9 place-items-center rounded-lg border border-line bg-white px-2.5 text-sm font-semibold text-ink disabled:opacity-40"
+                  aria-label="Plus anciennes"
+                >
+                  ›
+                </button>
+              </div>
+              <p className="text-xs text-muted">
+                Page {page + 1} sur {pageCount} · {total} conversation{total > 1 ? 's' : ''} · les plus récentes en premier
+              </p>
+            </nav>
+          )}
+        </>
       ) : (
         <div className="card flex flex-col items-center p-10 text-center">
           <IconChat width={26} height={26} className="text-muted" />
