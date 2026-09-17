@@ -23,6 +23,14 @@ async function requireAdmin() {
   return { supabase, user: prof?.is_admin ? user : null };
 }
 
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;|&#x27;|&apos;/gi, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)));
+}
+
 function clean(text: string): string {
   return text.replace(/\r/g, '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 }
@@ -38,11 +46,7 @@ function htmlToText(html: string): string {
     .replace(/<\/(p|div|li|h[1-6]|tr|br|section|article)>/gi, '\n')
     .replace(/<br\s*\/?>/gi, '\n');
   const text = withBreaks.replace(/<[^>]+>/g, ' ');
-  return clean(
-    text
-      .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/[ \t]{2,}/g, ' ')
-  );
+  return clean(decodeEntities(text).replace(/[ \t]{2,}/g, ' '));
 }
 
 export async function POST(req: NextRequest) {
@@ -76,7 +80,7 @@ export async function POST(req: NextRequest) {
       if (!res.ok) return NextResponse.json({ error: `La page a répondu ${res.status}.` }, { status: 400 });
       const html = await res.text();
       const m = html.match(/<title[^>]*>([^<]*)<\/title>/i);
-      if (!title) title = (m?.[1] ?? u.hostname).trim().slice(0, 120) || u.hostname;
+      if (!title) title = decodeEntities(m?.[1] ?? u.hostname).trim().slice(0, 120) || u.hostname;
       content = htmlToText(html);
       source = u.toString();
     } else if (kind === 'pdf') {
