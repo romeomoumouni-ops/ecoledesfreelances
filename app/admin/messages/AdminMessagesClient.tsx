@@ -20,6 +20,7 @@ type Msg = {
   from_admin: boolean;
   sender_name: string | null;
   created_at: string;
+  ai_generated?: boolean;
 };
 type Marks = Map<string, number>; // scope -> last_read_at (ms)
 
@@ -44,6 +45,10 @@ export default function AdminMessagesClient({ me }: { me: Me }) {
   const [marks, setMarks] = useState<Marks>(new Map());
   const [student, setStudent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // Pilote automatique (IA) par coach + taille de sa boîte de data
+  const [pilots, setPilots] = useState<Record<string, boolean>>({});
+  const [dataCount, setDataCount] = useState<Record<string, { n: number; chars: number }>>({});
+  const [pilotBusy, setPilotBusy] = useState(false);
 
   async function loadAll() {
     // Supabase plafonne chaque requête à 1000 lignes : on pagine pour TOUT
@@ -54,15 +59,24 @@ export default function AdminMessagesClient({ me }: { me: Me }) {
     for (let from = 0; ; from += PAGE) {
       const { data } = await supabase
         .from('support_messages')
-        .select('id, recipient, student_id, body, from_admin, sender_name, created_at')
+        .select('id, recipient, student_id, body, from_admin, sender_name, created_at, ai_generated')
         .eq('broadcast', false)
         .order('created_at', { ascending: true })
         .range(from, from + PAGE - 1);
       msgs.push(...((data ?? []) as Msg[]));
       if (!data || data.length < PAGE) break;
     }
-    const { data: mk } = await supabase
-      .from('read_marks').select('scope, last_read_at').eq('user_id', me.id);
+    const [{ data: mk }, { data: pl }, { data: kd }] = await Promise.all([
+      supabase.from('read_marks').select('scope, last_read_at').eq('user_id', me.id),
+      supabase.from('coach_autopilot').select('coach_key, enabled'),
+      supabase.from('coach_reply_data').select('coach_key, chars'),
+    ]);
+    setPilots(Object.fromEntries((pl ?? []).map((p) => [p.coach_key, p.enabled])));
+    const dc: Record<string, { n: number; chars: number }> = {};
+    for (const k of kd ?? []) {
+      dc[k.coach_key] = { n: (dc[k.coach_key]?.n ?? 0) + 1, chars: (dc[k.coach_key]?.chars ?? 0) + (k.chars ?? 0) };
+    }
+    setDataCount(dc);
     setMessages(msgs);
     setMarks(new Map((mk ?? []).map((m) => [m.scope, new Date(m.last_read_at).getTime()])));
     setLoading(false);
@@ -97,6 +111,17 @@ export default function AdminMessagesClient({ me }: { me: Me }) {
     if (m.from_admin) return false;
     const seen = marks.get(scopeOf(m.recipient, m.student_id)) ?? 0;
     return new Date(m.created_at).getTime() > seen;
+  }
+
+  async function setAutopilot(coachKey: string, enabled: boolean) {
+    setPilotBusy(true);
+    const before = pilots[coachKey] ?? false;
+    setPilots((p) => ({ ...p, [coachKey]: enabled }));
+    const { error } = await supabase
+      .from('coach_autopilot')
+      .upsert({ coach_key: coachKey, enabled, updated_by: me.id, updated_at: new Date().toISOString() });
+    if (error) setPilots((p) => ({ ...p, [coachKey]: before }));
+    setPilotBusy(false);
   }
 
   async function markRead(coachKey: string, studentId: string) {
@@ -169,6 +194,73 @@ export default function AdminMessagesClient({ me }: { me: Me }) {
           </button>
         ))}
       </div>
+
+      {/* Pilote automatique + Boîte de data du coach sélectionné */}
+      {!loading && !student && (
+        <div className="card mb-5 p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 text-sm font-bold text-ink">
+                {pilots[coach] ? '🤖 Pilote automatique activé' : '🧑‍🏫 Réponses manuelles'}
+                <span className="text-xs font-normal text-muted">— {contactByKey(coach)?.name}</span>
+              </p>
+              <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted">
+                {pilots[coach]
+                  ? "L'IA répond aux élèves à ta place, avec ta boîte de data. Tu gardes la main : tes propres réponses passent toujours, et tu peux couper à tout moment."
+                  : "Tu réponds toi-même à chaque message. Active le pilote automatique pour que l'IA réponde en ton nom, à partir de ta boîte de data."}
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+              <button
+                onClick={() => setAutopilot(coach, true)}
+                disabled={pilotBusy || !!pilots[coach]}
+                className={`rounded-xl px-5 py-2.5 text-sm font-bold transition ${
+                  pilots[coach] ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' : 'bg-ink text-white hover:bg-black'
+                } disabled:cursor-default`}
+              >
+                {pilots[coach] ? '✓ Pilote automatique' : 'Pilote automatique'}
+              </button>
+              <button
+                onClick={() => setAutopilot(coach, false)}
+                disabled={pilotBusy || !pilots[coach]}
+                className={`rounded-xl px-5 py-2.5 text-sm font-bold transition ${
+                  !pilots[coach] ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200' : 'bg-[#2f7bdc] text-white hover:bg-[#1f63c4]'
+                } disabled:cursor-default`}
+              >
+                {!pilots[coach] ? '✓ Je réponds moi-même' : 'Je veux répondre moi-même'}
+              </button>
+            </div>
+          </div>
+
+          {/* Boîte de data */}
+          <a
+            href={`/admin/data-reponses?coach=${coach}`}
+            className="mt-4 flex items-center gap-4 rounded-xl border border-dashed border-line p-3 transition hover:border-ink hover:bg-black/[0.015]"
+          >
+            <span className="relative grid h-12 w-14 shrink-0 place-items-center">
+              <svg viewBox="0 0 56 44" width="56" height="44" fill="none" aria-hidden>
+                <path d="M4 14h48v24a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V14Z" fill="#f3f3f1" stroke="#1d1d1f" strokeWidth="2" />
+                <path d="M2 8a2 2 0 0 1 2-2h48a2 2 0 0 1 2 2v6H2V8Z" fill="#ffffff" stroke="#1d1d1f" strokeWidth="2" />
+                <path d="M22 22h12" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              {(dataCount[coach]?.n ?? 0) > 0 && (
+                <span className="absolute -right-1 -top-1 grid h-5 min-w-[20px] place-items-center rounded-full bg-ink px-1.5 text-[11px] font-bold text-white">
+                  {dataCount[coach]?.n}
+                </span>
+              )}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold text-ink">Boîte de data</span>
+              <span className="block text-xs text-muted">
+                {(dataCount[coach]?.n ?? 0) > 0
+                  ? `${dataCount[coach].n} élément(s) · ${Math.round((dataCount[coach].chars ?? 0) / 1000)} k caractères — l'IA répond avec tes mots.`
+                  : "Vide pour l'instant : l'IA répond avec des conseils généraux. Ajoute tes réponses types, tes PDF, tes pages."}
+              </span>
+            </span>
+            <IconChevronRight width={16} height={16} className="shrink-0 text-muted" />
+          </a>
+        </div>
+      )}
 
       {loading ? (
         <p className="py-8 text-center text-sm text-muted">Chargement…</p>
@@ -258,7 +350,7 @@ function AdminThread({
         from_admin: true,
         body: text,
       })
-      .select('id, recipient, student_id, body, from_admin, sender_name, created_at')
+      .select('id, recipient, student_id, body, from_admin, sender_name, created_at, ai_generated')
       .single();
     if (!error && data) {
       onSent(data as Msg);
@@ -288,6 +380,11 @@ function AdminThread({
                 m.from_admin ? 'bg-ink text-white' : 'bg-black/[0.05] text-ink'
               }`}
             >
+              {m.ai_generated && (
+                <span className="mb-1 inline-block rounded-full bg-white/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+                  IA · pilote auto
+                </span>
+              )}
               {m.from_admin && m.sender_name && (
                 <p className="mb-0.5 text-xs font-semibold text-white/70">{m.sender_name}</p>
               )}
