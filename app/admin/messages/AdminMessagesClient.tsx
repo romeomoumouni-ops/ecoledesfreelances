@@ -61,7 +61,7 @@ export default function AdminMessagesClient({ me }: { me: Me }) {
   const [loading, setLoading] = useState(true);
   // Pilote automatique (IA) par coach + taille de sa boîte de data
   const [pilots, setPilots] = useState<Record<string, boolean>>({});
-  const [dataCount, setDataCount] = useState<Record<string, { n: number; chars: number }>>({});
+  const [dataBox, setDataBox] = useState<{ n: number; chars: number }>({ n: 0, chars: 0 });
   const [pilotBusy, setPilotBusy] = useState(false);
 
   async function loadPage(coachKey: string, p: number) {
@@ -80,14 +80,11 @@ export default function AdminMessagesClient({ me }: { me: Me }) {
   async function loadSettings() {
     const [{ data: pl }, { data: kd }] = await Promise.all([
       supabase.from('coach_autopilot').select('coach_key, enabled'),
-      supabase.from('coach_reply_data').select('coach_key, chars'),
+      supabase.from('coach_reply_data').select('chars'),
     ]);
     setPilots(Object.fromEntries((pl ?? []).map((p) => [p.coach_key, p.enabled])));
-    const dc: Record<string, { n: number; chars: number }> = {};
-    for (const k of kd ?? []) {
-      dc[k.coach_key] = { n: (dc[k.coach_key]?.n ?? 0) + 1, chars: (dc[k.coach_key]?.chars ?? 0) + (k.chars ?? 0) };
-    }
-    setDataCount(dc);
+    // Boîte de data COMMUNE à tous les coachs
+    setDataBox({ n: (kd ?? []).length, chars: (kd ?? []).reduce((s, k) => s + (k.chars ?? 0), 0) });
   }
 
   async function openThread(coachKey: string, studentId: string) {
@@ -205,8 +202,8 @@ export default function AdminMessagesClient({ me }: { me: Me }) {
               </p>
               <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted">
                 {pilots[coach]
-                  ? "L'IA répond aux élèves à ta place, avec ta boîte de data. Tu gardes la main : tes propres réponses passent toujours, et tu peux couper à tout moment."
-                  : "Tu réponds toi-même à chaque message. Active le pilote automatique pour que l'IA réponde en ton nom, à partir de ta boîte de data."}
+                  ? "L'IA répond aux élèves à ta place, avec la boîte de data de l'équipe. Tu gardes la main : tes propres réponses passent toujours, et tu peux couper à tout moment."
+                  : "Tu réponds toi-même à chaque message. Active le pilote automatique pour que l'IA réponde en ton nom, à partir de la boîte de data de l'équipe."}
               </p>
             </div>
             <div className="flex shrink-0 flex-col gap-2 sm:items-end">
@@ -233,7 +230,7 @@ export default function AdminMessagesClient({ me }: { me: Me }) {
 
           {/* Boîte de data */}
           <a
-            href={`/admin/data-reponses?coach=${coach}`}
+            href="/admin/data-reponses"
             className="mt-4 flex items-center gap-4 rounded-xl border border-dashed border-line p-3 transition hover:border-ink hover:bg-black/[0.015]"
           >
             <span className="relative grid h-12 w-14 shrink-0 place-items-center">
@@ -242,18 +239,18 @@ export default function AdminMessagesClient({ me }: { me: Me }) {
                 <path d="M2 8a2 2 0 0 1 2-2h48a2 2 0 0 1 2 2v6H2V8Z" fill="#ffffff" stroke="#1d1d1f" strokeWidth="2" />
                 <path d="M22 22h12" stroke="#1d1d1f" strokeWidth="2" strokeLinecap="round" />
               </svg>
-              {(dataCount[coach]?.n ?? 0) > 0 && (
+              {dataBox.n > 0 && (
                 <span className="absolute -right-1 -top-1 grid h-5 min-w-[20px] place-items-center rounded-full bg-ink px-1.5 text-[11px] font-bold text-white">
-                  {dataCount[coach]?.n}
+                  {dataBox.n}
                 </span>
               )}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-bold text-ink">Boîte de data</span>
+              <span className="block text-sm font-bold text-ink">Boîte de data <span className="font-normal text-muted">· commune à toute l&apos;équipe</span></span>
               <span className="block text-xs text-muted">
-                {(dataCount[coach]?.n ?? 0) > 0
-                  ? `${dataCount[coach].n} élément(s) · ${Math.round((dataCount[coach].chars ?? 0) / 1000)} k caractères — l'IA répond avec tes mots.`
-                  : "Vide pour l'instant : l'IA répond avec des conseils généraux. Ajoute tes réponses types, tes PDF, tes pages."}
+                {dataBox.n > 0
+                  ? `${dataBox.n} élément(s) · ${Math.round(dataBox.chars / 1000)} k caractères — l'IA répond avec les mots de l'équipe.`
+                  : "Vide pour l'instant : l'IA répond avec des conseils généraux. Ajoutez vos réponses types, vos PDF, vos pages."}
               </span>
             </span>
             <IconChevronRight width={16} height={16} className="shrink-0 text-muted" />

@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { contactByKey } from '@/lib/coaches';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 /**
- * Boîte de data des coachs : ajoute un élément (texte, PDF ou page web) que
- * l'IA du pilote automatique utilisera pour répondre aux élèves.
+ * Boîte de data COMMUNE à tous les coachs : ajoute un élément (texte, PDF ou
+ * page web) que l'IA du pilote automatique utilisera pour répondre aux élèves.
  * Le texte est extrait ici, côté serveur, et stocké prêt à l'emploi.
  * Réservé aux admins (tous les coachs le sont).
  */
@@ -54,9 +53,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Réservé aux administrateurs.' }, { status: 403 });
 
   const form = await req.formData();
-  const coachKey = String(form.get('coach') ?? '');
   const kind = String(form.get('kind') ?? '');
-  if (!contactByKey(coachKey)) return NextResponse.json({ error: 'Coach inconnu.' }, { status: 400 });
 
   let title = String(form.get('title') ?? '').trim().slice(0, 120);
   let content = '';
@@ -95,7 +92,7 @@ export async function POST(req: NextRequest) {
       if (!title) title = file.name.replace(/\.pdf$/i, '').slice(0, 120) || 'Document PDF';
       source = file.name;
       // On conserve l'original dans le bucket privé (relecture / re-extraction)
-      storagePath = `${coachKey}/${Date.now()}-${file.name.replace(/[^\w.-]+/g, '_')}`;
+      storagePath = `${Date.now()}-${file.name.replace(/[^\w.-]+/g, '_')}`;
       const { error: upErr } = await supabase.storage.from('coach-data').upload(storagePath, buf, {
         contentType: 'application/pdf', upsert: false,
       });
@@ -114,8 +111,8 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await supabase
     .from('coach_reply_data')
-    .insert({ coach_key: coachKey, kind, title, content, source, storage_path: storagePath, created_by: user.id })
-    .select('id, coach_key, kind, title, source, chars, created_at')
+    .insert({ kind, title, content, source, storage_path: storagePath, created_by: user.id })
+    .select('id, kind, title, source, chars, created_at')
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, item: data });

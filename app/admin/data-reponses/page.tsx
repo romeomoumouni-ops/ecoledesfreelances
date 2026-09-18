@@ -7,7 +7,6 @@ export const dynamic = 'force-dynamic';
 
 export type DataItem = {
   id: string;
-  coach_key: string;
   kind: 'text' | 'pdf' | 'url';
   title: string;
   source: string | null;
@@ -15,11 +14,7 @@ export type DataItem = {
   created_at: string;
 };
 
-export default async function DataReponsesPage({
-  searchParams,
-}: {
-  searchParams?: { coach?: string };
-}) {
+export default async function DataReponsesPage() {
   const profile = await getCurrentProfile();
   if (!profile?.is_admin) redirect('/tableau-de-bord');
 
@@ -27,7 +22,7 @@ export default async function DataReponsesPage({
   const [{ data: items }, { data: pilots }] = await Promise.all([
     supabase
       .from('coach_reply_data')
-      .select('id, coach_key, kind, title, source, chars, created_at')
+      .select('id, kind, title, source, chars, created_at')
       .order('created_at', { ascending: false }),
     supabase.from('coach_autopilot').select('coach_key, enabled'),
   ]);
@@ -36,7 +31,6 @@ export default async function DataReponsesPage({
     <DataReponsesClient
       items={(items ?? []) as DataItem[]}
       pilots={Object.fromEntries((pilots ?? []).map((p) => [p.coach_key, p.enabled]))}
-      initialCoach={searchParams?.coach}
     />
   );
 }

@@ -1,10 +1,10 @@
 'use client';
 
-// « Data des réponses » : la documentation que chaque coach confie à l'IA du
-// pilote automatique. Texte libre, PDF ou page web — le serveur extrait le
-// texte et l'IA s'appuie dessus pour répondre aux élèves au nom du coach.
+// « Data des réponses » : UNE boîte de data commune à tous les coachs. Tout ce
+// qui est déposé ici (texte, PDF, page web) sert à l'IA du pilote automatique,
+// quel que soit le coach au nom duquel elle répond.
 
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CONTACTS } from '@/lib/coaches';
 import type { DataItem } from './page';
@@ -22,17 +22,12 @@ function dateFr(iso: string) {
 export default function DataReponsesClient({
   items: initial,
   pilots,
-  initialCoach,
 }: {
   items: DataItem[];
   pilots: Record<string, boolean>;
-  initialCoach?: string;
 }) {
   const router = useRouter();
   const [items, setItems] = useState(initial);
-  const [coach, setCoach] = useState(
-    CONTACTS.some((c) => c.key === initialCoach) ? (initialCoach as string) : CONTACTS[0].key
-  );
   const [mode, setMode] = useState<'text' | 'url' | 'pdf'>('text');
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
@@ -41,15 +36,13 @@ export default function DataReponsesClient({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const mine = useMemo(() => items.filter((i) => i.coach_key === coach), [items, coach]);
-  const totalChars = mine.reduce((s, i) => s + i.chars, 0);
-  const current = CONTACTS.find((c) => c.key === coach)!;
+  const totalChars = items.reduce((s, i) => s + i.chars, 0);
+  const pilotesActifs = CONTACTS.filter((c) => pilots[c.key]);
 
   async function add() {
     setBusy(true);
     setMsg(null);
     const fd = new FormData();
-    fd.set('coach', coach);
     fd.set('kind', mode);
     fd.set('title', title);
     if (mode === 'text') fd.set('content', text);
@@ -76,7 +69,7 @@ export default function DataReponsesClient({
   }
 
   async function remove(item: DataItem) {
-    if (!confirm(`Retirer « ${item.title} » de la boîte de data de ${current.name} ?`)) return;
+    if (!confirm(`Retirer « ${item.title} » de la boîte de data ?`)) return;
     const before = items;
     setItems((xs) => xs.filter((x) => x.id !== item.id));
     const res = await fetch(`/api/admin/coach-data?id=${item.id}`, { method: 'DELETE' });
@@ -96,32 +89,15 @@ export default function DataReponsesClient({
     <>
       <h1 className="mb-1 text-xl font-bold text-ink">Data des réponses</h1>
       <p className="mb-5 max-w-2xl text-sm text-muted">
-        Tout ce que tu mets ici, l&apos;IA du <b className="text-ink">pilote automatique</b> s&apos;en sert pour répondre aux
-        élèves <b className="text-ink">à ta place, avec tes mots</b>. Plus ta boîte est riche, plus ses réponses te ressemblent.
+        <b className="text-ink">Une seule boîte, commune à toute l&apos;équipe.</b> Tout ce qui est déposé ici sert à
+        l&apos;IA du <b className="text-ink">pilote automatique</b> pour répondre aux élèves au nom du coach concerné.
+        Plus la boîte est riche, plus ses réponses sont justes.
       </p>
-
-      {/* Choix du coach */}
-      <div className="mb-5 flex flex-wrap gap-2">
-        {CONTACTS.map((c) => {
-          const n = items.filter((i) => i.coach_key === c.key).length;
-          return (
-            <button
-              key={c.key}
-              onClick={() => setCoach(c.key)}
-              className={`chip gap-2 px-4 py-2.5 text-sm transition ${coach === c.key ? 'bg-ink text-white' : 'border border-line bg-white text-muted hover:text-ink'}`}
-            >
-              {c.name}
-              <span className={coach === c.key ? 'text-white/60' : 'text-muted/70'}>{n}</span>
-              {pilots[c.key] && <span title="Pilote automatique activé">🤖</span>}
-            </button>
-          );
-        })}
-      </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
         {/* Ajouter */}
         <div className="card p-5">
-          <p className="text-sm font-bold text-ink">Ajouter à la boîte de {current.name}</p>
+          <p className="text-sm font-bold text-ink">Ajouter à la boîte de data</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {tab('text', '✍️ Texte')}
             {tab('pdf', '📄 PDF')}
@@ -142,7 +118,7 @@ export default function DataReponsesClient({
               onChange={(e) => setText(e.target.value)}
               rows={12}
               className="input mt-3 w-full resize-y font-mono text-[13px] leading-relaxed"
-              placeholder={`Écris ici comme tu répondrais à tes élèves. Par exemple :\n\n— Les questions qu'on te pose le plus souvent, et ta réponse pour chacune.\n— Comment tu parles (ton, expressions, ce que tu dis toujours).\n— Les règles du programme : lives, replays, exercices, délais.\n— Ce que tu veux que l'IA ne dise JAMAIS.\n\nPlus c'est précis, plus l'IA répond comme toi.`}
+              placeholder={`Écris ici comme vous répondez aux élèves. Par exemple :\n\n— Les questions qu'on vous pose le plus souvent, et la réponse pour chacune.\n— Le ton de l'équipe (expressions, ce qu'on dit toujours).\n— Les règles du programme : lives, replays, exercices, délais, paiements.\n— Ce que l'IA ne doit JAMAIS dire ou promettre.\n\nPlus c'est précis, plus l'IA répond comme vous.`}
             />
           )}
           {mode === 'url' && (
@@ -181,20 +157,23 @@ export default function DataReponsesClient({
         <div className="space-y-4">
           <div className="card p-5">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted">Boîte de data</p>
-            <p className="mt-1 text-3xl font-bold text-ink">{mine.length}</p>
+            <p className="mt-1 text-3xl font-bold text-ink">{items.length}</p>
             <p className="text-xs text-muted">
-              élément{mine.length > 1 ? 's' : ''} · {fmtChars(totalChars)}
+              élément{items.length > 1 ? 's' : ''} · {fmtChars(totalChars)}
               {totalChars > 60_000 && <> · <span className="text-amber-700">au-delà de 60 k, les plus anciens sont ignorés</span></>}
             </p>
             <p className="mt-3 text-xs text-muted">
-              Pilote automatique : <b className={pilots[coach] ? 'text-emerald-700' : 'text-ink'}>{pilots[coach] ? 'activé 🤖' : 'désactivé'}</b>
+              Pilote automatique actif pour :{' '}
+              <b className={pilotesActifs.length ? 'text-emerald-700' : 'text-ink'}>
+                {pilotesActifs.length ? pilotesActifs.map((c) => c.name).join(', ') : 'personne'}
+              </b>
               {' '}— se règle dans <a href="/admin/messages" className="underline">Messages</a>.
             </p>
           </div>
 
-          {mine.length ? (
+          {items.length ? (
             <div className="card divide-y divide-line overflow-hidden">
-              {mine.map((i) => (
+              {items.map((i) => (
                 <div key={i.id} className="flex items-start gap-3 p-4">
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-black/[0.04] text-muted">
                     <IconFile width={16} height={16} />
@@ -214,7 +193,7 @@ export default function DataReponsesClient({
             </div>
           ) : (
             <div className="card p-6 text-center text-sm text-muted">
-              La boîte de {current.name} est vide. Sans data, l&apos;IA répond avec des conseils généraux ; avec ta data, elle répond comme toi.
+              La boîte est vide. Sans data, l&apos;IA répond avec des conseils généraux ; avec votre data, elle répond comme l&apos;équipe.
             </div>
           )}
         </div>
