@@ -372,3 +372,14 @@ export async function sendEmailCorrectedNotice(
     avaitUnCompte ? 'Ton identifiant de connexion a changé' : 'Ton accès t’attend',
     `${bonjour}<br/><br/>${corps}`, cta, href));
 }
+
+/**
+ * Support IA : la personne a payé ET a déjà un compte — on lui rappelle simplement
+ * comment entrer (l'adresse exacte de son compte). Le mot de passe ne transite jamais.
+ */
+export async function sendLoginReminderEmail(to: string): Promise<boolean> {
+  const body = `Bonne nouvelle : ton paiement est bien enregistré et <b>ton compte existe déjà</b> avec cette adresse.<br/><br/>
+    Pour entrer, connecte-toi avec <b>${escapeHtml(to)}</b> et le mot de passe que tu as choisi à l'inscription.<br/><br/>
+    Si tu ne te souviens plus de ton mot de passe, réponds simplement à cet e-mail : l'équipe te le réinitialise.`;
+  return send(to, 'Ton accès à L’École des Freelances — comment te connecter', confirmTemplate('Ton compte t’attend ✅', body, 'Me connecter →', `${SITE_URL}/connexion`));
+}

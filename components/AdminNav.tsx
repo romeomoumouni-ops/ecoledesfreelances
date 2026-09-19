@@ -25,6 +25,7 @@ const items = [
   { href: '/admin/live', label: 'Live', Icon: IconLive },
   { href: '/admin/messages', label: 'Messages', Icon: IconMail },
   { href: '/admin/data-reponses', label: 'Data des réponses', Icon: IconSparkle },
+  { href: '/admin/support', label: 'Support IA', Icon: IconChat },
   { href: '/admin/messagerie', label: 'Messagerie', Icon: IconMegaphone },
   { href: '/admin/suivi', label: 'Suivi', Icon: IconCalendar },
   { href: '/admin/super-coach', label: 'Super Coach', Icon: IconSparkle },

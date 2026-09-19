@@ -2,8 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 const AUTH_PATHS = ['/connexion', '/inscription'];
-// Pages publiques accessibles SANS compte (page de vente).
-const PUBLIC_PATHS = ['/paiement'];
+// Pages publiques accessibles SANS compte (page de vente, support d'accès).
+const PUBLIC_PATHS = ['/paiement', '/support'];
 
 export async function middleware(request: NextRequest) {
   // Les routes API (webhooks…) gèrent leur propre authentification (token) :
