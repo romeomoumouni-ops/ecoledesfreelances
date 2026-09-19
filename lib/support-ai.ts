@@ -6,7 +6,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { sendWelcomeEmail, sendLoginReminderEmail } from '@/lib/email';
+import { sendWelcomeEmailDetailed, sendLoginReminderEmailDetailed } from '@/lib/email';
 
 const MODEL = process.env.SUPPORT_AI_MODEL || 'claude-haiku-4-5-20251001';
 const SECRET = () => process.env.CHARIOW_GRANT_SECRET;
@@ -131,15 +131,20 @@ export async function runSupportAI(
             let email_sent = false;
             let email_status: 'sent' | 'already_recent' | 'failed' | 'access_expired' = 'access_expired';
             if (lk.access_active) {
-              const { data: can } = await supabase.rpc('support_can_send', { p_secret: SECRET(), p_email: lk.email });
-              if (!can) {
+              const { data: recent } = await supabase.rpc('support_recent_send', { p_secret: SECRET(), p_email: lk.email });
+              if (recent) {
                 email_status = 'already_recent';
                 notes.push(`✉️ Envoi bloqué (déjà envoyé <24 h) à ${lk.email}`);
               } else {
-                const ok = lk.has_account ? await sendLoginReminderEmail(lk.email) : await sendWelcomeEmail(lk.email);
-                email_sent = ok;
-                email_status = ok ? 'sent' : 'failed';
-                notes.push(ok ? `✉️ ${lk.has_account ? 'Rappel de connexion' : 'Accès'} envoyé à ${lk.email}` : `✉️ ÉCHEC d'envoi à ${lk.email}`);
+                const r = lk.has_account ? await sendLoginReminderEmailDetailed(lk.email) : await sendWelcomeEmailDetailed(lk.email);
+                email_sent = r.ok;
+                email_status = r.ok ? 'sent' : 'failed';
+                if (r.ok) {
+                  await supabase.rpc('support_record_send', { p_secret: SECRET(), p_email: lk.email });
+                  notes.push(`✉️ ${lk.has_account ? 'Rappel de connexion' : 'Accès'} envoyé à ${lk.email}`);
+                } else {
+                  notes.push(`✉️ ÉCHEC d'envoi à ${lk.email} — Resend : ${r.error ?? 'erreur inconnue'}`);
+                }
               }
             }
             outcome = !lk.access_active ? 'paid_expired'

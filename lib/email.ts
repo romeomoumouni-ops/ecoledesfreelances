@@ -12,14 +12,15 @@ function fromAddress(): string {
  * plus tard : utile pour préparer un envoi maintenant et le faire arriver à une
  * heure choisie (ex. 9 h au Bénin).
  */
-async function send(
+/** Envoi détaillé : renvoie la raison exacte en cas d'échec (support, audit). */
+export async function sendDetailed(
   to: string,
   subject: string,
   html: string,
   scheduledAt?: string
-): Promise<boolean> {
+): Promise<{ ok: boolean; error?: string }> {
   const key = process.env.RESEND_API_KEY;
-  if (!key) return false; // e-mail non configuré : on ignore proprement
+  if (!key) return { ok: false, error: 'RESEND_API_KEY manquante' };
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -32,10 +33,16 @@ async function send(
         ...(scheduledAt ? { scheduled_at: scheduledAt } : {}),
       }),
     });
-    return res.ok;
-  } catch {
-    return false;
+    if (res.ok) return { ok: true };
+    const j = (await res.json().catch(() => null)) as { message?: string; name?: string } | null;
+    return { ok: false, error: `${res.status} ${j?.name ?? ''} ${j?.message ?? ''}`.trim() };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'réseau' };
   }
+}
+
+async function send(to: string, subject: string, html: string, scheduledAt?: string): Promise<boolean> {
+  return (await sendDetailed(to, subject, html, scheduledAt)).ok;
 }
 
 function escapeHtml(s: string): string {
@@ -113,6 +120,9 @@ export async function sendBroadcastBatch(
 
 /** E-mail de confirmation d'inscription + bouton « Rejoindre la plateforme ». */
 export async function sendWelcomeEmail(to: string): Promise<boolean> {
+  return (await sendWelcomeEmailDetailed(to)).ok;
+}
+export async function sendWelcomeEmailDetailed(to: string): Promise<{ ok: boolean; error?: string }> {
   const subject = "Votre inscription à L'École des Freelances est confirmée ✅";
   const html = `
   <div style="margin:0;padding:24px;background:#f7f7f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1d1d1f;">
@@ -146,7 +156,7 @@ export async function sendWelcomeEmail(to: string): Promise<boolean> {
       L'École des Freelances — tu reçois cet e-mail car un accès a été activé pour cette adresse.
     </p>
   </div>`;
-  return send(to, subject, html);
+  return sendDetailed(to, subject, html);
 }
 
 /** Gabarit commun aux e-mails de confirmation de paiement (marque École). */
@@ -378,8 +388,11 @@ export async function sendEmailCorrectedNotice(
  * comment entrer (l'adresse exacte de son compte). Le mot de passe ne transite jamais.
  */
 export async function sendLoginReminderEmail(to: string): Promise<boolean> {
+  return (await sendLoginReminderEmailDetailed(to)).ok;
+}
+export async function sendLoginReminderEmailDetailed(to: string): Promise<{ ok: boolean; error?: string }> {
   const body = `Bonne nouvelle : ton paiement est bien enregistré et <b>ton compte existe déjà</b> avec cette adresse.<br/><br/>
     Pour entrer, connecte-toi avec <b>${escapeHtml(to)}</b> et le mot de passe que tu as choisi à l'inscription.<br/><br/>
     Si tu ne te souviens plus de ton mot de passe, réponds simplement à cet e-mail : l'équipe te le réinitialise.`;
-  return send(to, 'Ton accès à L’École des Freelances — comment te connecter', confirmTemplate('Ton compte t’attend ✅', body, 'Me connecter →', `${SITE_URL}/connexion`));
+  return sendDetailed(to, 'Ton accès à L’École des Freelances — comment te connecter', confirmTemplate('Ton compte t’attend ✅', body, 'Me connecter →', `${SITE_URL}/connexion`));
 }
