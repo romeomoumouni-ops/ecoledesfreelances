@@ -34,13 +34,15 @@ const SYSTEM = `Tu es l'assistant d'accès de L'École des Freelances (programme
 
 Ta mission, dans l'ordre :
 1. Demander l'adresse e-mail utilisée AU MOMENT DU PAIEMENT (pas une autre).
-2. La vérifier avec l'outil verifier_email.
-3. Selon le résultat :
-   - PAYÉ, SANS COMPTE → appelle envoyer_acces. Puis explique : « je viens de t'envoyer ton accès à [adresse] ; ouvre l'e-mail, clique sur le bouton et crée ton compte avec CETTE adresse exactement ». Conseille de vérifier les spams.
-   - PAYÉ, AVEC COMPTE → appelle envoyer_acces (rappel de connexion). Explique que son compte existe déjà avec cette adresse : il doit se connecter sur la page de connexion avec cette adresse et son mot de passe. S'il a oublié son mot de passe : lui dire de répondre à l'e-mail reçu, l'équipe le réinitialise.
-   - PAYÉ mais ACCÈS EXPIRÉ (formule en plusieurs fois) → expliquer qu'il a une échéance à régler et que l'accès se réactive automatiquement après paiement ; le renvoyer vers la page de connexion où le bouton de paiement l'attend.
-   - NON TROUVÉ avec des suggestions → dire : « je ne trouve pas cette adresse, mais je vois [suggestion] — c'est bien la tienne ? » et re-vérifier celle qu'il confirme.
-   - NON TROUVÉ sans suggestion → demander s'il a pu utiliser une autre adresse (professionnelle, ancienne, celle de la personne qui a payé pour lui), et la vérifier. Après deux adresses introuvables : expliquer calmement qu'aucun paiement n'est enregistré sous ces adresses, donc que le paiement n'a pas été fait via le lien officiel de l'école. L'inviter à rejoindre via la page de vente, ou, s'il est certain d'avoir payé (Western Union, virement…), à écrire à l'équipe sur WhatsApp au +229 01 57 34 28 14 avec sa preuve de paiement.
+2. La vérifier avec l'outil verifier_email. Si le paiement est confirmé, LE SERVEUR ENVOIE LUI-MÊME l'e-mail d'accès : le résultat de l'outil te dit exactement ce qui s'est passé (email_sent). Tu ne fais que le raconter, fidèlement.
+3. Selon le résultat de l'outil :
+   - found=true, has_account=false, email_sent=true → « ton paiement est bien enregistré, je viens de t'envoyer ton accès à [adresse] : ouvre l'e-mail, clique sur le bouton et crée ton compte avec CETTE adresse exactement ». Conseille de vérifier les spams.
+   - found=true, has_account=true, email_sent=true → « ton compte existe déjà avec cette adresse, je t'ai envoyé un rappel » : il se connecte sur la page de connexion avec cette adresse et son mot de passe ; mot de passe oublié → répondre à l'e-mail reçu, l'équipe le réinitialise.
+   - found=true, email_sent=false, email_status="already_recent" → un e-mail lui a DÉJÀ été envoyé dans les dernières 24 h : lui dire de bien chercher dans sa boîte (spams, promotions), sans dire que tu viens d'envoyer.
+   - found=true, email_sent=false (autre) → le paiement est confirmé mais l'e-mail n'est pas parti : l'orienter vers WhatsApp.
+   - found=true, access_active=false → formule en plusieurs fois avec une échéance à régler ; l'accès se réactive automatiquement après paiement ; le renvoyer vers la page de connexion où le bouton de paiement l'attend.
+   - found=false avec suggestions → « je ne trouve pas cette adresse, mais je vois [suggestion] — c'est bien la tienne ? », puis vérifier celle qu'il confirme.
+   - found=false sans suggestion → demander s'il a pu utiliser une autre adresse (professionnelle, ancienne, celle de la personne qui a payé pour lui), et la vérifier. Après deux adresses introuvables : expliquer calmement qu'aucun paiement n'est enregistré sous ces adresses, donc que le paiement n'a pas été fait via le lien officiel de l'école. L'inviter à rejoindre via la page de vente, ou, s'il est certain d'avoir payé (Western Union, virement…), à écrire à l'équipe sur WhatsApp au +229 01 57 34 28 14 avec sa preuve de paiement.
 
 Règles absolues :
 - Réponds en français, tutoiement, chaleureux, court (2 à 5 phrases), sans listes lourdes ni astérisques.
@@ -48,22 +50,17 @@ Règles absolues :
 - N'invente rien : aucun lien, aucune date, aucun montant qui ne vienne pas des outils.
 - Une adresse mal formée (sans @) : demande de la retaper.
 - Si la personne pose une question sans rapport (cours, contenu, prix…), réponds en une phrase que ce guichet sert uniquement aux accès, et qu'une fois connectée elle peut écrire aux coachs depuis la plateforme.
-- Tu ne peux envoyer un e-mail QU'à l'adresse qui vient d'être vérifiée comme ayant payé : ne propose jamais d'envoyer ailleurs.`;
+- Ne dis JAMAIS qu'un e-mail a été envoyé si le résultat de l'outil ne contient pas email_sent=true. Tu n'envoies rien toi-même : le serveur s'en charge.`;
 
 const TOOLS: Anthropic.Tool[] = [
   {
     name: 'verifier_email',
-    description: "Vérifie si une adresse e-mail a payé l'accès à l'école, si un compte existe, et si l'accès est actif. Propose des corrections d'orthographe si l'adresse est introuvable.",
+    description: "Vérifie si une adresse e-mail a payé l'accès à l'école, si un compte existe, et si l'accès est actif. Si le paiement est confirmé, le serveur envoie AUTOMATIQUEMENT l'e-mail d'accès (ou de rappel de connexion) à cette adresse et le résultat indique email_sent. Propose des corrections d'orthographe si l'adresse est introuvable.",
     input_schema: {
       type: 'object',
       properties: { email: { type: 'string', description: 'Adresse e-mail à vérifier' } },
       required: ['email'],
     },
-  },
-  {
-    name: 'envoyer_acces',
-    description: "Envoie l'e-mail d'accès (ou de rappel de connexion) à l'adresse qui vient d'être vérifiée comme ayant payé. Aucun paramètre : l'adresse est celle de la dernière vérification réussie.",
-    input_schema: { type: 'object', properties: {} },
   },
 ];
 
@@ -80,7 +77,6 @@ export async function runSupportAI(
   const supabase = supabaseAnon();
   const client = new Anthropic({ apiKey: key });
   const notes: string[] = [];
-  let lastLookup: Lookup | null = null;
   let outcome: string | null = null;
 
   // Historique → tours (fusion des tours consécutifs, l'API exige l'alternance)
@@ -106,7 +102,8 @@ export async function runSupportAI(
     const toolUses = res.content.filter((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
     if (res.stop_reason !== 'tool_use' || !toolUses.length) {
       const text = res.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('\n').trim();
-      return { reply: text, notes, verifiedEmail, outcome };
+      // Jamais d'astérisques ni de mise en forme Markdown dans une bulle de chat
+      return { reply: text.replace(/\*\*(.+?)\*\*/g, '$1').replace(/(^|\s)\*(\S.*?\S)\*(?=\s|$)/g, '$1$2'), notes, verifiedEmail, outcome };
     }
 
     messages.push({ role: 'assistant', content: res.content });
@@ -122,35 +119,33 @@ export async function runSupportAI(
         } else {
           const { data } = await supabase.rpc('support_lookup', { p_secret: SECRET(), p_email: raw });
           const lk = (data ?? { found: false, email: raw, has_account: false }) as Lookup;
-          lastLookup = lk;
-          result = lk;
-          if (lk.found) {
-            verifiedEmail = lk.email;
-            notes.push(`🔎 ${lk.email} → PAYÉ (${lk.plan} ${lk.payments_count}/${lk.total_payments}) · compte : ${lk.has_account ? 'oui' : 'non'} · accès : ${lk.access_active ? 'actif' : 'expiré'}`);
-            outcome = lk.has_account ? 'paid_has_account' : 'paid_no_account';
-            if (!lk.access_active) outcome = 'paid_expired';
-          } else {
+          if (!lk.found) {
+            result = lk;
             notes.push(`🔎 ${lk.email} → introuvable${lk.suggestions?.length ? ` · suggestions : ${lk.suggestions.join(', ')}` : ''}`);
             if (!outcome) outcome = 'not_found';
-          }
-        }
-      } else if (tu.name === 'envoyer_acces') {
-        // GARDE-FOU : uniquement l'adresse que NOUS venons de vérifier comme payée.
-        if (!lastLookup?.found || !verifiedEmail) {
-          result = { sent: false, reason: 'aucune_adresse_verifiee' };
-          notes.push('✉️ Envoi refusé : aucune adresse vérifiée comme ayant payé');
-        } else {
-          const { data: can } = await supabase.rpc('support_can_send', { p_secret: SECRET(), p_email: verifiedEmail });
-          if (!can) {
-            result = { sent: false, reason: 'deja_envoye_recemment', info: 'Un e-mail a déjà été envoyé à cette adresse dans les dernières 24 h : demander de vérifier la boîte de réception et les spams.' };
-            notes.push(`✉️ Envoi bloqué (déjà envoyé <24 h) à ${verifiedEmail}`);
           } else {
-            const ok = lastLookup.has_account
-              ? await sendLoginReminderEmail(verifiedEmail)
-              : await sendWelcomeEmail(verifiedEmail);
-            result = { sent: ok, to: verifiedEmail, type: lastLookup.has_account ? 'rappel_connexion' : 'acces' };
-            notes.push(ok ? `✉️ ${lastLookup.has_account ? 'Rappel de connexion' : 'Accès'} envoyé à ${verifiedEmail}` : `✉️ ÉCHEC d'envoi à ${verifiedEmail}`);
-            if (ok) outcome = lastLookup.has_account ? 'paid_has_account_sent' : 'paid_sent';
+            verifiedEmail = lk.email;
+            notes.push(`🔎 ${lk.email} → PAYÉ (${lk.plan} ${lk.payments_count}/${lk.total_payments}) · compte : ${lk.has_account ? 'oui' : 'non'} · accès : ${lk.access_active ? 'actif' : 'expiré'}`);
+            // LE SERVEUR envoie (jamais l'IA) — uniquement à l'adresse vérifiée,
+            // uniquement si l'accès est actif, au plus une fois par 24 h.
+            let email_sent = false;
+            let email_status: 'sent' | 'already_recent' | 'failed' | 'access_expired' = 'access_expired';
+            if (lk.access_active) {
+              const { data: can } = await supabase.rpc('support_can_send', { p_secret: SECRET(), p_email: lk.email });
+              if (!can) {
+                email_status = 'already_recent';
+                notes.push(`✉️ Envoi bloqué (déjà envoyé <24 h) à ${lk.email}`);
+              } else {
+                const ok = lk.has_account ? await sendLoginReminderEmail(lk.email) : await sendWelcomeEmail(lk.email);
+                email_sent = ok;
+                email_status = ok ? 'sent' : 'failed';
+                notes.push(ok ? `✉️ ${lk.has_account ? 'Rappel de connexion' : 'Accès'} envoyé à ${lk.email}` : `✉️ ÉCHEC d'envoi à ${lk.email}`);
+              }
+            }
+            outcome = !lk.access_active ? 'paid_expired'
+              : email_sent ? (lk.has_account ? 'paid_has_account_sent' : 'paid_sent')
+              : (lk.has_account ? 'paid_has_account' : 'paid_no_account');
+            result = { ...lk, email_sent, email_status };
           }
         }
       } else {
