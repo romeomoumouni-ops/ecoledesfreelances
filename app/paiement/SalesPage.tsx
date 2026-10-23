@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { COUNTRIES } from '@/lib/countries';
+import { fcfa, equivalentLocal } from '@/lib/devises';
 
 const SHAKE_CSS = `
 @keyframes ctaShake {
@@ -67,40 +67,39 @@ const GARANTIES = [
 
 /* ------------------------------------------------------------------ *
  * LES OFFRES DE LA PAGE                                               *
- * Pour activer une offre : renseigner `produit` (identifiant Chariow  *
- * prd_…) et son prix. Tant que `produit` est vide, le bouton          *
- * N'APPARAÎT PAS — jamais de bouton qui ne mène nulle part sur une    *
- * page de vente en ligne.                                             *
+ * Un seul endroit à modifier : identifiant du produit Chariow (type   *
+ * « clé de licence »), prix, textes. Une offre sans `produit` n'est   *
+ * pas affichée — jamais de bouton qui ne mène nulle part.             *
  * ------------------------------------------------------------------ */
 type Offre = {
-  plan: string;      // clé interne (checkout + webhook + base)
-  produit: string;   // identifiant du produit Chariow (vide = pas encore prêt)
-  bouton: string;    // texte du bouton
-  prix: string;      // ex. « 200.000 FCFA »
-  detail: string;    // ex. « Accès à vie · tout est inclus »
-  modale: string;    // titre de la fenêtre de paiement
+  plan: string;        // clé interne (checkout + webhook + base)
+  produit: string;     // identifiant du produit Chariow
+  bouton: string;      // texte du bouton
+  montant: number;     // montant débité, en FCFA
+  titre: string;       // titre dans la fenêtre de paiement
+  detail: string;      // précision sous le prix
 };
 
 const OFFRES: Offre[] = [
   {
-    plan: '1x200',
-    produit: 'prd_b4ip13ur',
+    plan: '1x',
+    produit: 'prd_hbt9urwj',
     bouton: 'Rejoindre l’école des freelances en une fois',
-    prix: '200.000 FCFA',
+    montant: 98000,
+    titre: 'Paiement en une fois',
     detail: 'Accès à vie · tout est inclus',
-    modale: 'Rejoindre en une fois — 200.000 FCFA',
   },
   {
-    plan: '3x200',
-    produit: '', // ← coller ici l'identifiant prd_… du produit « 3 fois »
+    plan: '3x',
+    produit: 'prd_3ecdmzhc',
     bouton: 'Rejoindre l’école des freelances en trois fois',
-    prix: '',    // ← et le prix par tranche, ex. « 75.000 FCFA × 3 »
-    detail: '',
-    modale: '',
+    montant: 45000,
+    titre: 'Paiement en trois fois',
+    detail: 'par tranche · 3 tranches · accès à vie à la 3ᵉ',
   },
 ];
 
-const OFFRES_ACTIVES = OFFRES.filter((o) => o.produit && o.prix);
+const OFFRES_ACTIVES = OFFRES.filter((o) => o.produit);
 
 function VideoEmbed({ src, title }: { src: string; title: string }) {
   return (
@@ -117,31 +116,30 @@ function VideoEmbed({ src, title }: { src: string; title: string }) {
 }
 
 export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: string }) {
-  const detectedKnown = /^[A-Z]{2}$/.test(detectedCountry);
-  // Liste finale : si le pays détecté n'est pas déjà listé, on l'ajoute en tête.
-  const countryOptions: [string, string][] = detectedKnown && !COUNTRIES.some(([c]) => c === detectedCountry)
-    ? [[detectedCountry, `${detectedCountry} (ton pays)`], ...COUNTRIES]
-    : COUNTRIES;
+  const pays = /^[A-Z]{2}$/.test(detectedCountry) ? detectedCountry : '';
 
   // Offre choisie (null = fenêtre de paiement fermée)
   const [modal, setModal] = useState<Offre | null>(null);
+  const [prenom, setPrenom] = useState('');
   const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [country, setCountry] = useState(detectedKnown ? detectedCountry : 'BJ');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
+  function ouvrir(o: Offre) {
+    setErr('');
+    setModal(o);
+  }
+
   async function pay() {
     if (!modal) return;
+    if (!prenom.trim()) { setErr('Entre ton prénom.'); return; }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setErr('Entre une adresse e-mail valide.'); return; }
-    if (phone.replace(/\D/g, '').length < 6) { setErr('Entre ton numéro Mobile Money.'); return; }
     setErr(''); setBusy(true);
     try {
       const res = await fetch('/api/join/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name, phone, country, plan: modal.plan }),
+        body: JSON.stringify({ email: email.trim(), name: prenom.trim(), country: pays, plan: modal.plan }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setErr(data.error || 'Le paiement n’a pas pu démarrer.'); setBusy(false); return; }
@@ -149,7 +147,7 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
       if (url) window.location.href = url;
       else { setErr('Lien de paiement indisponible.'); setBusy(false); }
     } catch {
-      setErr('Erreur réseau.'); setBusy(false);
+      setErr('Erreur réseau. Vérifie ta connexion et réessaie.'); setBusy(false);
     }
   }
 
@@ -158,15 +156,12 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
       {OFFRES_ACTIVES.map((o, i) => (
         <button
           key={o.plan}
-          onClick={() => { setErr(''); setModal(o); }}
+          onClick={() => ouvrir(o)}
           style={{ animationDelay: `${i * 0.15}s` }}
-          className="cta-shake flex w-full flex-col items-center justify-center gap-1.5 rounded-[2rem] bg-[#2f7bdc] px-5 py-6 text-white shadow-glow transition hover:bg-[#1f63c4] sm:px-7 sm:py-7"
+          className="cta-shake flex w-full items-center justify-center gap-3 rounded-[2rem] bg-[#2f7bdc] px-5 py-6 text-lg font-extrabold uppercase leading-[1.15] tracking-tight text-white shadow-glow transition hover:bg-[#1f63c4] sm:px-7 sm:py-7 sm:text-xl"
         >
-          <span className="flex items-center justify-center gap-3 text-lg font-extrabold uppercase leading-[1.15] tracking-tight sm:text-xl">
-            {o.bouton}
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/20 text-xl">→</span>
-          </span>
-          <span className="text-sm font-bold uppercase tracking-tight text-white/90 sm:text-base">{o.prix}</span>
+          {o.bouton}
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/20 text-xl">→</span>
         </button>
       ))}
       <p className="text-center text-xs text-white/60" data-cta={id}>Paiement sécurisé · Mobile Money, Wave, Orange, carte…</p>
@@ -293,13 +288,17 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
           <p className="text-sm font-semibold uppercase text-white/60">Valeur totale du programme</p>
           <p className="mt-1 text-2xl font-bold text-white/50 line-through">9.835.000 FCFA</p>
           <p className="mt-4 text-sm font-semibold uppercase text-white/80">Aujourd’hui, tu rejoins pour</p>
-          <div className={`mt-3 grid gap-3 ${OFFRES_ACTIVES.length > 1 ? 'sm:grid-cols-2' : ''}`}>
-            {OFFRES_ACTIVES.map((o) => (
-              <div key={o.plan} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                <div className="text-3xl font-extrabold text-white sm:text-4xl">{o.prix}</div>
-                <div className="mt-1 text-xs font-semibold uppercase text-white/60">{o.detail}</div>
-              </div>
-            ))}
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {OFFRES_ACTIVES.map((o) => {
+              const local = equivalentLocal(o.montant, pays);
+              return (
+                <div key={o.plan} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                  <div className="text-3xl font-extrabold text-white">{fcfa(o.montant)}</div>
+                  {local && <div className="mt-0.5 text-sm font-semibold text-white/70">{local}</div>}
+                  <div className="mt-1 text-xs font-semibold uppercase text-white/60">{o.detail}</div>
+                </div>
+              );
+            })}
           </div>
           <Cta id={5} />
         </div>
@@ -344,27 +343,79 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
         <p className="mt-3 text-white/60">Roméo Moumouni — Tous droits réservés</p>
       </footer>
 
-      {/* MODALE DE PAIEMENT */}
+      {/* FENÊTRE DE PAIEMENT : le strict nécessaire (prénom + e-mail) */}
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center" onClick={() => !busy && setModal(null)}>
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 text-ink" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-extrabold text-ink">{modal.modale}</h3>
-            <p className="mt-1 text-sm text-muted">Renseigne tes infos, tu es redirigé vers le paiement.</p>
-            <div className="mt-4 space-y-3">
-              <input className="w-full rounded-xl border border-line px-3.5 py-2.5 text-sm outline-none focus:border-[#2f7bdc] focus:ring-4 focus:ring-[#2f7bdc]/15" type="email" placeholder="Ton adresse e-mail" value={email} onChange={(e) => setEmail(e.target.value)} />
-              <input className="w-full rounded-xl border border-line px-3.5 py-2.5 text-sm outline-none focus:border-[#2f7bdc] focus:ring-4 focus:ring-[#2f7bdc]/15" type="text" placeholder="Ton nom (optionnel)" value={name} onChange={(e) => setName(e.target.value)} />
-              <div className="grid grid-cols-[1fr_130px] gap-2">
-                <input className="w-full rounded-xl border border-line px-3.5 py-2.5 text-sm outline-none focus:border-[#2f7bdc] focus:ring-4 focus:ring-[#2f7bdc]/15" type="tel" inputMode="numeric" placeholder="Numéro Mobile Money" value={phone} onChange={(e) => setPhone(e.target.value)} />
-                <select className="w-full rounded-xl border border-line px-2 py-2.5 text-sm outline-none focus:border-[#2f7bdc]" value={country} onChange={(e) => setCountry(e.target.value)}>
-                  {countryOptions.map(([c, l]) => <option key={c} value={c}>{l}</option>)}
-                </select>
-              </div>
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-4 backdrop-blur-md sm:items-center"
+          onClick={() => !busy && setModal(null)}
+        >
+          <div
+            className="w-full max-w-[26rem] overflow-hidden rounded-3xl bg-white text-ink shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Bandeau : l'offre choisie et son prix */}
+            <div className="bg-[#0d1b34] px-6 py-5 text-white">
+              <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50">{modal.titre}</p>
+              <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2.5">
+                <span className="text-3xl font-extrabold">{fcfa(modal.montant)}</span>
+                {equivalentLocal(modal.montant, pays) && (
+                  <span className="text-sm font-semibold text-white/60">{equivalentLocal(modal.montant, pays)}</span>
+                )}
+              </p>
+              <p className="mt-1 text-xs text-white/55">{modal.detail}</p>
             </div>
-            {err && <p className="mt-3 text-sm font-medium text-red-600">{err}</p>}
-            <button onClick={pay} disabled={busy} className="mt-5 w-full rounded-xl bg-[#2f7bdc] py-3.5 text-sm font-extrabold uppercase text-white transition hover:bg-[#1f63c4] disabled:opacity-60">
-              {busy ? 'Redirection…' : 'Payer maintenant'}
-            </button>
-            <button onClick={() => !busy && setModal(null)} className="mt-2 w-full py-2 text-sm font-semibold text-muted">Annuler</button>
+
+            <div className="p-6">
+              <p className="text-sm leading-relaxed text-muted">
+                Deux informations et c’est parti. On t’envoie tes accès sur cette adresse.
+              </p>
+
+              <div className="mt-4 space-y-2.5">
+                <input
+                  autoFocus
+                  className="w-full rounded-xl border border-line px-3.5 py-3 text-[16px] outline-none transition focus:border-[#2f7bdc] focus:ring-4 focus:ring-[#2f7bdc]/15 sm:text-sm"
+                  type="text"
+                  autoComplete="given-name"
+                  placeholder="Ton prénom"
+                  value={prenom}
+                  onChange={(e) => setPrenom(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && pay()}
+                />
+                <input
+                  className="w-full rounded-xl border border-line px-3.5 py-3 text-[16px] outline-none transition focus:border-[#2f7bdc] focus:ring-4 focus:ring-[#2f7bdc]/15 sm:text-sm"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="Ton adresse e-mail"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && pay()}
+                />
+              </div>
+
+              {err && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">{err}</p>}
+
+              <button
+                onClick={pay}
+                disabled={busy}
+                className="mt-4 w-full rounded-xl bg-[#2f7bdc] py-4 text-base font-extrabold uppercase tracking-tight text-white transition hover:bg-[#1f63c4] disabled:opacity-60"
+              >
+                {busy ? 'Redirection…' : 'Payer maintenant'}
+              </button>
+
+              <p className="mt-3 text-center text-[11px] leading-relaxed text-muted">
+                Mobile Money · Wave · Orange Money · carte — paiement sécurisé.<br />
+                {equivalentLocal(modal.montant, pays) && <>Montant débité : {fcfa(modal.montant)}. </>}
+                Tes accès arrivent par e-mail juste après.
+              </p>
+
+              <button
+                onClick={() => !busy && setModal(null)}
+                className="mt-1.5 w-full py-2 text-sm font-semibold text-muted transition hover:text-ink"
+              >
+                Annuler
+              </button>
+            </div>
           </div>
         </div>
       )}

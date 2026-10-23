@@ -7,19 +7,18 @@ export const dynamic = 'force-dynamic';
 // Produits d'accès à l'école (page de vente).
 // '1x200' = l'offre actuelle : 200 000 FCFA en UNE FOIS, accès à vie.
 // '1x'/'3x' = anciennes formules, conservées pour les liens déjà en circulation.
-type Plan = '1x200' | '3x200' | '1x' | '3x';
+// Produits « clé de licence » de la page de vente (paiement direct via l'API).
+type Plan = '1x' | '3x' | '1x200';
 
 const PRODUCTS: Record<Plan, string> = {
-  '1x200': 'prd_b4ip13ur',
-  '3x200': '', // ← identifiant prd_… du produit « 3 fois » (vide = offre pas encore ouverte)
-  '1x': 'prd_97u01b',
-  '3x': 'prd_ocqbu9',
+  '1x': 'prd_hbt9urwj',   // 98 000 FCFA, accès à vie
+  '3x': 'prd_3ecdmzhc',   // 45 000 FCFA × 3
+  '1x200': 'prd_b4ip13ur', // ancienne offre à 200 000 (liens encore en circulation)
 };
 const FALLBACK: Record<Plan, string> = {
+  '1x': 'https://romeomoumouni.mychariow.shop/prd_hbt9urwj/checkout',
+  '3x': 'https://romeomoumouni.mychariow.shop/prd_3ecdmzhc/checkout',
   '1x200': 'https://romeomoumouni.mychariow.shop/prd_b4ip13ur/checkout',
-  '3x200': '', // ← lien boutique du produit « 3 fois »
-  '1x': 'https://romeomoumouni.mychariow.store/prd_97u01b/checkout',
-  '3x': 'https://romeomoumouni.mychariow.store/prd_ocqbu9/checkout',
 };
 
 export async function POST(req: NextRequest) {
@@ -36,19 +35,11 @@ export async function POST(req: NextRequest) {
   const name = (body.name ?? '').trim().slice(0, 80);
   const phone = (body.phone ?? '').replace(/\D/g, '');
   const country = (body.country ?? 'BJ').toUpperCase().slice(0, 2);
-  const plan: Plan =
-    body.plan === '3x' ? '3x'
-    : body.plan === '1x' ? '1x'
-    : body.plan === '3x200' ? '3x200'
-    : '1x200';
+  const plan: Plan = body.plan === '3x' ? '3x' : body.plan === '1x200' ? '1x200' : '1x';
 
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return NextResponse.json({ error: 'Entre une adresse e-mail valide.' }, { status: 400 });
   }
-  if (phone.length < 6 || phone.length > 15) {
-    return NextResponse.json({ error: 'Entre ton numéro Mobile Money.' }, { status: 400 });
-  }
-
   const product = PRODUCTS[plan];
   // Offre pas encore ouverte (produit Chariow non créé) : on ne laisse jamais
   // partir un paiement dans le vide.
@@ -82,7 +73,7 @@ export async function POST(req: NextRequest) {
           email: joinGhostEmail(token), // adresse fantôme : Chariow n'envoie pas ses e-mails
           first_name: firstName,
           last_name: lastName,
-          phone: { number: phone, country_code: country },
+          ...(phone.length >= 6 ? { phone: { number: phone, country_code: country } } : {}),
           redirect_url: 'https://www.lecoledesfreelances.com/inscription',
           custom_metadata: { source: 'join', plan, real_email: email },
         }),
@@ -107,8 +98,8 @@ export async function POST(req: NextRequest) {
         let payUrl = url as string;
         try {
           const u = new URL(payUrl);
-          u.searchParams.set('country', country);
-          u.searchParams.set('phone', phone);
+          if (country) u.searchParams.set('country', country);
+          if (phone.length >= 6) u.searchParams.set('phone', phone);
           payUrl = u.toString();
         } catch {
           /* URL inattendue */
