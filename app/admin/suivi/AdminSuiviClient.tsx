@@ -42,14 +42,20 @@ export default function AdminSuiviClient({ me, students }: { me: Me; students: S
   const [query, setQuery] = useState('');
 
   async function loadAll() {
-    const [{ data: msgs }, { data: mk }] = await Promise.all([
-      supabase
+    // Paginé : Supabase plafonne à 1000 lignes par requête.
+    const PAGE = 1000;
+    const msgs: Msg[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data } = await supabase
         .from('followup_messages')
         .select('id, student_id, body, from_admin, sender_name, created_at')
-        .order('created_at', { ascending: true }),
-      supabase.from('read_marks').select('scope, last_read_at').eq('user_id', me.id),
-    ]);
-    setMessages(msgs ?? []);
+        .order('created_at', { ascending: true })
+        .range(from, from + PAGE - 1);
+      msgs.push(...((data ?? []) as Msg[]));
+      if (!data || data.length < PAGE) break;
+    }
+    const { data: mk } = await supabase.from('read_marks').select('scope, last_read_at').eq('user_id', me.id);
+    setMessages(msgs);
     setMarks(new Map((mk ?? []).map((m) => [m.scope, new Date(m.last_read_at).getTime()])));
     setLoading(false);
   }

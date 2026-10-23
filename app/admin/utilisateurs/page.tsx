@@ -33,13 +33,22 @@ export default async function AdminUsersPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: profiles } = await supabase
-    .from('profiles')
-    .select('id, email, full_name, avatar_url, is_admin, banned')
-    .order('created_at', { ascending: true });
-
-  // Accès donnés (achats Chariow) — pagine au-delà de la limite de 1000 lignes
+  // Supabase plafonne chaque requête à 1000 lignes : on pagine TOUT (il y a
+  // plus de 2 000 membres — sans ça, les derniers inscrits étaient invisibles).
   const PAGE = 1000;
+  type ProfilRow = { id: string; email: string | null; full_name: string | null; avatar_url: string | null; is_admin: boolean; banned: boolean | null };
+  const profiles: ProfilRow[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, avatar_url, is_admin, banned')
+      .order('created_at', { ascending: true })
+      .range(from, from + PAGE - 1);
+    profiles.push(...((data ?? []) as ProfilRow[]));
+    if (!data || data.length < PAGE) break;
+  }
+
+  // Accès donnés (achats Chariow) — paginé aussi
   const acces: AccesDonne[] = [];
   for (let from = 0; ; from += PAGE) {
     const { data } = await supabase

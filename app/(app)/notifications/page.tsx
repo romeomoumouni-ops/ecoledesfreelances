@@ -18,12 +18,12 @@ export default async function NotificationsPage() {
       .from('announcements')
       .select('id, title, body, author_name, created_at')
       .order('created_at', { ascending: false })
-      .limit(100),
+      .limit(20),
     supabase
       .from('notifications')
       .select('id, type, actor_name, post_id, comment_id, channel, excerpt, created_at')
       .order('created_at', { ascending: false })
-      .limit(100),
+      .limit(20),
   ]);
 
   // Ouvrir la page = tout est lu. Marqué CÔTÉ SERVEUR pour être fiable à 100 %

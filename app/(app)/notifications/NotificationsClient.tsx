@@ -81,6 +81,30 @@ export default function NotificationsClient({
 }) {
   const [anns, setAnns] = useState<Announcement[]>(initialAnnouncements);
   const [persos, setPersos] = useState<PersoNotif[]>(initialPerso);
+  // Pagination « Voir plus » : on charge les plus anciennes par paquets de 20
+  // au lieu de tout afficher d'un coup.
+  const PAGE = 20;
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(
+    initialAnnouncements.length >= PAGE || initialPerso.length >= PAGE
+  );
+
+  async function loadMore() {
+    setLoadingMore(true);
+    const oldest = Math.min(
+      ...[...anns, ...persos].map((x) => new Date(x.created_at).getTime()),
+      Date.now()
+    );
+    const { data } = await supabase.rpc('my_notifications_page', {
+      p_before: new Date(oldest).toISOString(),
+      p_size: PAGE,
+    });
+    const d = (data ?? { announcements: [], perso: [] }) as { announcements: Announcement[]; perso: PersoNotif[] };
+    setAnns((prev) => [...prev, ...d.announcements.filter((a) => !prev.some((x) => x.id === a.id))]);
+    setPersos((prev) => [...prev, ...d.perso.filter((n) => !prev.some((x) => x.id === n.id))]);
+    setHasMore(d.announcements.length >= PAGE || d.perso.length >= PAGE);
+    setLoadingMore(false);
+  }
 
   // Tout marquer comme lu dès l'ouverture (annonces + interactions).
   // IMPORTANT : il faut attendre la promesse — un builder supabase non attendu
@@ -180,6 +204,14 @@ export default function NotificationsClient({
             </div>
           </Link>
         )
+      )}
+
+      {hasMore && (
+        <div className="flex justify-center pt-2">
+          <button onClick={loadMore} disabled={loadingMore} className="btn-outline px-6 disabled:opacity-60">
+            {loadingMore ? 'Chargement…' : 'Voir les notifications plus anciennes'}
+          </button>
+        </div>
       )}
     </div>
   );

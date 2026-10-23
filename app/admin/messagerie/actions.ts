@@ -86,6 +86,7 @@ export async function broadcastEmail(
     sender_id: profile.id,
     sender_name: 'Mariane',
     from_admin: true,
+    broadcast: true, // envoi groupé : ignoré par la boîte des coachs
     body: inboxBody,
   }));
   let inbox = 0;
