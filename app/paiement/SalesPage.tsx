@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { COUNTRIES } from '@/lib/countries';
 import { fcfa, equivalentLocal } from '@/lib/devises';
+import { indicatif } from '@/lib/phone';
 
 const SHAKE_CSS = `
 @keyframes ctaShake {
@@ -154,7 +155,7 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
   // Chariow EXIGE le numéro (422 sans lui) : on le demande, mais le pays est
   // détecté par l'IP — l'élève n'a qu'à taper son numéro.
   const [tel, setTel] = useState('');
-  const [indicatif, setIndicatif] = useState(pays || 'BJ');
+  const [indicatifPays, setIndicatifPays] = useState(pays || 'BJ');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
@@ -173,13 +174,12 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
       const res = await fetch('/api/join/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), name: prenom.trim(), phone: tel, country: indicatif, plan: modal.plan }),
+        body: JSON.stringify({ email: email.trim(), name: prenom.trim(), phone: tel, country: indicatifPays, plan: modal.plan }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setErr(data.error || 'Le paiement n’a pas pu démarrer.'); setBusy(false); return; }
-      const url = data.url || data.fallback;
-      if (url) window.location.href = url;
-      else { setErr('Lien de paiement indisponible.'); setBusy(false); }
+      if (data.url) window.location.href = data.url;
+      else { setErr(data.error || 'Lien de paiement indisponible.'); setBusy(false); }
     } catch {
       setErr('Erreur réseau. Vérifie ta connexion et réessaie.'); setBusy(false);
     }
@@ -434,20 +434,27 @@ Trois informations et c’est parti. Tes accès arrivent sur cette adresse e-mai
                   onKeyDown={(e) => e.key === 'Enter' && pay()}
                 />
                 <div className="grid grid-cols-[1fr_7.5rem] gap-2">
-                  <input
-                    className="w-full rounded-xl border border-line px-3.5 py-3 text-[16px] outline-none transition focus:border-[#2f7bdc] focus:ring-4 focus:ring-[#2f7bdc]/15 sm:text-sm"
-                    type="tel"
-                    inputMode="numeric"
-                    autoComplete="tel"
-                    placeholder="Numéro Mobile Money"
-                    value={tel}
-                    onChange={(e) => setTel(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && pay()}
-                  />
+                  <div className="flex items-center rounded-xl border border-line transition focus-within:border-[#2f7bdc] focus-within:ring-4 focus-within:ring-[#2f7bdc]/15">
+                    {indicatif(indicatifPays) && (
+                      <span className="shrink-0 border-r border-line px-2.5 py-3 text-[16px] font-semibold text-muted sm:text-sm">
+                        +{indicatif(indicatifPays)}
+                      </span>
+                    )}
+                    <input
+                      className="w-full min-w-0 rounded-r-xl px-3 py-3 text-[16px] outline-none sm:text-sm"
+                      type="tel"
+                      inputMode="numeric"
+                      autoComplete="tel"
+                      placeholder="Numéro Mobile Money"
+                      value={tel}
+                      onChange={(e) => setTel(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && pay()}
+                    />
+                  </div>
                   <select
                     className="w-full rounded-xl border border-line px-2 py-3 text-[16px] outline-none transition focus:border-[#2f7bdc] sm:text-sm"
-                    value={indicatif}
-                    onChange={(e) => setIndicatif(e.target.value)}
+                    value={indicatifPays}
+                    onChange={(e) => setIndicatifPays(e.target.value)}
                     aria-label="Pays"
                   >
                     {countryOptions.map(([c, l]) => <option key={c} value={c}>{l}</option>)}

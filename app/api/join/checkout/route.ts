@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { joinGhostEmail } from '@/lib/ghost-email';
+import { variantesNumero } from '@/lib/phone';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,11 +15,6 @@ const PRODUCTS: Record<Plan, string> = {
   '1x': 'prd_hbt9urwj',   // 98 000 FCFA, accès à vie
   '3x': 'prd_3ecdmzhc',   // 45 000 FCFA × 3
   '1x200': 'prd_b4ip13ur', // ancienne offre à 200 000 (liens encore en circulation)
-};
-const FALLBACK: Record<Plan, string> = {
-  '1x': 'https://romeomoumouni.mychariow.shop/prd_hbt9urwj/checkout',
-  '3x': 'https://romeomoumouni.mychariow.shop/prd_3ecdmzhc/checkout',
-  '1x200': 'https://romeomoumouni.mychariow.shop/prd_b4ip13ur/checkout',
 };
 
 export async function POST(req: NextRequest) {
@@ -49,68 +45,86 @@ export async function POST(req: NextRequest) {
   const apiKeys = [process.env.CHARIOW_API_KEY, process.env.CHARIOW_API_KEY_2].filter(
     (k): k is string => !!k
   );
-  if (!apiKeys.length) return NextResponse.json({ fallback: FALLBACK[plan] });
+  if (!apiKeys.length) {
+    return NextResponse.json({ error: 'Le paiement est momentanément indisponible. Réessaie dans quelques minutes.' }, { status: 503 });
+  }
 
   // Token -> vrai e-mail (stocké côté serveur). L'adresse fantôme portera ce token.
   const { data: token, error: tErr } = await supabase.rpc('create_pending_checkout', {
     p_email: email, p_name: name, p_plan: plan,
   });
   if (tErr || !token || typeof token !== 'string') {
-    return NextResponse.json({ fallback: FALLBACK[plan] });
+    return NextResponse.json({ error: 'Le paiement n’a pas pu démarrer. Réessaie dans un instant.' }, { status: 500 });
   }
 
   const parts = (name || 'Membre Ecole').split(/\s+/);
   const firstName = (parts[0] || 'Membre').slice(0, 50);
   const lastName = (parts.slice(1).join(' ') || 'Freelance').slice(0, 50);
 
+  const numeros = variantesNumero(phone, country);
+  if (!numeros.length) {
+    return NextResponse.json({ error: 'Entre ton numéro Mobile Money.' }, { status: 400 });
+  }
+
+  let dernierMessage = '';
+  // On n'envoie JAMAIS l'élève vers le formulaire Chariow : on tente chaque
+  // écriture possible du numéro, et sinon on lui explique quoi corriger.
   for (const apiKey of apiKeys) {
-    try {
-      const res = await fetch('https://api.chariow.com/v1/checkout', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          product_id: product,
-          email: joinGhostEmail(token), // adresse fantôme : Chariow n'envoie pas ses e-mails
-          first_name: firstName,
-          last_name: lastName,
-          ...(phone.length >= 6 ? { phone: { number: phone, country_code: country } } : {}),
-          redirect_url: 'https://www.lecoledesfreelances.com/inscription',
-          custom_metadata: { source: 'join', plan, real_email: email },
-        }),
-        cache: 'no-store',
-      });
-      const json = await res.json().catch(() => null);
-      const step = json?.data?.step;
-      const url = json?.data?.payment?.checkout_url;
+    for (const numero of numeros) {
+      try {
+        const res = await fetch('https://api.chariow.com/v1/checkout', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            product_id: product,
+            email: joinGhostEmail(token), // adresse fantôme : Chariow n'envoie pas ses e-mails
+            first_name: firstName,
+            last_name: lastName,
+            phone: { number: numero, country_code: country },
+            redirect_url: 'https://www.lecoledesfreelances.com/inscription',
+            custom_metadata: { source: 'join', plan, real_email: email },
+          }),
+          cache: 'no-store',
+        });
+        const json = await res.json().catch(() => null);
+        const step = json?.data?.step;
+        const url = json?.data?.payment?.checkout_url;
+        const message = String(json?.message ?? '');
 
-      // Diagnostic : on journalise la réponse exacte de l'API Chariow.
-      await supabase.rpc('log_webhook_event', {
-        p_event: 'join_checkout',
-        p_sale_id: null,
-        p_email: email,
-        p_product: product,
-        p_status: String(res.status),
-        p_outcome: `step=${step ?? '-'} | msg=${String(json?.message ?? '').slice(0, 160)} | errors=${JSON.stringify(json?.errors ?? '').slice(0, 200)}`,
-        p_raw: json ?? {},
-      });
+        await supabase.rpc('log_webhook_event', {
+          p_event: 'join_checkout',
+          p_sale_id: null,
+          p_email: email,
+          p_product: product,
+          p_status: String(res.status),
+          p_outcome: `step=${step ?? '-'} | tel=${numero} | msg=${message.slice(0, 120)}`,
+          p_raw: json ?? {},
+        });
 
-      if (res.ok && step === 'payment' && url) {
-        let payUrl = url as string;
-        try {
-          const u = new URL(payUrl);
-          if (country) u.searchParams.set('country', country);
-          if (phone.length >= 6) u.searchParams.set('phone', phone);
-          payUrl = u.toString();
-        } catch {
-          /* URL inattendue */
+        if (res.ok && step === 'payment' && url) {
+          let payUrl = url as string;
+          try {
+            const u = new URL(payUrl);
+            if (country) u.searchParams.set('country', country);
+            u.searchParams.set('phone', numero);
+            payUrl = u.toString();
+          } catch {
+            /* URL inattendue */
+          }
+          return NextResponse.json({ url: payUrl });
         }
-        return NextResponse.json({ url: payUrl });
+        if (message) dernierMessage = message;
+        // 404 = produit inconnu de cette boutique : clé suivante, inutile
+        // d'essayer les autres écritures du numéro.
+        if (res.status === 404) break;
+      } catch {
+        /* réseau : on tente l'écriture / la clé suivante */
       }
-      if (res.status === 404) continue;
-      return NextResponse.json({ fallback: FALLBACK[plan] });
-    } catch {
-      /* clé suivante */
     }
   }
-  return NextResponse.json({ fallback: FALLBACK[plan] });
+
+  const erreur = /phone|number/i.test(dernierMessage)
+    ? 'Ce numéro n’est pas accepté. Vérifie qu’il correspond bien au pays choisi, et saisis-le sans l’indicatif (ex. 97 00 00 00).'
+    : 'Le paiement n’a pas pu démarrer. Réessaie dans un instant, ou écris-nous sur WhatsApp au +229 01 57 34 28 14.';
+  return NextResponse.json({ error: erreur }, { status: 400 });
 }
