@@ -63,7 +63,7 @@ const PREMIUM = [
 const GARANTIES = [
   ['Garantie 1 — Tu bloques ? Je te débloque moi-même', 'Tu appliques tout ce qui est dit dans le programme et tu bloques quand même ? Tu as un appel personnel avec moi pour te débloquer.'],
   ['Garantie 2 — Coaching personnel jusqu’à résultat', 'Tu n’as fait aucun progrès en 30 jours ? Roméo aka « le Papa des freelances » t’accompagne en privé jusqu’à ce que tu aies tes premiers résultats.'],
-  ['Garantie 3 — 60 jours de transformation ou remboursement', 'Tu appliques tout ce qui est dit dans le programme pendant 60 jours et tu n’as aucun résultat ? (Preuves à l’appui.) Tu es remboursé, et tu gardes tous les outils et ressources.'],
+  ['Garantie 3 — 60 jours de transformation ou remboursement', 'Tu appliques tout ce qui est dit dans le programme pendant 60 jours et tu n’as aucun résultat ? Tu es remboursé, et tu gardes tous les outils et ressources.'],
 ];
 
 /* ------------------------------------------------------------------ *
