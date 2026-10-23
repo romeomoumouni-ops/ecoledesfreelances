@@ -396,3 +396,60 @@ export async function sendLoginReminderEmailDetailed(to: string): Promise<{ ok: 
     Si tu ne te souviens plus de ton mot de passe, réponds simplement à cet e-mail : l'équipe te le réinitialise.`;
   return sendDetailed(to, 'Ton accès à L’École des Freelances — comment te connecter', confirmTemplate('Ton compte t’attend ✅', body, 'Me connecter →', `${SITE_URL}/connexion`));
 }
+
+/**
+ * Relance « panier non finalisé » : la personne a rempli notre formulaire mais
+ * le paiement n'est jamais arrivé. Chariow ne nous signale que les ventes
+ * RÉUSSIES : impossible de savoir si elle a abandonné ou si le paiement a
+ * échoué. Le message couvre donc honnêtement les deux cas.
+ */
+export async function sendCartRelanceEmail(
+  to: string,
+  prenom: string,
+  plan: string
+): Promise<{ ok: boolean; error?: string }> {
+  const lien = `${SITE_URL}/paiement`;
+  const offre = plan === '3x' ? 'en trois fois (45.000 FCFA la tranche)' : 'en une fois (98.000 FCFA)';
+  const bonjour = prenom ? `${escapeHtml(prenom.split(/\s+/)[0])},` : 'Bonjour,';
+  const html = `
+  <div style="margin:0;padding:24px;background:#f7f7f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1d1d1f;">
+    <div style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #ececeb;border-radius:16px;overflow:hidden;">
+      <div style="padding:28px 28px 8px;"><div style="font-size:17px;font-weight:700;">L'École des Freelances</div></div>
+      <div style="padding:8px 28px 28px;">
+        <h1 style="font-size:20px;font-weight:700;margin:12px 0 8px;">Ton paiement n'est pas allé au bout 🤔</h1>
+        <p style="font-size:14px;line-height:1.7;color:#4a4a4a;margin:0 0 14px;">
+          ${bonjour}<br/><br/>
+          Tu as commencé à rejoindre L'École des Freelances ${escapeHtml(offre)}, mais le paiement
+          n'est jamais arrivé jusqu'à nous. Soit tu as préféré réfléchir, soit — et ça arrive souvent —
+          <b>la transaction a échoué en cours de route</b>.
+        </p>
+        <div style="background:#f7f7f5;border-radius:12px;padding:14px 16px;margin:16px 0;">
+          <p style="font-size:13px;line-height:1.7;color:#1d1d1f;margin:0;">
+            <b>Si le paiement a échoué, réessaie : ça passe presque toujours au 2ᵉ essai.</b><br/><br/>
+            Notre page accepte <b>Mobile Money, Moov, Flooz, Orange Money, Wave, la carte bancaire</b> —
+            depuis la quasi-totalité des pays. Si un moyen de paiement bloque, essaie simplement l'autre.
+          </p>
+        </div>
+        <p style="font-size:14px;line-height:1.7;color:#4a4a4a;margin:0 0 14px;">
+          Et si tu hésitais encore : chaque semaine, des élèves signent leurs premiers clients grâce à
+          ce qu'ils apprennent ici. La seule différence entre eux et toi aujourd'hui, c'est qu'ils sont
+          allés au bout de cette page. Ta place t'attend.
+        </p>
+        <div style="text-align:center;margin:26px 0 10px;">
+          <a href="${lien}" style="display:inline-block;background:#2f7bdc;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 28px;border-radius:12px;">
+            Réessayer maintenant →
+          </a>
+        </div>
+        <p style="font-size:12px;line-height:1.7;color:#8a8a8a;text-align:center;margin:14px 0 0;">
+          Ça bloque encore après deux essais ? Écris-nous sur WhatsApp au
+          <a href="https://wa.me/2290157342814" style="color:#4a4a4a;font-weight:600;">+229 01 57 34 28 14</a>,
+          on règle ça avec toi — y compris par Western Union ou virement.
+        </p>
+      </div>
+    </div>
+    <p style="max-width:520px;margin:14px auto 0;font-size:11px;color:#a0a0a0;text-align:center;">
+      Tu reçois cet e-mail car tu as commencé une inscription à L'École des Freelances.
+    </p>
+  </div>`;
+  return sendDetailed(to, `${prenom ? prenom.split(/\s+/)[0] + ', t' : 'T'}a place t'attend — ton paiement n'est pas passé`, html);
+}
