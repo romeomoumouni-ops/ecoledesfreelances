@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { COUNTRIES } from '@/lib/countries';
 import { fcfa, equivalentLocal } from '@/lib/devises';
+import { verifierEmail } from '@/lib/email-check';
 
 const SHAKE_CSS = `
 @keyframes ctaShake {
@@ -154,7 +155,8 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
   // Chariow EXIGE le numéro (422 sans lui) : on le demande, mais le pays est
   // détecté par l'IP — l'élève n'a qu'à taper son numéro.
   const [tel, setTel] = useState('');
-  const [indicatifPays, setIndicatifPays] = useState(pays || 'BJ');
+  const [paysChoisi, setPaysChoisi] = useState(pays || 'BJ');
+  const [emailTouche, setEmailTouche] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
@@ -163,17 +165,23 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
     setModal(o);
   }
 
+  const verifEmail = verifierEmail(email);
+
   async function pay() {
     if (!modal) return;
     if (!prenom.trim()) { setErr('Entre ton prénom.'); return; }
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setErr('Entre une adresse e-mail valide.'); return; }
+    if (verifEmail.etat === 'vide' || verifEmail.etat === 'invalide') {
+      setEmailTouche(true);
+      setErr(verifEmail.etat === 'vide' ? 'Entre ton adresse e-mail.' : verifEmail.message);
+      return;
+    }
     if (tel.replace(/\D/g, '').length < 6) { setErr('Entre ton numéro Mobile Money.'); return; }
     setErr(''); setBusy(true);
     try {
       const res = await fetch('/api/join/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), name: prenom.trim(), phone: tel, country: indicatifPays, plan: modal.plan }),
+        body: JSON.stringify({ email: email.trim(), name: prenom.trim(), phone: tel, country: paysChoisi, plan: modal.plan }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setErr(data.error || 'Le paiement n’a pas pu démarrer.'); setBusy(false); return; }
@@ -399,8 +407,8 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
               <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50">{modal.titre}</p>
               <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2.5">
                 <span className="text-3xl font-extrabold">{fcfa(modal.montant)}</span>
-                {equivalentLocal(modal.montant, pays) && (
-                  <span className="text-sm font-semibold text-white/60">{equivalentLocal(modal.montant, pays)}</span>
+                {equivalentLocal(modal.montant, paysChoisi) && (
+                  <span className="text-sm font-semibold text-white/60">{equivalentLocal(modal.montant, paysChoisi)}</span>
                 )}
               </p>
               <p className="mt-1 text-xs text-white/55">{modal.detail}</p>
@@ -422,16 +430,45 @@ Trois informations et c’est parti. Tes accès arrivent sur cette adresse e-mai
                   onChange={(e) => setPrenom(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && pay()}
                 />
-                <input
-                  className="w-full rounded-xl border border-line px-3.5 py-3 text-[16px] outline-none transition focus:border-[#2f7bdc] focus:ring-4 focus:ring-[#2f7bdc]/15 sm:text-sm"
-                  type="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  placeholder="Ton adresse e-mail"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && pay()}
-                />
+                <div>
+                  <input
+                    className={`w-full rounded-xl border px-3.5 py-3 text-[16px] outline-none transition focus:ring-4 sm:text-sm ${
+                      emailTouche && verifEmail.etat === 'invalide'
+                        ? 'border-red-400 focus:border-red-500 focus:ring-red-500/15'
+                        : emailTouche && verifEmail.etat === 'suspect'
+                        ? 'border-amber-400 focus:border-amber-500 focus:ring-amber-500/15'
+                        : 'border-line focus:border-[#2f7bdc] focus:ring-[#2f7bdc]/15'
+                    }`}
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    placeholder="Ton adresse e-mail"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    onBlur={() => setEmailTouche(true)}
+                    onKeyDown={(e) => e.key === 'Enter' && pay()}
+                  />
+                  {emailTouche && verifEmail.etat === 'invalide' && (
+                    <p className="mt-1 px-1 text-xs font-semibold text-red-600">⚠ {verifEmail.message}</p>
+                  )}
+                  {emailTouche && verifEmail.etat === 'suspect' && (
+                    <p className="mt-1 px-1 text-xs font-semibold text-amber-700">
+                      ⚠ {verifEmail.message}{' '}
+                      <button
+                        type="button"
+                        onClick={() => { setEmail(verifEmail.suggestion); setErr(''); }}
+                        className="underline underline-offset-2 hover:text-amber-900"
+                      >
+                        Oui, corrige
+                      </button>
+                    </p>
+                  )}
+                  {emailTouche && verifEmail.etat === 'ok' && (
+                    <p className="mt-1 px-1 text-xs font-semibold text-emerald-600">
+                      ✓ C’est ici que tes accès arriveront.
+                    </p>
+                  )}
+                </div>
                 <div className="grid grid-cols-[1fr_7.5rem] gap-2">
                   <input
                     className="w-full rounded-xl border border-line px-3.5 py-3 text-[16px] outline-none transition focus:border-[#2f7bdc] focus:ring-4 focus:ring-[#2f7bdc]/15 sm:text-sm"
@@ -445,8 +482,8 @@ Trois informations et c’est parti. Tes accès arrivent sur cette adresse e-mai
                   />
                   <select
                     className="w-full rounded-xl border border-line px-2 py-3 text-[16px] outline-none transition focus:border-[#2f7bdc] sm:text-sm"
-                    value={indicatifPays}
-                    onChange={(e) => setIndicatifPays(e.target.value)}
+                    value={paysChoisi}
+                    onChange={(e) => setPaysChoisi(e.target.value)}
                     aria-label="Pays"
                   >
                     {countryOptions.map(([c, l]) => <option key={c} value={c}>{l}</option>)}
@@ -480,7 +517,7 @@ Trois informations et c’est parti. Tes accès arrivent sur cette adresse e-mai
                 </p>
               </div>
               <p className="mt-2 text-center text-[11px] leading-relaxed text-muted">
-                {equivalentLocal(modal.montant, pays) && <>Montant débité : {fcfa(modal.montant)}. </>}
+                {equivalentLocal(modal.montant, paysChoisi) && <>Montant débité : {fcfa(modal.montant)}. </>}
                 Tes accès arrivent par e-mail juste après.
               </p>
 
