@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { COUNTRIES } from '@/lib/countries';
 import { fcfa, equivalentLocal } from '@/lib/devises';
 
 const SHAKE_CSS = `
@@ -117,11 +118,17 @@ function VideoEmbed({ src, title }: { src: string; title: string }) {
 
 export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: string }) {
   const pays = /^[A-Z]{2}$/.test(detectedCountry) ? detectedCountry : '';
+  const countryOptions: [string, string][] =
+    pays && !COUNTRIES.some(([c]) => c === pays) ? [[pays, `${pays} (ton pays)`], ...COUNTRIES] : COUNTRIES;
 
   // Offre choisie (null = fenêtre de paiement fermée)
   const [modal, setModal] = useState<Offre | null>(null);
   const [prenom, setPrenom] = useState('');
   const [email, setEmail] = useState('');
+  // Chariow EXIGE le numéro (422 sans lui) : on le demande, mais le pays est
+  // détecté par l'IP — l'élève n'a qu'à taper son numéro.
+  const [tel, setTel] = useState('');
+  const [indicatif, setIndicatif] = useState(pays || 'BJ');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
@@ -134,12 +141,13 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
     if (!modal) return;
     if (!prenom.trim()) { setErr('Entre ton prénom.'); return; }
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setErr('Entre une adresse e-mail valide.'); return; }
+    if (tel.replace(/\D/g, '').length < 6) { setErr('Entre ton numéro Mobile Money.'); return; }
     setErr(''); setBusy(true);
     try {
       const res = await fetch('/api/join/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), name: prenom.trim(), country: pays, plan: modal.plan }),
+        body: JSON.stringify({ email: email.trim(), name: prenom.trim(), phone: tel, country: indicatif, plan: modal.plan }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setErr(data.error || 'Le paiement n’a pas pu démarrer.'); setBusy(false); return; }
@@ -367,7 +375,7 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
 
             <div className="p-6">
               <p className="text-sm leading-relaxed text-muted">
-                Deux informations et c’est parti. On t’envoie tes accès sur cette adresse.
+Trois informations et c’est parti. Tes accès arrivent sur cette adresse e-mail.
               </p>
 
               <div className="mt-4 space-y-2.5">
@@ -391,6 +399,26 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && pay()}
                 />
+                <div className="grid grid-cols-[1fr_7.5rem] gap-2">
+                  <input
+                    className="w-full rounded-xl border border-line px-3.5 py-3 text-[16px] outline-none transition focus:border-[#2f7bdc] focus:ring-4 focus:ring-[#2f7bdc]/15 sm:text-sm"
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    placeholder="Numéro Mobile Money"
+                    value={tel}
+                    onChange={(e) => setTel(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && pay()}
+                  />
+                  <select
+                    className="w-full rounded-xl border border-line px-2 py-3 text-[16px] outline-none transition focus:border-[#2f7bdc] sm:text-sm"
+                    value={indicatif}
+                    onChange={(e) => setIndicatif(e.target.value)}
+                    aria-label="Pays"
+                  >
+                    {countryOptions.map(([c, l]) => <option key={c} value={c}>{l}</option>)}
+                  </select>
+                </div>
               </div>
 
               {err && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">{err}</p>}
