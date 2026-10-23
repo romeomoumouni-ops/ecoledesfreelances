@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { COUNTRIES } from '@/lib/countries';
 import { fcfa, equivalentLocal } from '@/lib/devises';
-import { indicatif } from '@/lib/phone';
 
 const SHAKE_CSS = `
 @keyframes ctaShake {
@@ -434,23 +433,16 @@ Trois informations et c’est parti. Tes accès arrivent sur cette adresse e-mai
                   onKeyDown={(e) => e.key === 'Enter' && pay()}
                 />
                 <div className="grid grid-cols-[1fr_7.5rem] gap-2">
-                  <div className="flex items-center rounded-xl border border-line transition focus-within:border-[#2f7bdc] focus-within:ring-4 focus-within:ring-[#2f7bdc]/15">
-                    {indicatif(indicatifPays) && (
-                      <span className="shrink-0 border-r border-line px-2.5 py-3 text-[16px] font-semibold text-muted sm:text-sm">
-                        +{indicatif(indicatifPays)}
-                      </span>
-                    )}
-                    <input
-                      className="w-full min-w-0 rounded-r-xl px-3 py-3 text-[16px] outline-none sm:text-sm"
-                      type="tel"
-                      inputMode="numeric"
-                      autoComplete="tel"
-                      placeholder="Numéro Mobile Money"
-                      value={tel}
-                      onChange={(e) => setTel(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && pay()}
-                    />
-                  </div>
+                  <input
+                    className="w-full rounded-xl border border-line px-3.5 py-3 text-[16px] outline-none transition focus:border-[#2f7bdc] focus:ring-4 focus:ring-[#2f7bdc]/15 sm:text-sm"
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    placeholder="Numéro Mobile Money"
+                    value={tel}
+                    onChange={(e) => setTel(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && pay()}
+                  />
                   <select
                     className="w-full rounded-xl border border-line px-2 py-3 text-[16px] outline-none transition focus:border-[#2f7bdc] sm:text-sm"
                     value={indicatifPays}
@@ -460,6 +452,9 @@ Trois informations et c’est parti. Tes accès arrivent sur cette adresse e-mai
                     {countryOptions.map(([c, l]) => <option key={c} value={c}>{l}</option>)}
                   </select>
                 </div>
+                <p className="px-1 text-[11px] text-muted">
+                  Ton numéro comme tu le composes chez toi — c’est lui qui recevra la demande de paiement.
+                </p>
               </div>
 
               {err && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">{err}</p>}
