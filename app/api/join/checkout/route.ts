@@ -7,15 +7,17 @@ export const dynamic = 'force-dynamic';
 // Produits d'accès à l'école (page de vente).
 // '1x200' = l'offre actuelle : 200 000 FCFA en UNE FOIS, accès à vie.
 // '1x'/'3x' = anciennes formules, conservées pour les liens déjà en circulation.
-type Plan = '1x200' | '1x' | '3x';
+type Plan = '1x200' | '3x200' | '1x' | '3x';
 
 const PRODUCTS: Record<Plan, string> = {
   '1x200': 'prd_b4ip13ur',
+  '3x200': '', // ← identifiant prd_… du produit « 3 fois » (vide = offre pas encore ouverte)
   '1x': 'prd_97u01b',
   '3x': 'prd_ocqbu9',
 };
 const FALLBACK: Record<Plan, string> = {
   '1x200': 'https://romeomoumouni.mychariow.shop/prd_b4ip13ur/checkout',
+  '3x200': '', // ← lien boutique du produit « 3 fois »
   '1x': 'https://romeomoumouni.mychariow.store/prd_97u01b/checkout',
   '3x': 'https://romeomoumouni.mychariow.store/prd_ocqbu9/checkout',
 };
@@ -34,7 +36,11 @@ export async function POST(req: NextRequest) {
   const name = (body.name ?? '').trim().slice(0, 80);
   const phone = (body.phone ?? '').replace(/\D/g, '');
   const country = (body.country ?? 'BJ').toUpperCase().slice(0, 2);
-  const plan: Plan = body.plan === '3x' ? '3x' : body.plan === '1x' ? '1x' : '1x200';
+  const plan: Plan =
+    body.plan === '3x' ? '3x'
+    : body.plan === '1x' ? '1x'
+    : body.plan === '3x200' ? '3x200'
+    : '1x200';
 
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return NextResponse.json({ error: 'Entre une adresse e-mail valide.' }, { status: 400 });
@@ -44,6 +50,11 @@ export async function POST(req: NextRequest) {
   }
 
   const product = PRODUCTS[plan];
+  // Offre pas encore ouverte (produit Chariow non créé) : on ne laisse jamais
+  // partir un paiement dans le vide.
+  if (!product) {
+    return NextResponse.json({ error: 'Cette formule n’est pas encore disponible.' }, { status: 400 });
+  }
   const apiKeys = [process.env.CHARIOW_API_KEY, process.env.CHARIOW_API_KEY_2].filter(
     (k): k is string => !!k
   );
