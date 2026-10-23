@@ -91,12 +91,11 @@ export default function NotificationsClient({
 
   async function loadMore() {
     setLoadingMore(true);
-    const oldest = Math.min(
-      ...[...anns, ...persos].map((x) => new Date(x.created_at).getTime()),
-      Date.now()
-    );
+    const oldestOf = (xs: { created_at: string }[]) =>
+      xs.length ? new Date(Math.min(...xs.map((x) => new Date(x.created_at).getTime()))).toISOString() : new Date().toISOString();
     const { data } = await supabase.rpc('my_notifications_page', {
-      p_before: new Date(oldest).toISOString(),
+      p_before_ann: oldestOf(anns),
+      p_before_perso: oldestOf(persos),
       p_size: PAGE,
     });
     const d = (data ?? { announcements: [], perso: [] }) as { announcements: Announcement[]; perso: PersoNotif[] };

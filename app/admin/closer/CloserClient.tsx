@@ -42,6 +42,7 @@ export default function CloserClient({ achats, sansNumero }: { achats: Achat[]; 
   const [query, setQuery] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
+  const [visible, setVisible] = useState(200); // clients affichés (perf)
 
   // Temps réel : dès qu'un paiement arrive, la liste se met à jour toute seule
   // (le nouveau client apparaît en haut ou en bas selon le tri choisi).
@@ -168,7 +169,7 @@ export default function CloserClient({ achats, sansNumero }: { achats: Achat[]; 
       {/* Liste des clients */}
       {list.length ? (
         <div className="card divide-y divide-line overflow-hidden">
-          {list.map((a) => {
+          {list.slice(0, visible).map((a) => {
             const displayName = a.customer_name || prettyName(a.email);
             const phoneOk = !!a.customer_phone && a.customer_phone !== 'aucun';
             return (
@@ -199,7 +200,15 @@ export default function CloserClient({ achats, sansNumero }: { achats: Achat[]; 
             );
           })}
         </div>
-      ) : (
+      ) : null}
+      {list.length > visible && (
+        <div className="mt-3 flex justify-center">
+          <button onClick={() => setVisible((v) => v + 200)} className="btn-outline px-6">
+            Voir plus ({(list.length - visible).toLocaleString('fr-FR')} restants)
+          </button>
+        </div>
+      )}
+      {list.length ? null : (
         <div className="card p-10 text-center text-sm text-muted">Aucun client ne correspond.</div>
       )}
 

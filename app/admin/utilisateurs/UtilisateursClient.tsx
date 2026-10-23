@@ -157,6 +157,8 @@ function MembresList({
 }) {
   const [detail, setDetail] = useState<Membre | null>(null);
   const [extendingId, setExtendingId] = useState<string | null>(null);
+  const [visible, setVisible] = useState(200); // membres affichés (perf : 2 000+ membres)
+
 
   // Accès à durée limitée par e-mail (celui qu'on peut prolonger de 30 jours).
   const finiteByEmail = useMemo(() => {
@@ -193,7 +195,7 @@ function MembresList({
   return (
     <>
       <div className="card divide-y divide-line overflow-hidden">
-        {list.map((u) => {
+        {list.slice(0, visible).map((u) => {
           const isSelf = u.id === meId;
           return (
             <div key={u.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 p-4">
@@ -244,6 +246,13 @@ function MembresList({
           );
         })}
       </div>
+      {list.length > visible && (
+        <div className="mt-3 flex justify-center">
+          <button onClick={() => setVisible((v) => v + 200)} className="btn-outline px-6">
+            Voir plus ({(list.length - visible).toLocaleString('fr-FR')} restants)
+          </button>
+        </div>
+      )}
 
       {detail && <UserDetailModal membre={detail} onClose={() => setDetail(null)} />}
     </>
