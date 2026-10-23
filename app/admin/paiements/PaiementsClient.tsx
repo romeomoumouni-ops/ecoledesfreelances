@@ -67,7 +67,8 @@ export default function PaiementsClient({
   p200?: Paiement200[];
 }) {
   const router = useRouter();
-  const [view, setView] = useState<'p200' | 'echeances' | 'ca'>('p200');
+  // L'offre à 200 000 est retirée : on ouvre sur le suivi des échéances.
+  const [view, setView] = useState<'p200' | 'echeances' | 'ca'>('echeances');
   const [query, setQuery] = useState('');
   const [filtre, setFiltre] = useState<'tous' | Statut>('tous');
   // « Maintenant » rafraîchi chaque minute → les accès qui expirent basculent en direct.

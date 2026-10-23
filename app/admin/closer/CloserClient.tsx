@@ -17,7 +17,6 @@ const supabase = createClient();
 type PlanKey = '1x200' | '1x' | '3x' | '6x';
 
 const TABS: { key: PlanKey; label: string; sub: string }[] = [
-  { key: '1x200', label: '200 000 FCFA', sub: 'Paiement en une fois' },
   { key: '1x', label: '98 000 FCFA', sub: 'Paiement en 1 fois' },
   { key: '3x', label: '45 000 FCFA', sub: 'Paiement en 3 fois' },
   { key: '6x', label: '20 000 FCFA', sub: 'Paiement en 6 fois' },
@@ -37,7 +36,7 @@ function WhatsAppIcon({ size = 16 }: { size?: number }) {
 
 export default function CloserClient({ achats, sansNumero }: { achats: Achat[]; sansNumero: number }) {
   const router = useRouter();
-  const [tab, setTab] = useState<PlanKey>('1x200');
+  const [tab, setTab] = useState<PlanKey>('1x');
   const [recent, setRecent] = useState(true); // true = plus récent d'abord
   const [query, setQuery] = useState('');
   const [syncing, setSyncing] = useState(false);
@@ -61,7 +60,7 @@ export default function CloserClient({ achats, sansNumero }: { achats: Achat[]; 
   }, [router]);
 
   const counts = useMemo(() => {
-    const c: Record<string, number> = { '1x200': 0, '1x': 0, '3x': 0, '6x': 0 };
+    const c: Record<string, number> = { '1x': 0, '3x': 0, '6x': 0 };
     for (const a of achats) c[a.plan] = (c[a.plan] ?? 0) + 1;
     return c;
   }, [achats]);
