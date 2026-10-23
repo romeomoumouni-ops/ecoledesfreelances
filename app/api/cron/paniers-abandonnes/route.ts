@@ -7,13 +7,13 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 /**
- * Relance des paniers non finalisés (cf. vercel.json).
+ * Relance des paniers non finalisés, 20 minutes après l'essai (cf. vercel.json).
  * Chariow ne nous signale QUE les ventes réussies : on détecte l'abandon
  * depuis NOTRE formulaire (pending_checkouts sans paiement correspondant).
  * Une seule relance par personne, jamais pour quelqu'un qui a fini par payer.
  *
  * Sécurité : Bearer CRON_SECRET, ?token=CHARIOW_WEBHOOK_TOKEN, ou super admin.
- * Options : &hours=N (délai avant relance, 3 h par défaut) · &dry=1 (liste seule).
+ * Options : &minutes=N (délai avant relance, 20 min par défaut) · &dry=1 (liste seule).
  */
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization');
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
   }
   if (!okCron && !okToken && !okSuper) return NextResponse.json({ ok: false }, { status: 401 });
 
-  const hours = Math.min(168, Math.max(1, Number(req.nextUrl.searchParams.get('hours')) || 3));
+  const minutes = Math.min(10080, Math.max(5, Number(req.nextUrl.searchParams.get('minutes')) || 20));
   const dry = req.nextUrl.searchParams.get('dry') === '1';
 
   const supabase = createSupabaseClient(
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabase.rpc('pending_cart_relances', {
     p_secret: process.env.CHARIOW_GRANT_SECRET,
-    p_hours: hours,
+    p_minutes: minutes,
   });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
@@ -63,5 +63,5 @@ export async function GET(req: NextRequest) {
     }
     await new Promise((r) => setTimeout(r, 600)); // limite de débit Resend
   }
-  return NextResponse.json({ ok: true, candidats: list.length, envoyes: sent, echecs: failed, delai_heures: hours });
+  return NextResponse.json({ ok: true, candidats: list.length, envoyes: sent, echecs: failed, delai_minutes: minutes });
 }

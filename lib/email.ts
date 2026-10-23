@@ -440,11 +440,6 @@ export async function sendCartRelanceEmail(
             Réessayer maintenant →
           </a>
         </div>
-        <p style="font-size:12px;line-height:1.7;color:#8a8a8a;text-align:center;margin:14px 0 0;">
-          Ça bloque encore après deux essais ? Écris-nous sur WhatsApp au
-          <a href="https://wa.me/2290157342814" style="color:#4a4a4a;font-weight:600;">+229 01 57 34 28 14</a>,
-          on règle ça avec toi — y compris par Western Union ou virement.
-        </p>
       </div>
     </div>
     <p style="max-width:520px;margin:14px auto 0;font-size:11px;color:#a0a0a0;text-align:center;">

@@ -61,7 +61,7 @@ const PREMIUM = [
 ];
 
 const GARANTIES = [
-  ['Garantie 1 — Test 100 % sans risque (3 jours)', 'Tu rejoins, tu testes pendant 3 jours. Si tu penses que ce n’est pas pour toi, tu m’écris et je te rembourse ton argent. En plus, tu gardes tous les bonus.'],
+  ['Garantie 1 — Tu bloques ? Je te débloque moi-même', 'Tu appliques tout ce qui est dit dans le programme et tu bloques quand même ? Tu as un appel personnel avec moi pour te débloquer.'],
   ['Garantie 2 — Coaching personnel jusqu’à résultat', 'Tu n’as fait aucun progrès en 30 jours ? Roméo aka « le Papa des freelances » t’accompagne en privé jusqu’à ce que tu aies tes premiers résultats.'],
   ['Garantie 3 — 60 jours de transformation ou remboursement', 'Tu appliques tout ce qui est dit dans le programme pendant 60 jours et tu n’as aucun résultat ? (Preuves à l’appui.) Tu es remboursé, et tu gardes tous les outils et ressources.'],
 ];
@@ -85,22 +85,47 @@ const OFFRES: Offre[] = [
   {
     plan: '1x',
     produit: 'prd_hbt9urwj',
-    bouton: 'Rejoindre l’école des freelances en une fois',
+    bouton: 'Rejoindre l’école des freelances en 1x',
     montant: 98000,
     titre: 'Paiement en une fois',
-    detail: 'Accès à vie · tout est inclus',
+    detail: 'Paiement en une fois · 5 bonus premium + les 10 premiers bonus',
   },
   {
     plan: '3x',
     produit: 'prd_3ecdmzhc',
-    bouton: 'Rejoindre l’école des freelances en trois fois',
+    bouton: 'Rejoindre l’école des freelances en 3x',
     montant: 45000,
     titre: 'Paiement en trois fois',
-    detail: 'par tranche · 3 tranches · accès à vie à la 3ᵉ',
+    detail: 'Paiement en 3 fois · accès direct à l’incubateur et aux 10 premiers bonus',
   },
 ];
 
 const OFFRES_ACTIVES = OFFRES.filter((o) => o.produit);
+
+/**
+ * Bandeau de réassurance : logos Mobile Money + phrase.
+ * L'image se pose dans /public/mobile-money.png — tant qu'elle n'est pas là,
+ * seule la phrase s'affiche (rien de cassé).
+ */
+const LOGOS_MOBILE_MONEY = '/mobile-money.png';
+
+function PaiementSecurise({ className = '' }: { className?: string }) {
+  return (
+    <div className={`flex flex-col items-center gap-2.5 ${className}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={LOGOS_MOBILE_MONEY}
+        alt="Mobile Money, Moov, Flooz, Orange Money, Wave, carte bancaire"
+        loading="lazy"
+        className="h-auto w-full max-w-[22rem] opacity-95"
+        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+      />
+      <p className="text-center text-xs font-semibold text-white/70">
+        Paiement sécurisé : tous les mobile money de tous les pays acceptés
+      </p>
+    </div>
+  );
+}
 
 function VideoEmbed({ src, title }: { src: string; title: string }) {
   return (
@@ -166,13 +191,13 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
           key={o.plan}
           onClick={() => ouvrir(o)}
           style={{ animationDelay: `${i * 0.15}s` }}
-          className="cta-shake flex w-full items-center justify-center gap-3 rounded-[2rem] bg-[#2f7bdc] px-5 py-6 text-lg font-extrabold uppercase leading-[1.15] tracking-tight text-white shadow-glow transition hover:bg-[#1f63c4] sm:px-7 sm:py-7 sm:text-xl"
+          className="cta-shake flex w-full items-center justify-center gap-3 rounded-[2.25rem] bg-[#2f7bdc] px-5 py-8 text-xl font-extrabold uppercase leading-[1.15] tracking-tight text-white shadow-glow transition hover:bg-[#1f63c4] sm:px-8 sm:py-10 sm:text-3xl"
         >
           {o.bouton}
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/20 text-xl">→</span>
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20 text-2xl sm:h-12 sm:w-12">→</span>
         </button>
       ))}
-      <p className="text-center text-xs text-white/60" data-cta={id}>Paiement sécurisé · Mobile Money, Wave, Orange, carte…</p>
+      <div data-cta={id}><PaiementSecurise className="mt-1" /></div>
     </div>
   );
 
@@ -278,7 +303,11 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
       {/* BONUS PREMIUM (1X) */}
       <section className="px-5 py-8">
         <div className="mx-auto max-w-2xl">
-          <h2 className="text-center text-2xl font-extrabold uppercase tracking-tight">Bonus premium inclus</h2>
+          <h2 className="text-center text-2xl font-extrabold uppercase leading-snug tracking-tight">
+            Pour ceux qui rejoignent avec un paiement en une fois (98.000 FCFA),<br className="hidden sm:block" />
+            je vous offre 5 bonus spéciaux
+          </h2>
+          <p className="mt-2 text-center text-sm font-bold uppercase text-[#4a9bff]">Valeur : 800.000 FCFA</p>
           <div className="mt-6 space-y-3">
             {PREMIUM.map(([t, d], i) => (
               <div key={i} className="rounded-2xl border border-[#2f7bdc]/40 bg-[#2f7bdc]/[0.08] p-4">
@@ -326,6 +355,10 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
               </div>
             ))}
           </div>
+          <p className="mx-auto mt-5 max-w-lg text-center text-xs leading-relaxed text-white/55">
+            Oui, tu ne rêves pas : je prends tout le risque pour moi. Chez nous, c’est simple —
+            soit tu réussis et tu changes ta vie, soit tu es totalement remboursé.
+          </p>
           <Cta id={6} />
         </div>
       </section>
@@ -340,7 +373,7 @@ export default function SalesPage({ detectedCountry = '' }: { detectedCountry?: 
             <li>• Si tu souhaites payer par Western Union, MoneyGram, Ria…</li>
             <li>• Pour des renseignements supplémentaires</li>
           </ul>
-          <p className="mt-4 text-xs uppercase text-white/50">Paiement : Mobile Money · Moov · Flooz · Orange Money · Wave · carte · crypto</p>
+          <PaiementSecurise className="mt-5" />
         </div>
       </section>
 
@@ -431,8 +464,20 @@ Trois informations et c’est parti. Tes accès arrivent sur cette adresse e-mai
                 {busy ? 'Redirection…' : 'Payer maintenant'}
               </button>
 
-              <p className="mt-3 text-center text-[11px] leading-relaxed text-muted">
-                Mobile Money · Wave · Orange Money · carte — paiement sécurisé.<br />
+              <div className="mt-4 flex flex-col items-center gap-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={LOGOS_MOBILE_MONEY}
+                  alt="Mobile Money, Moov, Flooz, Orange Money, Wave, carte bancaire"
+                  loading="lazy"
+                  className="h-auto w-full max-w-[17rem]"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                />
+                <p className="text-center text-[11px] font-semibold leading-relaxed text-muted">
+                  Paiement sécurisé : tous les mobile money de tous les pays acceptés
+                </p>
+              </div>
+              <p className="mt-2 text-center text-[11px] leading-relaxed text-muted">
                 {equivalentLocal(modal.montant, pays) && <>Montant débité : {fcfa(modal.montant)}. </>}
                 Tes accès arrivent par e-mail juste après.
               </p>

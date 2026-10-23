@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/paniers-abandonnes",
-      "schedule": "0 9,15,20 * * *"
+      "schedule": "*/10 * * * *"
     }
   ]
 }
