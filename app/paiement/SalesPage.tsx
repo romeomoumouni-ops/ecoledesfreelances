@@ -112,16 +112,17 @@ const LOGOS_MOBILE_MONEY = '/mobile-money.png';
 function PaiementSecurise({ className = '' }: { className?: string }) {
   return (
     <div className={`flex flex-col items-center gap-2.5 ${className}`}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={LOGOS_MOBILE_MONEY}
-        alt="Mobile Money, Moov, Flooz, Orange Money, Wave, carte bancaire"
-        loading="lazy"
-        className="h-auto w-full max-w-[22rem] opacity-95"
-        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-      />
+      <div className="w-full max-w-[26rem] overflow-hidden rounded-2xl bg-white p-2.5 shadow-lg">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={LOGOS_MOBILE_MONEY}
+          alt="Paiement 100 % sécurisé — Moov Money, Wave, Mixx by Yas, Visa, Mastercard et tous les mobile money"
+          loading="lazy"
+          className="h-auto w-full"
+        />
+      </div>
       <p className="text-center text-xs font-semibold text-white/70">
-        Paiement sécurisé : tous les mobile money de tous les pays acceptés
+        Tous les mobile money de tous les pays acceptés
       </p>
     </div>
   );
@@ -464,17 +465,16 @@ Trois informations et c’est parti. Tes accès arrivent sur cette adresse e-mai
                 {busy ? 'Redirection…' : 'Payer maintenant'}
               </button>
 
-              <div className="mt-4 flex flex-col items-center gap-2">
+              <div className="mt-4 flex flex-col items-center gap-1.5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={LOGOS_MOBILE_MONEY}
-                  alt="Mobile Money, Moov, Flooz, Orange Money, Wave, carte bancaire"
+                  alt="Paiement 100 % sécurisé — Moov Money, Wave, Mixx by Yas, Visa, Mastercard et tous les mobile money"
                   loading="lazy"
-                  className="h-auto w-full max-w-[17rem]"
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  className="h-auto w-full"
                 />
                 <p className="text-center text-[11px] font-semibold leading-relaxed text-muted">
-                  Paiement sécurisé : tous les mobile money de tous les pays acceptés
+                  Tous les mobile money de tous les pays acceptés
                 </p>
               </div>
               <p className="mt-2 text-center text-[11px] leading-relaxed text-muted">
