@@ -10,7 +10,7 @@ import IntroVideo from '@/components/IntroVideo';
 import GiftSeat, { type GiftStatus } from '@/components/GiftSeat';
 import { createClient } from '@/lib/supabase/server';
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams?: { apercu?: string } }) {
   const [profile, courses, lives, taskKeys] = await Promise.all([
     getCurrentProfile(),
     getCourses(),
@@ -25,7 +25,11 @@ export default async function DashboardPage() {
 
   // Bonus « paiement en une fois » : place à offrir (null = pas éligible)
   const { data: giftRaw } = await createClient().rpc('my_gift_status');
-  const gift = (giftRaw ?? { eligible: false, used: false, invitee_email: null, used_at: null }) as GiftStatus;
+  let gift = (giftRaw ?? { eligible: false, used: false, invitee_email: null, used_at: null }) as GiftStatus;
+  // Aperçu admin : ?apercu=place montre la carte telle qu'un élève « une fois » la voit
+  // (le don réel reste refusé par la base pour un compte non éligible).
+  if (profile?.is_admin && searchParams?.apercu === 'place') gift = { eligible: true, used: false, invitee_email: null, used_at: null };
+  if (profile?.is_admin && searchParams?.apercu === 'place-donnee') gift = { eligible: true, used: true, invitee_email: 'exemple@gmail.com', used_at: new Date().toISOString() };
 
   return (
     <>
