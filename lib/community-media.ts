@@ -63,17 +63,30 @@ export async function compressImage(file: File): Promise<File> {
  * `src` peut être un object URL (fichier local) ou une URL distante (CORS ok
  * sur le bucket public). Renvoie null si le navigateur n'y arrive pas.
  */
+// Un seul élément <video> réutilisé : Chrome refuse de créer de nouveaux
+// lecteurs au-delà de quelques dizaines (« too many WebMediaPlayers »).
+let sharedVideo: HTMLVideoElement | null = null;
+function getSharedVideo(): HTMLVideoElement {
+  if (!sharedVideo) {
+    sharedVideo = document.createElement('video');
+    sharedVideo.crossOrigin = 'anonymous';
+    sharedVideo.muted = true;
+    sharedVideo.playsInline = true;
+    sharedVideo.preload = 'auto';
+  }
+  return sharedVideo;
+}
+
 export function captureVideoPoster(src: string, maxWidth = 1280): Promise<Blob | null> {
   return new Promise((resolve) => {
-    const video = document.createElement('video');
-    video.crossOrigin = 'anonymous';
-    video.muted = true;
-    video.playsInline = true;
-    video.preload = 'auto';
+    const video = getSharedVideo();
     let done = false;
     const finish = (b: Blob | null) => {
       if (done) return;
       done = true;
+      video.onerror = null;
+      video.onloadedmetadata = null;
+      video.onseeked = null;
       video.removeAttribute('src');
       video.load();
       resolve(b);
