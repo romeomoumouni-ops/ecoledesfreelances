@@ -31,7 +31,7 @@ export async function uploadResumable(
         bucketName: bucket,
         objectName: path,
         contentType: file.type || 'application/octet-stream',
-        cacheControl: '3600',
+        cacheControl: '31536000',
       },
       onError: (e) => reject(e),
       onProgress: (sent, total) => onProgress(Math.round((sent / total) * 100)),

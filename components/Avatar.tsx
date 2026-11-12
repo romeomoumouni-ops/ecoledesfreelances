@@ -1,3 +1,5 @@
+import { imageUrl } from '@/lib/community-media';
+
 export default function Avatar({
   initials,
   src,
@@ -14,8 +16,10 @@ export default function Avatar({
     // eslint-disable-next-line @next/next/no-img-element
     return (
       <img
-        src={src}
+        src={imageUrl(src, size * 2)}
         alt=""
+        loading="lazy"
+        decoding="async"
         className={`shrink-0 rounded-full object-cover ${ring ? 'ring-2 ring-white' : ''}`}
         style={{ width: size, height: size }}
       />

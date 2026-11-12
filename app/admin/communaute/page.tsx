@@ -107,6 +107,7 @@ export default async function AdminCommunautePage() {
   return (
     <>
       <h1 className="mb-1 text-xl font-bold text-ink">Modération de la communauté</h1>
+      <p className="mb-3 text-xs text-muted"><a href="/admin/communaute/vignettes" className="underline">Générer les vignettes des vidéos (page plus rapide)</a></p>
       <p className="mb-4 text-sm text-muted">
         Les publications qui réclament un remboursement ou expriment un mécontentement sont{' '}
         <b className="text-ink">automatiquement signalées et masquées du fil</b>. Retrouve-les ci-dessous&nbsp;:

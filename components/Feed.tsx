@@ -17,6 +17,7 @@ import { useRouter } from 'next/navigation';
 import { IconHeart, IconChat, IconX, IconCamera, IconFile, IconPin, IconUsers, IconShare } from '@/components/Icons';
 import { EmptyState } from '@/components/UI';
 import { prettyName } from '@/lib/format';
+import { imageUrl, imageSrcSet, compressImage, captureVideoPoster } from '@/lib/community-media';
 
 const supabase = createClient();
 
@@ -34,6 +35,7 @@ type Post = {
   body: string | null;
   media_url: string | null;
   media_type: string | null;
+  poster_url?: string | null;
   author_name: string | null;
   author_avatar: string | null;
   created_at: string;
@@ -498,13 +500,28 @@ function Composer({
     try {
       let media_url: string | null = null;
       let media_type: string | null = null;
+      let poster_url: string | null = null;
       if (file) {
-        const ext = file.name.split('.').pop() || 'bin';
-        const path = `${me.id}/${crypto.randomUUID()}.${ext}`;
-        setProgress(0);
-        await uploadResumable('community-media', path, file, setProgress);
-        media_url = supabase.storage.from('community-media').getPublicUrl(path).data.publicUrl;
         media_type = mediaKind(file);
+        setProgress(0);
+        // Photo : réduite côté navigateur (1 920 px max, JPEG) → envoi 5 à 10× plus léger
+        const toSend = media_type === 'image' ? await compressImage(file) : file;
+        const ext = toSend.name.split('.').pop() || 'bin';
+        const id = crypto.randomUUID();
+        const path = `${me.id}/${id}.${ext}`;
+        await uploadResumable('community-media', path, toSend, setProgress);
+        media_url = supabase.storage.from('community-media').getPublicUrl(path).data.publicUrl;
+        // Vidéo : on capture une vignette pour l'afficher instantanément dans le fil
+        if (media_type === 'video' && preview) {
+          const poster = await captureVideoPoster(preview.url).catch(() => null);
+          if (poster) {
+            const posterPath = `${me.id}/${id}.poster.jpg`;
+            const { error: pe } = await supabase.storage
+              .from('community-media')
+              .upload(posterPath, poster, { contentType: 'image/jpeg', cacheControl: '31536000', upsert: true });
+            if (!pe) poster_url = supabase.storage.from('community-media').getPublicUrl(posterPath).data.publicUrl;
+          }
+        }
       }
       const { data, error } = await supabase
         .from('community_posts')
@@ -514,6 +531,7 @@ function Composer({
           body: body.trim() || null,
           media_url,
           media_type,
+          poster_url,
           author_name: me.name,
           author_avatar: me.avatarUrl,
         })
@@ -711,6 +729,7 @@ function PostCard({
             /* preload="none" : la vidéo ne se télécharge QUE si l'élève la lance */
             <video
               src={post.media_url}
+              poster={post.poster_url ? imageUrl(post.poster_url, 900) : undefined}
               controls
               preload="none"
               playsInline
@@ -736,8 +755,11 @@ function PostCard({
             // Hauteur contenue façon LinkedIn ; clic = image en grand
             <a href={post.media_url} target="_blank" rel="noopener noreferrer" title="Voir l'image en grand">
               {/* loading="lazy" : l'image n'est téléchargée qu'en arrivant à l'écran */}
+              {/* Image redimensionnée + WebP par Supabase (≈ 100 Ko au lieu de 1 à 8 Mo) */}
               <img
-                src={post.media_url}
+                src={imageUrl(post.media_url, 800)}
+                srcSet={imageSrcSet(post.media_url)}
+                sizes="(max-width: 768px) 100vw, 700px"
                 alt={`Image partagée par ${prettyName(post.author_name)}`}
                 loading="lazy"
                 decoding="async"
