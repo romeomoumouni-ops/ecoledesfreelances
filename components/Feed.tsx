@@ -753,7 +753,7 @@ function PostCard({
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
             // Hauteur contenue façon LinkedIn ; clic = image en grand
-            <a href={post.media_url} target="_blank" rel="noopener noreferrer" title="Voir l'image en grand">
+            <a href={imageUrl(post.media_url, 1600, 82)} target="_blank" rel="noopener noreferrer" title="Voir l'image en grand">
               {/* loading="lazy" : l'image n'est téléchargée qu'en arrivant à l'écran */}
               {/* Image redimensionnée + WebP par Supabase (≈ 100 Ko au lieu de 1 à 8 Mo) */}
               <img
