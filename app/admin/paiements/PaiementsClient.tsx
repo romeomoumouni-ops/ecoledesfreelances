@@ -13,6 +13,7 @@ const supabase = createClient();
 
 const PLAN_LABEL: Record<string, string> = {
   '1x200': 'Paiement en une fois (200 000)',
+  offert: 'Place offerte (bonus)',
   '1x': 'Paiement en 1 fois',
   '3x': 'Paiement en 3 fois',
   '6x': 'Paiement en 6 fois',

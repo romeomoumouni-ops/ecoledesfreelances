@@ -7,6 +7,8 @@ import { getCurrentProfile, getMyTaskKeys } from '@/lib/user';
 import { scoreFromKeys, OBJECTIVE_TARGET } from '@/lib/tasks';
 import { IconBook, IconLive, IconTarget, IconArrowRight } from '@/components/Icons';
 import IntroVideo from '@/components/IntroVideo';
+import GiftSeat, { type GiftStatus } from '@/components/GiftSeat';
+import { createClient } from '@/lib/supabase/server';
 
 export default async function DashboardPage() {
   const [profile, courses, lives, taskKeys] = await Promise.all([
@@ -20,6 +22,10 @@ export default async function DashboardPage() {
   const score = scoreFromKeys(taskKeys);
   const percent = Math.min(100, Math.round((score / OBJECTIVE_TARGET) * 100));
   const scoreLabel = score % 1 === 0 ? String(score) : score.toFixed(1);
+
+  // Bonus « paiement en une fois » : place à offrir (null = pas éligible)
+  const { data: giftRaw } = await createClient().rpc('my_gift_status');
+  const gift = (giftRaw ?? { eligible: false, used: false, invitee_email: null, used_at: null }) as GiftStatus;
 
   return (
     <>
@@ -38,6 +44,7 @@ export default async function DashboardPage() {
       {/* Vidéo de présentation de la plateforme */}
       <div className="mt-6">
         <IntroVideo />
+        <GiftSeat initial={gift} />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">

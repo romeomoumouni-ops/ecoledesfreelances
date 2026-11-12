@@ -448,3 +448,17 @@ export async function sendCartRelanceEmail(
   </div>`;
   return sendDetailed(to, `${prenom ? prenom.split(/\s+/)[0] + ', t' : 'T'}a place t'attend — ton paiement n'est pas passé`, html);
 }
+
+/** Place offerte : un élève « paiement en une fois » offre l'accès à un proche. */
+export async function sendGiftAccessEmail(to: string, giverName: string): Promise<boolean> {
+  const qui = giverName.trim() ? escapeHtml(giverName.trim().split(/\s+/)[0]) : 'Un élève de l’école';
+  const body = `<b>${qui}</b> vient de t'offrir sa place à <b>L'École des Freelances</b> — le programme
+    d'accompagnement pour devenir freelance IA. Ton accès est <b>activé, à vie, gratuitement</b>.<br/><br/>
+    Il ne te reste qu'une étape : <b>crée ton compte avec cette adresse exactement</b>
+    (<b>${escapeHtml(to)}</b>), choisis un mot de passe, et tu entres directement dans le programme.`;
+  return send(
+    to,
+    `🎁 ${qui} t'offre l'accès à L'École des Freelances`,
+    confirmTemplate('Une place t’est offerte 🎁', body, 'Créer mon compte →', `${SITE_URL}/inscription`)
+  );
+}

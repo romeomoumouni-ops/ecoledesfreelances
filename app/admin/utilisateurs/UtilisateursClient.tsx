@@ -19,6 +19,7 @@ const supabase = createClient();
 
 const PLAN_LABEL: Record<string, string> = {
   '1x200': 'une fois (200 000)',
+  offert: 'place offerte',
   '1x': '1 fois',
   '3x': '3 fois',
   '6x': '6 fois',
