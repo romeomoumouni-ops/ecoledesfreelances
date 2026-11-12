@@ -63,63 +63,62 @@ export async function compressImage(file: File): Promise<File> {
  * `src` peut être un object URL (fichier local) ou une URL distante (CORS ok
  * sur le bucket public). Renvoie null si le navigateur n'y arrive pas.
  */
-// Un seul élément <video> réutilisé : Chrome refuse de créer de nouveaux
-// lecteurs au-delà de quelques dizaines (« too many WebMediaPlayers »).
-let sharedVideo: HTMLVideoElement | null = null;
-function getSharedVideo(): HTMLVideoElement {
-  if (!sharedVideo) {
-    sharedVideo = document.createElement('video');
-    sharedVideo.crossOrigin = 'anonymous';
-    sharedVideo.muted = true;
-    sharedVideo.playsInline = true;
-    sharedVideo.preload = 'auto';
-  }
-  return sharedVideo;
-}
+/** Dernière cause d'échec de captureVideoPoster (diagnostic de l'outil admin). */
+export let lastCaptureError = '';
 
-export function captureVideoPoster(src: string, maxWidth = 1280): Promise<Blob | null> {
+/**
+ * Capture une image de la vidéo (vers 1 s) pour servir de vignette.
+ * `src` peut être un object URL (fichier local) ou une URL distante (CORS ok
+ * sur le bucket public). Un élément <video> neuf à chaque appel, libéré
+ * explicitement à la fin (sinon Chrome finit par refuser de nouveaux lecteurs).
+ * Renvoie null si le navigateur n'y arrive pas.
+ */
+export function captureVideoPoster(src: string, maxWidth = 1280, timeoutMs = 45_000): Promise<Blob | null> {
   return new Promise((resolve) => {
-    const video = getSharedVideo();
+    const video = document.createElement('video');
+    video.crossOrigin = 'anonymous';
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
     let done = false;
-    const finish = (b: Blob | null) => {
+    let stage = 'start';
+    const finish = (b: Blob | null, why = '') => {
       if (done) return;
       done = true;
+      clearTimeout(timer);
+      if (!b) lastCaptureError = why || `timeout (étape ${stage})`;
       video.onerror = null;
       video.onloadedmetadata = null;
       video.onseeked = null;
-      video.removeAttribute('src');
-      video.load();
+      try {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+      } catch {
+        /* rien */
+      }
       resolve(b);
     };
-    const timer = setTimeout(() => finish(null), 90_000);
-    video.onerror = () => {
-      clearTimeout(timer);
-      finish(null);
-    };
+    const timer = setTimeout(() => finish(null), timeoutMs);
+    video.onerror = () => finish(null, `erreur média code ${video.error?.code ?? '?'} (étape ${stage})`);
     video.onloadedmetadata = () => {
+      stage = 'metadata';
       const t = Math.min(1, Math.max(0.1, video.duration / 2 || 0.1));
       video.currentTime = t;
     };
     video.onseeked = () => {
+      stage = 'seeked';
       try {
         const scale = Math.min(1, maxWidth / (video.videoWidth || maxWidth));
         const canvas = document.createElement('canvas');
         canvas.width = Math.round((video.videoWidth || 640) * scale);
         canvas.height = Math.round((video.videoHeight || 360) * scale);
         const ctx = canvas.getContext('2d');
-        if (!ctx) return finish(null);
+        if (!ctx) return finish(null, 'canvas indisponible');
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob(
-          (b) => {
-            clearTimeout(timer);
-            finish(b);
-          },
-          'image/jpeg',
-          0.8
-        );
-      } catch {
-        clearTimeout(timer);
-        finish(null);
+        canvas.toBlob((b) => finish(b, b ? '' : 'toBlob vide'), 'image/jpeg', 0.8);
+      } catch (e) {
+        finish(null, e instanceof Error ? e.message : 'exception capture');
       }
     };
     video.src = src;

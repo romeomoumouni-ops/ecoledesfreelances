@@ -7,7 +7,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { captureVideoPoster } from '@/lib/community-media';
+import { captureVideoPoster, lastCaptureError } from '@/lib/community-media';
 
 const supabase = createClient();
 
@@ -56,8 +56,13 @@ export default function VignettesClient() {
       if (stopRef.current) break;
       setCurrent(r.id);
       try {
-        const blob = await captureVideoPoster(r.media_url, 1280);
-        if (!blob) throw new Error('capture impossible');
+        // Deux tentatives : un échec ponctuel du navigateur ne doit pas bloquer la vidéo.
+        let blob = await captureVideoPoster(r.media_url, 1280);
+        if (!blob) {
+          await new Promise((res) => setTimeout(res, 1500));
+          blob = await captureVideoPoster(r.media_url, 1280);
+        }
+        if (!blob) throw new Error(`capture impossible — ${lastCaptureError}`);
         const path = `${user.id}/posters/${r.id}.jpg`;
         const { error: ue } = await supabase.storage
           .from('community-media')
