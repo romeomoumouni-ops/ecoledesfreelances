@@ -38,6 +38,9 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
         subtitle="Voici un aperçu de ton programme."
       />
 
+      {/* Bonus « paiement en une fois » : place à offrir — tout en haut, bien visible */}
+      <GiftSeat initial={gift} />
+
       {/* Statistiques réelles */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
         <StatCard label="Cours du programme" value={String(courses.length)} Icon={IconBook} note="Cours disponibles dans ton programme." />
@@ -48,7 +51,6 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
       {/* Vidéo de présentation de la plateforme */}
       <div className="mt-6">
         <IntroVideo />
-        <GiftSeat initial={gift} />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">

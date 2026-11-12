@@ -46,7 +46,7 @@ export default function GiftSeat({ initial }: { initial: GiftStatus }) {
 
   return (
     <>
-      <section className="overflow-hidden rounded-2xl border border-red-200 bg-white shadow-soft">
+      <section className="mb-4 overflow-hidden rounded-2xl border-2 border-red-500 bg-red-50 shadow-soft sm:mb-5">
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="inline-flex items-center gap-2 rounded-full bg-red-600 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white">
