@@ -3,12 +3,12 @@
 // Bonus « paiement en une fois » : offrir sa place à UNE personne, une seule
 // fois, irrévocable. Carte bien visible sur le tableau de bord.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { verifierEmail } from '@/lib/email-check';
 
 export type GiftStatus = { eligible: boolean; used: boolean; invitee_email: string | null; used_at: string | null };
 
-export default function GiftSeat({ initial }: { initial: GiftStatus }) {
+export default function GiftSeat({ initial, apercu = false }: { initial: GiftStatus; apercu?: boolean }) {
   const [status, setStatus] = useState(initial);
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
@@ -16,8 +16,18 @@ export default function GiftSeat({ initial }: { initial: GiftStatus }) {
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  // Après le don : la confirmation reste 1 minute puis la carte disparaît pour
+  // ne plus encombrer le tableau de bord (et n'est plus affichée ensuite).
+  const [justGiven, setJustGiven] = useState(apercu);
+  const [hidden, setHidden] = useState(initial.used && !apercu);
 
-  if (!status.eligible) return null;
+  useEffect(() => {
+    if (!justGiven) return;
+    const t = setTimeout(() => setHidden(true), 60_000);
+    return () => clearTimeout(t);
+  }, [justGiven]);
+
+  if (!status.eligible || hidden) return null;
 
   const verif = verifierEmail(email);
   const sameTwice = email.trim().toLowerCase() === confirm.trim().toLowerCase();
@@ -36,6 +46,7 @@ export default function GiftSeat({ initial }: { initial: GiftStatus }) {
       const j = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(j.error || 'Impossible d’offrir la place.');
       setStatus({ eligible: true, used: true, invitee_email: j.invitee_email, used_at: new Date().toISOString() });
+      setJustGiven(true);
       setOpen(false);
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Impossible d’offrir la place.');
@@ -57,7 +68,7 @@ export default function GiftSeat({ initial }: { initial: GiftStatus }) {
                 <h2 className="mt-3 text-lg font-bold text-ink">Tu as offert ta place</h2>
                 <p className="mt-1 text-sm text-muted">
                   Accès à vie donné à <b className="text-ink">{status.invitee_email}</b>. Cette personne a reçu un
-                  e-mail pour créer son compte.
+                  e-mail pour créer son compte. Ce message disparaîtra dans une minute.
                 </p>
               </>
             ) : (

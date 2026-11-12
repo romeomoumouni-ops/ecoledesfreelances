@@ -39,7 +39,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
       />
 
       {/* Bonus « paiement en une fois » : place à offrir — tout en haut, bien visible */}
-      <GiftSeat initial={gift} />
+      <GiftSeat key={searchParams?.apercu ?? ''} initial={gift} apercu={searchParams?.apercu === 'place-donnee'} />
 
       {/* Statistiques réelles */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
