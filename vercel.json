@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/paniers-abandonnes",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/rapport-profils",
+      "schedule": "0 7 * * 2"
     }
   ]
 }

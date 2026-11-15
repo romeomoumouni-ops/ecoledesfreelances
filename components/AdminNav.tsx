@@ -39,6 +39,7 @@ const items = [
 const superAdminItems: (typeof items)[number][] = [
   { href: '/admin/paiements', label: 'Accès super admin', Icon: IconCard },
   { href: '/admin/lancement', label: 'Bible de lancement', Icon: IconTarget },
+  { href: '/admin/profils', label: 'Profils entrants', Icon: IconUsers },
 ];
 
 export default function AdminNav({

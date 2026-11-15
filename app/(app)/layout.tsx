@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation';
 import AppShell from '@/components/AppShell';
+import OnboardingModal from '@/components/OnboardingModal';
+import { ONBOARDING_SINCE } from '@/lib/onboarding';
 import { getCurrentProfile } from '@/lib/user';
 import { createClient } from '@/lib/supabase/server';
 
@@ -106,6 +108,18 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
     supabaseNotif.rpc('my_unread_notifications'),
     getPostsUnread(profile.id, 'communaute', COMMUNAUTE_CHANNELS),
   ]);
+  // Questionnaire d'accueil : nouveaux comptes (créés après le lancement) qui
+  // n'ont pas encore répondu. Jamais pour les admins.
+  let needsOnboarding = false;
+  if (!profile.is_admin) {
+    const sb = createClient();
+    const [{ data: prof }, { data: ans }] = await Promise.all([
+      sb.from('profiles').select('created_at').eq('id', profile.id).maybeSingle(),
+      sb.from('onboarding_answers').select('user_id').eq('user_id', profile.id).maybeSingle(),
+    ]);
+    needsOnboarding = !!prof?.created_at && prof.created_at >= ONBOARDING_SINCE && !ans;
+  }
+
   // Cloche = annonces de l'équipe + interactions personnelles (like/commentaire/réponse)
   const notifUnread = ((annUnread as number | null) ?? 0) + ((persoUnread as number | null) ?? 0);
 
@@ -125,6 +139,7 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
       communauteUnread={communauteUnread}
       installment={installment}
     >
+      {needsOnboarding && <OnboardingModal userId={profile.id} firstName={profile.full_name.split(' ')[0]} />}
       {children}
     </AppShell>
   );

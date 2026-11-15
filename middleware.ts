@@ -77,7 +77,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
     // Espaces réservés au super admin : paiements (CA) et Bible de lancement
-    if ((path.startsWith('/admin/paiements') || path.startsWith('/admin/lancement')) && !prof?.is_super_admin) {
+    if ((path.startsWith('/admin/paiements') || path.startsWith('/admin/lancement') || path.startsWith('/admin/profils')) && !prof?.is_super_admin) {
       const url = request.nextUrl.clone();
       url.pathname = '/admin';
       return NextResponse.redirect(url);

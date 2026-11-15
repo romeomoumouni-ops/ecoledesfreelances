@@ -462,3 +462,43 @@ export async function sendGiftAccessEmail(to: string, giverName: string): Promis
     confirmTemplate('Une place t’est offerte 🎁', body, 'Créer mon compte →', `${SITE_URL}/inscription`)
   );
 }
+
+/** Rapport hebdo « profils entrants » (super admin) : chiffres, analyse IA, réponses. */
+export async function sendProfilsReport(
+  to: string,
+  r: {
+    days: number;
+    answers: { motivation: string; situation: string; situation_autre: string | null; full_name?: string | null; email?: string | null; created_at: string }[];
+    repartition: { label: string; n: number; pct: number }[];
+    analyse: string | null;
+  }
+): Promise<boolean> {
+  const situ = (a: { situation: string; situation_autre: string | null }) =>
+    a.situation === 'autre' && a.situation_autre ? `Autre : ${a.situation_autre}` :
+    ({ salarie: 'Salarié(e)', sans_emploi: 'Sans emploi', petit_job: 'Petit job', freelance: 'Freelance', autre: 'Autre' } as Record<string, string>)[a.situation] ?? a.situation;
+  const bars = r.repartition
+    .map((x) => `<tr><td style="padding:4px 8px 4px 0;font-size:13px;">${escapeHtml(x.label)}</td><td style="padding:4px 0;font-size:13px;text-align:right;"><b>${x.n}</b> · ${x.pct} %</td></tr>`)
+    .join('');
+  const analyseHtml = r.analyse
+    ? r.analyse.split(/\n\s*\n/).map((p) => `<p style="font-size:13px;line-height:1.6;color:#2a2a2a;margin:0 0 10px;">${escapeHtml(p).replace(/\n/g, '<br/>')}</p>`).join('')
+    : '<p style="font-size:13px;color:#777;">Pas d’analyse (aucune réponse ou IA indisponible).</p>';
+  const lignes = r.answers
+    .slice(0, 150)
+    .map(
+      (a) => `<div style="padding:10px 0;border-top:1px solid #eee;">
+        <div style="font-size:12px;color:#777;">${escapeHtml(a.full_name || a.email || '')} · ${escapeHtml(situ(a))} · ${new Date(a.created_at).toLocaleDateString('fr-FR')}</div>
+        <div style="font-size:13px;color:#1d1d1f;margin-top:3px;">${escapeHtml(a.motivation).replace(/\n/g, '<br/>')}</div>
+      </div>`
+    )
+    .join('');
+  const body = `<b>${r.answers.length}</b> nouveau(x) profil(s) renseigné(s) sur les ${r.days} derniers jours.<br/><br/>
+    <b>Situation actuelle</b><table style="border-collapse:collapse;margin:6px 0 16px;">${bars}</table>
+    <b>Analyse</b><div style="margin:6px 0 16px;">${analyseHtml}</div>
+    <b>Les réponses</b>${lignes || '<p style="font-size:13px;color:#777;">Aucune réponse cette semaine.</p>'}
+    ${r.answers.length > 150 ? `<p style="font-size:12px;color:#777;">… et ${r.answers.length - 150} autres dans l’onglet admin.</p>` : ''}`;
+  return send(
+    to,
+    `Profils entrants — ${r.answers.length} nouveau(x) cette semaine`,
+    confirmTemplate('Rapport des profils entrants', body, 'Ouvrir l’onglet Profils entrants →', `${SITE_URL}/admin/profils`)
+  );
+}
