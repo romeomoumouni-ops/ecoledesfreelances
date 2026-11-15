@@ -11,7 +11,7 @@ import { SITUATIONS } from '@/lib/onboarding';
 
 const supabase = createClient();
 
-export default function OnboardingModal({ userId, firstName }: { userId: string; firstName: string }) {
+export default function OnboardingModal({ userId, firstName, preview = false }: { userId: string; firstName: string; preview?: boolean }) {
   const router = useRouter();
   const [motivation, setMotivation] = useState('');
   const [situation, setSituation] = useState('');
@@ -26,6 +26,11 @@ export default function OnboardingModal({ userId, firstName }: { userId: string;
     if (!ok) return;
     setBusy(true);
     setErr('');
+    if (preview) {
+      // Aperçu admin : rien n'est enregistré, retour à l'onglet Profils entrants
+      router.push('/admin/profils');
+      return;
+    }
     const { error } = await supabase.from('onboarding_answers').insert({
       user_id: userId,
       motivation: motivation.trim(),

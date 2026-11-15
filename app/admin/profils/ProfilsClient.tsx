@@ -99,7 +99,8 @@ export default function ProfilsClient({ initial, analyse }: { initial: Onboardin
       </h1>
       <p className="mb-4 text-sm text-muted">
         Ce que répondent les nouveaux élèves à leur première connexion : pourquoi ils ont rejoint l&apos;incubateur, et
-        leur situation. Un rapport t&apos;est envoyé par e-mail chaque mardi matin.
+        leur situation. Un rapport t&apos;est envoyé par e-mail chaque mardi matin.{' '}
+        <a href="/admin/profils/apercu" className="underline">Voir le questionnaire tel qu&apos;ils le voient</a>
       </p>
 
       {/* Période */}
