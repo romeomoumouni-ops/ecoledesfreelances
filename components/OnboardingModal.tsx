@@ -78,7 +78,7 @@ export default function OnboardingModal({ userId, firstName, preview = false }: 
                 type="button"
                 onClick={() => setSituation(s.key)}
                 className={`rounded-xl border px-3 py-2.5 text-left text-sm font-semibold transition ${
-                  situation === s.key ? 'border-ink bg-ink text-white' : 'border-line bg-white text-ink hover:border-[#cfcfcd]'
+                  situation === s.key ? 'border-ink bg-ink text-white' : 'border-black/15 bg-white text-ink hover:border-black/40'
                 }`}
               >
                 {s.label}
