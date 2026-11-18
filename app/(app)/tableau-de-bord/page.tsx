@@ -29,6 +29,7 @@ export default async function DashboardPage({ searchParams }: { searchParams?: {
   // Aperçu admin : ?apercu=place montre la carte telle qu'un élève « une fois » la voit
   // (le don réel reste refusé par la base pour un compte non éligible).
   if (profile?.is_admin && searchParams?.apercu === 'place') gift = { eligible: true, used: false, invitee_email: null, used_at: null };
+  if (profile?.is_admin && searchParams?.apercu === 'place-attente') gift = { eligible: true, used: true, invitee_email: 'exemple@gmail.com', used_at: new Date().toISOString(), invitee_registered: false };
   if (profile?.is_admin && searchParams?.apercu === 'place-donnee') gift = { eligible: true, used: true, invitee_email: 'exemple@gmail.com', used_at: new Date().toISOString() };
 
   return (

@@ -18,7 +18,7 @@ export async function sendDetailed(
   subject: string,
   html: string,
   scheduledAt?: string
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; id?: string }> {
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false, error: 'RESEND_API_KEY manquante' };
   try {
@@ -33,7 +33,10 @@ export async function sendDetailed(
         ...(scheduledAt ? { scheduled_at: scheduledAt } : {}),
       }),
     });
-    if (res.ok) return { ok: true };
+    if (res.ok) {
+      const j = (await res.json().catch(() => null)) as { id?: string } | null;
+      return { ok: true, id: j?.id };
+    }
     const j = (await res.json().catch(() => null)) as { message?: string; name?: string } | null;
     return { ok: false, error: `${res.status} ${j?.name ?? ''} ${j?.message ?? ''}`.trim() };
   } catch (e) {
@@ -450,17 +453,58 @@ export async function sendCartRelanceEmail(
 }
 
 /** Place offerte : un élève « paiement en une fois » offre l'accès à un proche. */
-export async function sendGiftAccessEmail(to: string, giverName: string): Promise<boolean> {
-  const qui = giverName.trim() ? escapeHtml(giverName.trim().split(/\s+/)[0]) : 'Un élève de l’école';
-  const body = `<b>${qui}</b> vient de t'offrir sa place à <b>L'École des Freelances</b> — le programme
+export async function sendGiftAccessEmail(
+  to: string,
+  giverName: string
+): Promise<{ ok: boolean; error?: string; id?: string }> {
+  const prenom = giverName.trim() ? giverName.trim().split(/\s+/)[0] : 'Un élève de l’école';
+  const qui = escapeHtml(prenom);
+  const body = `<b>${qui}</b> vient de t'offrir sa place à <b>L'École des Freelances</b>, le programme
     d'accompagnement pour devenir freelance IA. Ton accès est <b>activé, à vie, gratuitement</b>.<br/><br/>
     Il ne te reste qu'une étape : <b>crée ton compte avec cette adresse exactement</b>
-    (<b>${escapeHtml(to)}</b>), choisis un mot de passe, et tu entres directement dans le programme.`;
-  return send(
+    (<b>${escapeHtml(to)}</b>), choisis un mot de passe, et tu entres directement dans le programme.<br/><br/>
+    Adresse du site : <b>lecoledesfreelances.com/inscription</b>`;
+  return sendDetailed(
     to,
-    `🎁 ${qui} t'offre l'accès à L'École des Freelances`,
+    `🎁 ${prenom} t'offre l'accès à L'École des Freelances`,
     confirmTemplate('Une place t’est offerte 🎁', body, 'Créer mon compte →', `${SITE_URL}/inscription`)
   );
+}
+
+/** Code de vérification envoyé à l'invité avant le don d'une place offerte. */
+export async function sendGiftCodeEmail(
+  to: string,
+  giverName: string,
+  code: string
+): Promise<{ ok: boolean; error?: string; id?: string }> {
+  const prenom = giverName.trim() ? giverName.trim().split(/\s+/)[0] : 'Un élève de l’école';
+  const qui = escapeHtml(prenom);
+  const body = `<b>${qui}</b> veut t'offrir sa place à <b>L'École des Freelances</b>, avec un accès à vie et gratuit.<br/><br/>
+    Pour confirmer que cette adresse est bien la tienne, donne-lui ce code :<br/><br/>
+    <span style="display:inline-block;font-size:30px;font-weight:800;letter-spacing:8px;color:#1d1d1f;background:#f2f2f0;border-radius:12px;padding:12px 18px;">${code}</span><br/><br/>
+    Le code est valable 30 minutes. Dès que ${qui} l'a saisi, tu reçois un e-mail pour créer ton compte.`;
+  return sendDetailed(
+    to,
+    `Ton code : ${code} · ${prenom} t'offre sa place`,
+    confirmTemplate('Ton code de vérification', body, 'Découvrir l’école →', SITE_URL)
+  );
+}
+
+/** Statut de livraison d'un e-mail Resend (delivered, bounced…). null si inconnu. */
+export async function emailDeliveryStatus(id: string): Promise<string | null> {
+  const key = process.env.RESEND_API_KEY;
+  if (!key || !id) return null;
+  try {
+    const res = await fetch(`https://api.resend.com/emails/${encodeURIComponent(id)}`, {
+      headers: { Authorization: `Bearer ${key}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const j = (await res.json().catch(() => null)) as { last_event?: string } | null;
+    return j?.last_event ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** Rapport hebdo « profils entrants » (super admin) : chiffres, analyse IA, réponses. */
