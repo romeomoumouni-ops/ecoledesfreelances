@@ -8,3 +8,4 @@ npm-debug.log*
 .env
 .env*.local
 next-env.d.ts
+captures-parcours/

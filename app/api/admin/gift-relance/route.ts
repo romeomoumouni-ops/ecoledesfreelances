@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
   const send = req.nextUrl.searchParams.get('send') === '1';
+  const max = Number(req.nextUrl.searchParams.get('max')) || 1000;
   const supabase = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -26,14 +27,14 @@ export async function GET(req: NextRequest) {
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   const list = (data ?? []) as { id: string; invitee_email: string; giver_email: string; giver_name: string; email_id: string | null }[];
 
-  const out: { invitee: string; giver: string; statut: string | null; renvoye?: boolean }[] = [];
-  for (const g of list) {
+  const out: { invitee: string; giver: string; statut: string | null; renvoye?: boolean; erreur?: string }[] = [];
+  for (const g of list.slice(0, max)) {
     if (send) {
       const r = await sendGiftAccessEmail(g.invitee_email, g.giver_name);
       if (r.ok && r.id) {
         await supabase.rpc('gift_mark_sent', { p_secret: process.env.CHARIOW_GRANT_SECRET, p_id: g.id, p_email_id: r.id });
       }
-      out.push({ invitee: g.invitee_email, giver: g.giver_email, statut: null, renvoye: r.ok });
+      out.push({ invitee: g.invitee_email, giver: g.giver_email, statut: null, renvoye: r.ok, erreur: r.error });
       await new Promise((res) => setTimeout(res, 600));
     } else {
       out.push({ invitee: g.invitee_email, giver: g.giver_email, statut: g.email_id ? await emailDeliveryStatus(g.email_id) : null });
