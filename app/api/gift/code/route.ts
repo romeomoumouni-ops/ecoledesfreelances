@@ -39,6 +39,14 @@ export async function POST(req: NextRequest) {
 
   const sent = await sendGiftCodeEmail(r.invitee_email!, r.giver_name ?? '', r.code!);
   if (!sent.ok) {
+    // Panne ou quota du service d'e-mail : ce n'est PAS la faute de l'adresse.
+    if (/^(429|5\d\d)\b|RESEND_API_KEY|réseau/.test(sent.error ?? '')) {
+      console.error('[gift/code] envoi impossible', sent.error);
+      return NextResponse.json(
+        { error: 'L’envoi des e-mails est momentanément indisponible. Ta place n’est pas utilisée : réessaie un peu plus tard.' },
+        { status: 503 }
+      );
+    }
     return NextResponse.json({ error: `Impossible d’envoyer un e-mail à cette adresse. ${MAUVAISE_ADRESSE}` }, { status: 400 });
   }
   if (sent.id) {
