@@ -546,3 +546,114 @@ export async function sendProfilsReport(
     confirmTemplate('Rapport des profils entrants', body, 'Ouvrir l’onglet Profils entrants →', `${SITE_URL}/admin/profils`)
   );
 }
+
+// ───────────────────────── Séquence d'accueil des nouveaux élèves ─────────────────────────
+
+/** Gabarit « lettre » : ton personnel, signé Roméo. */
+function accueilTemplate(title: string, bodyHtml: string, ctaLabel: string, ctaHref: string, footHtml = ''): string {
+  return `
+  <div style="margin:0;padding:24px;background:#f7f7f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1d1d1f;">
+    <div style="max-width:540px;margin:0 auto;background:#ffffff;border:1px solid #ececeb;border-radius:16px;overflow:hidden;">
+      <div style="padding:28px 28px 8px;"><div style="font-size:17px;font-weight:700;">L'École des Freelances</div></div>
+      <div style="padding:8px 28px 28px;font-size:14px;line-height:1.7;color:#3a3a3a;">
+        <h1 style="font-size:21px;line-height:1.3;font-weight:700;margin:12px 0 14px;color:#1d1d1f;">${title}</h1>
+        ${bodyHtml}
+        <div style="text-align:center;margin:26px 0 14px;">
+          <a href="${ctaHref}" style="display:inline-block;background:#1d1d1f;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 28px;border-radius:12px;">${ctaLabel}</a>
+        </div>
+        ${footHtml}
+        <p style="margin:22px 0 0;">À très vite sur la plateforme,<br/><b>Roméo</b><br/><span style="color:#8a8a8a;font-size:12px;">Fondateur de L'École des Freelances</span></p>
+      </div>
+    </div>
+    <p style="max-width:540px;margin:14px auto 0;font-size:11px;color:#a0a0a0;text-align:center;">L'École des Freelances · tu reçois cet e-mail car tu as rejoint l'incubateur.</p>
+  </div>`;
+}
+
+const encadre = (html: string) =>
+  `<div style="background:#f7f7f5;border-radius:12px;padding:14px 16px;margin:16px 0;font-size:13px;line-height:1.75;color:#1d1d1f;">${html}</div>`;
+
+/**
+ * 5 minutes après l'achat. Deux versions :
+ * - déjà connecté → on le félicite et on lui montre par où commencer ;
+ * - pas encore de compte → on lui redonne le lien et la marche à suivre.
+ */
+export async function sendSuiviAchatEmail(
+  to: string,
+  prenom: string,
+  connecte: boolean,
+  scheduledAt?: string
+): Promise<{ ok: boolean; error?: string; id?: string }> {
+  const p = prenom.trim() ? escapeHtml(prenom.trim()) : '';
+  const salut = p ? `Hello ${p},` : 'Hello,';
+
+  if (connecte) {
+    const body = `
+      <p style="margin:0 0 12px;">${salut}</p>
+      <p style="margin:0 0 12px;">Je voulais juste m'assurer que tout s'est bien passé. Je vois que tu es déjà connecté(e) à la plateforme : bravo, tu as fait le premier pas, et c'est souvent le plus difficile.</p>
+      <p style="margin:0 0 12px;">Laisse-moi te dire une chose : <b>tu viens de faire le meilleur achat de ta vie.</b> Dans les semaines qui viennent, tu vas apprendre énormément, gagner en confiance, décrocher tes premiers clients et commencer à gagner de l'argent avec tes nouvelles compétences. Beaucoup d'élèves sont passés exactement là où tu es aujourd'hui.</p>
+      ${encadre(`<b>Par où commencer, dès maintenant :</b><br/>
+        1️⃣ Ouvre <b>Mes cours à suivre</b> et lance la première vidéo<br/>
+        2️⃣ Fais les <b>exercices</b> directement sur la plateforme, c'est là que tout se joue<br/>
+        3️⃣ Regarde dans <b>Live &amp; Replay</b> les prochains coachings en direct<br/>
+        4️⃣ Présente-toi dans la <b>Communauté</b>, les autres élèves t'attendent`)}
+      <p style="margin:0;">Je suis vraiment content de t'avoir avec nous.</p>`;
+    return sendDetailed(
+      to,
+      p ? `${prenom.trim()}, tu viens de faire le meilleur choix 🚀` : 'Tu viens de faire le meilleur choix 🚀',
+      accueilTemplate('Bienvenue dans l’incubateur 🎉', body, 'Commencer ma formation →', `${SITE_URL}/mes-formations`),
+      scheduledAt
+    );
+  }
+
+  const body = `
+    <p style="margin:0 0 12px;">${salut}</p>
+    <p style="margin:0 0 12px;">Ton paiement est bien confirmé et <b>ton accès à L'École des Freelances est activé</b>. Je voulais vérifier que tu as bien reçu tes accès, car je vois que tu ne t'es pas encore connecté(e) à la plateforme.</p>
+    ${encadre(`<b>Pour entrer, il te faut 2 minutes :</b><br/>
+      1️⃣ Clique sur le bouton ci-dessous<br/>
+      2️⃣ Crée ton compte avec <b>cette adresse e-mail exactement</b> : ${escapeHtml(to)}<br/>
+      3️⃣ Choisis un mot de passe et <b>note-le bien</b><br/>
+      🔓 Ton accès s'ouvre tout seul dès que ton compte est créé.`)}
+    <p style="margin:0 0 12px;">Et je tiens à te rassurer : <b>tu viens de faire le meilleur achat de ta vie.</b> Tu vas apprendre énormément de choses, décrocher tes premiers clients et gagner de l'argent avec tes nouvelles compétences. Il ne manque plus que toi sur la plateforme.</p>`;
+  const foot = `<p style="font-size:12px;line-height:1.6;color:#8a8a8a;text-align:center;margin:0;">
+      Tu as déjà un compte ? <a href="${SITE_URL}/connexion" style="color:#4a4a4a;">Connecte-toi ici</a>.<br/>
+      Un souci pour entrer ? Réponds simplement à cet e-mail, on s'occupe de toi.</p>`;
+  return sendDetailed(
+    to,
+    p ? `${prenom.trim()}, as-tu bien reçu tes accès ? 🎁` : 'As-tu bien reçu tes accès ? 🎁',
+    accueilTemplate('Ton accès t’attend', body, 'Créer mon compte maintenant →', `${SITE_URL}/inscription`, foot),
+    scheduledAt
+  );
+}
+
+/** Lundi midi : message chaleureux à tous les nouveaux élèves de la semaine. */
+export async function sendAccueilLundiEmail(
+  to: string,
+  prenom: string,
+  aUnCompte: boolean,
+  scheduledAt?: string
+): Promise<{ ok: boolean; error?: string; id?: string }> {
+  const p = prenom.trim() ? escapeHtml(prenom.trim()) : '';
+  const salut = p ? `Hello ${p},` : 'Hello,';
+  const pasDeCompte = aUnCompte
+    ? ''
+    : encadre(`<b>Tu n'as pas encore créé ton compte ?</b> Ton accès est pourtant actif. Va sur <b>lecoledesfreelances.com/inscription</b>, crée ton compte avec <b>${escapeHtml(to)}</b>, et tu entres directement dans le programme.`);
+  const body = `
+    <p style="margin:0 0 12px;">${salut}</p>
+    <p style="margin:0 0 12px;">Tu as rejoint l'incubateur cette semaine, et je voulais prendre un moment pour t'écrire personnellement.</p>
+    <p style="margin:0 0 12px;">Ici, on se soucie vraiment de ton évolution. Tu n'es pas un numéro de commande : tu es un futur freelance qu'on va accompagner jusqu'à ses premiers résultats. C'est pour ça que je tenais à m'assurer que tu as bien pris tes marques et que tu sais tout ce que tu peux faire dès aujourd'hui.</p>
+    ${encadre(`<b>Ce qui t'attend sur la plateforme :</b><br/>
+      🎬 <b>Les cours</b> : avance à ton rythme, vidéo après vidéo<br/>
+      ✍️ <b>Les exercices</b> : fais-les directement sur la plateforme, tes coachs les corrigent<br/>
+      🔴 <b>Les coachings en live</b> : regarde dans Live &amp; Replay ceux qui arrivent cette semaine<br/>
+      💬 <b>Tes coachs</b> : une question, un blocage ? Écris-leur, ils te répondent<br/>
+      🤝 <b>La communauté</b> : partage tes progrès et tes victoires avec les autres élèves`)}
+    ${pasDeCompte}
+    <p style="margin:0 0 12px;">Prends vraiment la main sur la plateforme cette semaine. Même 30 minutes par jour suffisent pour que tout s'enchaîne très vite.</p>
+    <p style="margin:0 0 12px;">Et rappelle-toi : <b>tu as fait le meilleur achat de ta vie.</b> Ce que tu vas apprendre ici va changer ta façon de travailler et te permettre de gagner de l'argent avec tes compétences. Je crois sincèrement en toi, et toute l'équipe est là pour te soutenir.</p>`;
+  return sendDetailed(
+    to,
+    p ? `${prenom.trim()}, bienvenue dans la famille 💛` : 'Bienvenue dans la famille 💛',
+    accueilTemplate('On est tellement contents de t’avoir avec nous', body, aUnCompte ? 'Ouvrir la plateforme →' : 'Créer mon compte →', aUnCompte ? `${SITE_URL}/tableau-de-bord` : `${SITE_URL}/inscription`),
+    scheduledAt
+  );
+}
