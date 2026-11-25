@@ -1,8 +1,8 @@
 'use client';
 
-// Conversations des guichets publics : l'assistant d'accès /assistance et le
-// support IA /support. Toutes les discussions, avec les vérifications et envois
-// faits par le serveur, en temps réel.
+// Conversations de l'assistant d'accès public /assistance : toutes les
+// discussions, avec les vérifications et envois faits par le serveur, en temps réel.
+// (L'ancien support IA /support a été supprimé le 25/11/2026 ; son historique reste en base.)
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -23,12 +23,7 @@ type Chat = {
   last_assistant: string | null;
   source?: string;
 };
-type Source = 'assistance' | 'support' | 'all';
-const SOURCES: { key: Source; label: string }[] = [
-  { key: 'assistance', label: 'Assistant d’accès' },
-  { key: 'support', label: 'Support IA' },
-  { key: 'all', label: 'Tout' },
-];
+
 type Line = { id: number; role: 'user' | 'assistant' | 'note'; body: string; created_at: string };
 
 const OUTCOME: Record<string, { label: string; cls: string }> = {
@@ -59,14 +54,13 @@ export default function SupportAdminClient() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState<Chat | null>(null);
   const [lines, setLines] = useState<Line[]>([]);
-  const [source, setSource] = useState<Source>('assistance');
 
   async function load(p: number) {
     setLoading(true);
     const { data } = await supabase.rpc('admin_ai_chats', {
       p_page: p,
       p_size: PAGE_SIZE,
-      p_source: source === 'all' ? null : source,
+      p_source: 'assistance',
     });
     const d = (data ?? { total: 0, items: [] }) as { total: number; items: Chat[] };
     setChats(d.items);
@@ -87,7 +81,7 @@ export default function SupportAdminClient() {
   useEffect(() => {
     void load(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, source]);
+  }, [page]);
 
   // Temps réel : nouvelle discussion / nouveau message → liste et fil ouvert à jour
   useEffect(() => {
@@ -104,7 +98,7 @@ export default function SupportAdminClient() {
       supabase.removeChannel(ch);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, source, open?.id]);
+  }, [page, open?.id]);
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -137,7 +131,7 @@ export default function SupportAdminClient() {
                     }`}
                   >
                     <span className={`mb-0.5 block text-[10px] font-bold uppercase tracking-wide ${l.role === 'assistant' ? 'text-muted' : 'text-white/60'}`}>
-                      {l.role === 'assistant' ? (open.source === 'assistance' ? 'Assistant' : 'IA') : 'Visiteur'} · {heure(l.created_at)}
+                      {l.role === 'assistant' ? 'Assistant' : 'Visiteur'} · {heure(l.created_at)}
                     </span>
                     {l.body}
                   </div>
@@ -153,24 +147,10 @@ export default function SupportAdminClient() {
   return (
     <>
       <h1 className="mb-1 text-xl font-bold text-ink">Conversations</h1>
-      <p className="mb-4 text-sm text-muted">
+      <p className="mb-5 text-sm text-muted">
         Les discussions de l&apos;assistant d&apos;accès{' '}
-        <a href="/assistance" target="_blank" rel="noreferrer" className="underline">/assistance</a> et du support IA{' '}
-        <a href="/support" target="_blank" rel="noreferrer" className="underline">/support</a> : qui a écrit, ce qui a été vérifié et envoyé. Temps réel.
+        <a href="/assistance" target="_blank" rel="noreferrer" className="underline">/assistance</a> : qui a écrit, ce qui a été vérifié et envoyé. Temps réel.
       </p>
-      <div className="mb-4 flex gap-1.5 overflow-x-auto">
-        {SOURCES.map((x) => (
-          <button
-            key={x.key}
-            onClick={() => { setSource(x.key); setPage(0); }}
-            className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-semibold transition ${
-              source === x.key ? 'bg-ink text-white' : 'bg-black/[0.05] text-muted hover:text-ink'
-            }`}
-          >
-            {x.label}
-          </button>
-        ))}
-      </div>
 
       {loading && !chats.length ? (
         <p className="py-8 text-center text-sm text-muted">Chargement…</p>
@@ -190,7 +170,7 @@ export default function SupportAdminClient() {
                       <b className="font-semibold text-ink/70">Visiteur :</b> {c.last_user ?? '—'}
                     </span>
                     <span className="block truncate text-xs text-muted">
-                      <b className="font-semibold text-ink/70">{c.source === 'assistance' ? 'Assistant' : 'IA'} :</b> {c.last_assistant ?? '—'}
+                      <b className="font-semibold text-ink/70">Assistant :</b> {c.last_assistant ?? '—'}
                     </span>
                   </span>
                   <span className="shrink-0 text-right text-xs text-muted">

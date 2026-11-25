@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 const AUTH_PATHS = ['/connexion', '/inscription'];
-// Pages publiques accessibles SANS compte (page de vente, support d'accès).
+// Pages publiques accessibles SANS compte (page de vente, assistant d'accès ; /support redirige vers /assistance).
 const PUBLIC_PATHS = ['/paiement', '/support', '/assistance'];
 
 export async function middleware(request: NextRequest) {
