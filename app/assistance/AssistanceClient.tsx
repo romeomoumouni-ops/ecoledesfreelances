@@ -246,6 +246,7 @@ export default function AssistanceClient() {
   const [mood, setMood] = useState<Mood>('idle');
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const started = msgs.length > 1;
 
   useEffect(() => {
     if (msgs.length > 1 || busy) endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -303,7 +304,7 @@ export default function AssistanceClient() {
   }
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-[#f7f7f5]">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[#f7f7f5]">
       <style dangerouslySetInnerHTML={{ __html: MASCOT_CSS }} />
       <header className="border-b border-line bg-white/85 px-4 py-3 backdrop-blur-xl">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
@@ -314,17 +315,19 @@ export default function AssistanceClient() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 pb-4 pt-4">
-        <div className="flex flex-col items-center text-center">
-          <Mascot mood={mood} size={104} />
-          <h1 className="mt-1 text-xl font-bold text-ink sm:text-2xl">Ton assistant d&apos;accès</h1>
-          <p className="mt-1 text-sm text-muted">
+      <main className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col px-4 pb-3 pt-3">
+        <div className={`flex items-center text-center ${started ? "flex-row justify-center gap-3 text-left" : "flex-col"}`}>
+          <Mascot mood={mood} size={started ? 52 : 104} />
+          <div>
+          <h1 className={`font-bold text-ink ${started ? "text-base sm:text-lg" : "mt-1 text-xl sm:text-2xl"}`}>Ton assistant d&apos;accès</h1>
+          <p className={`text-muted ${started ? "text-xs" : "mt-1 text-sm"}`}>
             {busy ? 'Je vérifie ton paiement…' : 'Vérifie ton paiement et entre sur la plateforme en 1 minute.'}
           </p>
+          </div>
         </div>
 
-        <div className="card mt-4 flex flex-1 flex-col overflow-hidden">
-          <div className="flex-1 space-y-3 overflow-y-auto p-3 sm:p-4" aria-live="polite">
+        <div className="card mt-3 flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-3 sm:p-4" aria-live="polite">
             {msgs.map((m) =>
               m.role === 'user' ? (
                 <div key={m.id} className="msg-in flex justify-end">

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import AssistanceClient from './AssistanceClient';
 
 export const metadata: Metadata = {
-  title: "Assistant d'accès · L'École des Freelances",
+  title: "Assistant d'accès",
   description: "Tu as payé ? Vérifie ton paiement et reçois les consignes pour entrer sur la plateforme.",
   robots: { index: false },
 };
