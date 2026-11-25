@@ -246,7 +246,7 @@ function reponse(r: ApiResult, send: Send): { mood: Mood; content: ReactNode } {
         content: (
           <p>
             D&apos;accord ! Donne-moi <b>l&apos;adresse e-mail avec laquelle tu as effectué ton paiement</b>. Tu la retrouves sur le reçu
-            reçu par e-mail juste après ton paiement.
+            envoyé par e-mail juste après ton paiement.
           </p>
         ),
       };
