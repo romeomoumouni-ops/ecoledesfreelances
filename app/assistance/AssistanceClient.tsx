@@ -1,21 +1,23 @@
 'use client';
 
-// Assistant d'accès public : la personne donne l'adresse e-mail de son achat,
-// l'assistant vérifie le paiement (notre base, puis Chariow en direct) et lui
-// donne les consignes pour entrer sur la plateforme. Rien d'autre.
+// Assistant d'accès public : un seul rôle, donner les accès aux personnes qui
+// ont DÉJÀ payé. La personne donne l'adresse e-mail de son achat, l'assistant
+// vérifie le paiement (notre base, puis Chariow en direct) et lui donne les
+// consignes. Pas payé → lien de paiement. Autre sujet → recentrage.
+// Les réponses sont fixes (pas d'IA générative) ; tout est journalisé côté serveur.
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Logo from '@/components/Logo';
 
 const SITE = 'https://www.lecoledesfreelances.com';
 const WHATSAPP = 'https://wa.me/2290157342814';
-const EMAIL_RE = /[^\s@<>()"',;:]+@[^\s@<>()"',;:]+\.[a-z]{2,}/i;
+const PAY_LINK = 'https://www.romeomoumouni.com/rejoindre-ecole-des-freelances';
 
 type Mood = 'idle' | 'thinking' | 'happy' | 'sad';
 type Msg = { id: number; role: 'user' | 'bot'; content: ReactNode };
 
 type ApiResult = {
-  status: 'paid_new' | 'paid_account' | 'expired' | 'not_found' | 'invalid' | 'too_many';
+  kind: 'paid_new' | 'paid_account' | 'expired' | 'not_found' | 'ask_email' | 'pay_link' | 'recentrage' | 'invalid' | 'too_many';
   email?: string;
   email_sent?: boolean;
   suggestions?: string[];
@@ -128,14 +130,39 @@ function LinkButton({ href, children }: { href: string; children: ReactNode }) {
   );
 }
 
-function reponse(r: ApiResult, onPick: (s: string) => void): { mood: Mood; content: ReactNode } {
+type Send = (text: string, intent?: 'paid_yes' | 'paid_no') => void;
+
+/** Question « As-tu déjà payé ? » avec réponses en un clic. */
+function OuiNon({ send }: { send: Send }) {
+  return (
+    <div className="mt-3">
+      <p className="font-semibold">As-tu déjà effectué ton paiement ?</p>
+      <div className="mt-2 flex gap-2">
+        <button
+          onClick={() => send('Oui, j’ai déjà payé', 'paid_yes')}
+          className="flex-1 rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-bold text-ink hover:bg-black/[0.03]"
+        >
+          Oui
+        </button>
+        <button
+          onClick={() => send('Non, pas encore', 'paid_no')}
+          className="flex-1 rounded-lg border border-line bg-white px-3 py-2 text-[13px] font-bold text-ink hover:bg-black/[0.03]"
+        >
+          Non, pas encore
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function reponse(r: ApiResult, send: Send): { mood: Mood; content: ReactNode } {
   const email = r.email ?? '';
   const mail = <b className="break-all">{email}</b>;
   const envoye = r.email_sent ? (
     <p className="mt-3 text-[13px] text-muted">📩 Je t&apos;ai aussi envoyé ces consignes par e-mail. Pense à regarder dans tes spams.</p>
   ) : null;
 
-  switch (r.status) {
+  switch (r.kind) {
     case 'paid_new':
       return {
         mood: 'happy',
@@ -170,7 +197,7 @@ function reponse(r: ApiResult, onPick: (s: string) => void): { mood: Mood; conte
             />
             <p className="mt-3 text-[13px] text-muted">
               Mot de passe oublié ? Écris à l&apos;équipe sur{' '}
-              <a href={WHATSAPP} className="font-semibold text-ink underline">WhatsApp</a>, elle le réinitialise pour toi.
+              <a href={WHATSAPP} className="font-semibold text-ink underline">WhatsApp</a>.
             </p>
             {envoye}
           </div>
@@ -188,44 +215,68 @@ function reponse(r: ApiResult, onPick: (s: string) => void): { mood: Mood; conte
         ),
       };
     case 'not_found':
-      if (r.suggestions?.length) {
-        return {
-          mood: 'idle',
-          content: (
-            <div>
-              <p>Je ne trouve aucun paiement pour {mail}. Tu voulais peut-être écrire :</p>
-              <div className="mt-2 flex flex-col gap-1.5">
-                {r.suggestions.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => onPick(s)}
-                    className="break-all rounded-lg border border-line bg-white px-3 py-2 text-left text-[13px] font-semibold text-ink hover:bg-black/[0.03]"
-                  >
-                    Oui, c&apos;est {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ),
-        };
-      }
       return {
         mood: 'sad',
         content: (
           <div>
-            <p>Je ne trouve aucun paiement avec {mail}, ni dans notre base, ni chez Chariow 😕</p>
-            <p className="mt-2">Vérifie l&apos;adresse utilisée au moment du paiement : elle figure sur le reçu Chariow que tu as reçu par e-mail. Tu peux m&apos;en donner une autre ici.</p>
-            <p className="mt-2 text-[13px] text-muted">
-              Tu es sûr(e) d&apos;avoir payé ? Écris à l&apos;équipe sur{' '}
-              <a href={WHATSAPP} className="font-semibold text-ink underline">WhatsApp</a> avec ta preuve de paiement.
-            </p>
+            <p>Je ne trouve aucun paiement avec {mail} 😕</p>
+            {r.suggestions?.length ? (
+              <div className="mt-2">
+                <p>Tu voulais peut-être écrire :</p>
+                <div className="mt-1.5 flex flex-col gap-1.5">
+                  {r.suggestions.map((sug) => (
+                    <button
+                      key={sug}
+                      onClick={() => send(sug)}
+                      className="break-all rounded-lg border border-line bg-white px-3 py-2 text-left text-[13px] font-semibold text-ink hover:bg-black/[0.03]"
+                    >
+                      Oui, c&apos;est {sug}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            <OuiNon send={send} />
+          </div>
+        ),
+      };
+    case 'ask_email':
+      return {
+        mood: 'idle',
+        content: (
+          <p>
+            D&apos;accord ! Donne-moi <b>l&apos;adresse e-mail avec laquelle tu as effectué ton paiement</b>. Tu la retrouves sur le reçu
+            reçu par e-mail juste après ton paiement.
+          </p>
+        ),
+      };
+    case 'pay_link':
+      return {
+        mood: 'idle',
+        content: (
+          <div>
+            <p>Pour rejoindre l&apos;incubateur, <b>effectue d&apos;abord ton paiement</b> ici :</p>
+            <LinkButton href={PAY_LINK}>Rejoindre L&apos;École des Freelances →</LinkButton>
+            <p className="mt-2">Une fois ton paiement fait, reviens ici et donne-moi l&apos;adresse e-mail utilisée : je te donne tes accès tout de suite.</p>
+          </div>
+        ),
+      };
+    case 'recentrage':
+      return {
+        mood: 'idle',
+        content: (
+          <div>
+            <p>Je suis ici pour donner les accès aux personnes qui ont <b>déjà payé</b> pour rejoindre l&apos;incubateur.</p>
+            <p className="mt-2">Si tu n&apos;as pas encore effectué ton paiement, effectue-le avant :</p>
+            <LinkButton href={PAY_LINK}>Effectuer mon paiement →</LinkButton>
+            <p className="mt-2">Si tu as déjà effectué ton paiement, donne-moi <b>le mail avec lequel tu as effectué ton paiement</b>.</p>
           </div>
         ),
       };
     case 'too_many':
       return {
         mood: 'sad',
-        content: <p>Tu as fait beaucoup de vérifications d&apos;un coup. Patiente quelques minutes, ou écris à l&apos;équipe sur <a href={WHATSAPP} className="font-semibold underline">WhatsApp</a>.</p>,
+        content: <p>Tu as envoyé beaucoup de messages d&apos;un coup. Patiente quelques minutes, ou écris à l&apos;équipe sur <a href={WHATSAPP} className="font-semibold underline">WhatsApp</a>.</p>,
       };
     default:
       return { mood: 'idle', content: <p>Cette adresse ne semble pas correcte. Peux-tu la retaper ? Exemple : prenom@gmail.com</p> };
@@ -236,6 +287,8 @@ const ACCUEIL: ReactNode = (
   <div>
     <p>Bonjour 👋 Je suis l&apos;assistant d&apos;accès de <b>L&apos;École des Freelances</b>.</p>
     <p className="mt-2">Donne-moi <b>l&apos;adresse e-mail que tu as utilisée pour ton achat</b>. Je vérifie ton paiement tout de suite et je t&apos;explique comment entrer sur la plateforme.</p>
+    <p className="mt-2">Si tu n&apos;as pas encore effectué ton paiement, effectue-le d&apos;abord ici, puis reviens me voir :</p>
+    <LinkButton href={PAY_LINK}>Rejoindre L&apos;École des Freelances →</LinkButton>
   </div>
 );
 
@@ -246,6 +299,7 @@ export default function AssistanceClient() {
   const [mood, setMood] = useState<Mood>('idle');
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const busyRef = useRef(false);
   const started = msgs.length > 1;
 
   useEffect(() => {
@@ -254,51 +308,38 @@ export default function AssistanceClient() {
 
   const push = (role: Msg['role'], content: ReactNode) => setMsgs((m) => [...m, { id: nextId++, role, content }]);
 
-  async function verifier(text: string) {
+  async function envoyer(text: string, intent?: 'paid_yes' | 'paid_no') {
     const t = text.trim();
-    if (!t || busy) return;
+    if (!t || busyRef.current) return;
+    busyRef.current = true;
     setInput('');
     push('user', t);
-
-    const found = t.match(EMAIL_RE)?.[0]?.toLowerCase();
-    if (!found) {
-      setBusy(true);
-      setMood('thinking');
-      await new Promise((r) => setTimeout(r, 700));
-      push('bot', <p>Pour vérifier ton paiement, j&apos;ai seulement besoin de <b>l&apos;adresse e-mail utilisée lors de ton achat</b>. Écris-la ici 👇</p>);
-      setMood('idle');
-      setBusy(false);
-      inputRef.current?.focus();
-      return;
-    }
-
     setBusy(true);
     setMood('thinking');
-    const started = Date.now();
-    let r: ApiResult;
+    const debut = Date.now();
+    let r: ApiResult | null = null;
     try {
       const res = await fetch('/api/assistance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: found }),
+        body: JSON.stringify({ message: t, intent }),
       });
       r = (await res.json()) as ApiResult;
-      if (!r?.status) throw new Error();
+      if (!r?.kind) r = null;
     } catch {
-      r = { status: 'invalid' };
-      const wait = Math.max(0, 1200 - (Date.now() - started));
-      await new Promise((res) => setTimeout(res, wait));
-      push('bot', <p>Petit souci de connexion de mon côté. Réessaie dans un instant 🙏</p>);
-      setMood('sad');
-      setBusy(false);
-      return;
+      r = null;
     }
     // Un court temps de « réflexion » : la réponse paraît moins brutale.
-    const wait = Math.max(0, 1200 - (Date.now() - started));
-    await new Promise((res) => setTimeout(res, wait));
-    const out = reponse(r, (s) => verifier(s));
-    push('bot', out.content);
-    setMood(out.mood);
+    await new Promise((res) => setTimeout(res, Math.max(0, 900 - (Date.now() - debut))));
+    if (r) {
+      const out = reponse(r, envoyer);
+      push('bot', out.content);
+      setMood(out.mood);
+    } else {
+      push('bot', <p>Petit souci de connexion de mon côté. Réessaie dans un instant 🙏</p>);
+      setMood('sad');
+    }
+    busyRef.current = false;
     setBusy(false);
     inputRef.current?.focus();
   }
@@ -356,7 +397,7 @@ export default function AssistanceClient() {
             className="border-t border-line bg-white p-3"
             onSubmit={(e) => {
               e.preventDefault();
-              verifier(input);
+              envoyer(input);
             }}
           >
             <div className="flex items-center gap-2">
@@ -365,16 +406,16 @@ export default function AssistanceClient() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 type="text"
-                inputMode="email"
+                inputMode="text"
                 autoComplete="email"
                 autoCapitalize="none"
                 autoCorrect="off"
                 maxLength={200}
                 className="input h-11 min-w-0 flex-1 text-[16px] sm:text-sm"
-                placeholder="L'e-mail de ton achat…"
+                placeholder="L'e-mail de ton paiement…"
               />
               <button type="submit" disabled={busy || !input.trim()} className="btn-primary h-11 shrink-0 px-4 disabled:opacity-60">
-                Vérifier
+                Envoyer
               </button>
             </div>
             <p className="mt-2 text-center text-[11px] text-muted">On ne te demandera jamais de mot de passe ni de numéro de carte.</p>
