@@ -307,11 +307,8 @@ export default function AssistanceClient() {
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-[#f7f7f5]">
       <style dangerouslySetInnerHTML={{ __html: MASCOT_CSS }} />
       <header className="border-b border-line bg-white/85 px-4 py-3 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
+        <div className="mx-auto flex max-w-2xl items-center justify-center">
           <Logo />
-          <a href="/connexion" className="shrink-0 text-sm font-semibold text-muted hover:text-ink">
-            Me connecter →
-          </a>
         </div>
       </header>
 
