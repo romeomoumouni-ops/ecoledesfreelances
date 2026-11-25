@@ -288,7 +288,7 @@ const ACCUEIL: ReactNode = (
     <p>Bonjour 👋 Je suis l&apos;assistant d&apos;accès de <b>L&apos;École des Freelances</b>.</p>
     <p className="mt-2">Donne-moi <b>l&apos;adresse e-mail que tu as utilisée pour ton achat</b>. Je vérifie ton paiement tout de suite et je t&apos;explique comment entrer sur la plateforme.</p>
     <p className="mt-2">Si tu n&apos;as pas encore effectué ton paiement, effectue-le d&apos;abord ici, puis reviens me voir :</p>
-    <LinkButton href={PAY_LINK}>Rejoindre L&apos;École des Freelances →</LinkButton>
+    <LinkButton href={PAY_LINK}>Effectuer mon paiement →</LinkButton>
   </div>
 );
 
